@@ -5,3 +5,7 @@ sqlalchemy
 redis
 rq
 python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic
+python-multipart
