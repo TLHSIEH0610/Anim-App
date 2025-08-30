@@ -83,22 +83,36 @@ const LoginScreen = () => {
   const handleMockLogin = async () => {
     setIsLoading(true);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
     try {
-      // Mock user data
-      const user = {
-        id: "mock-123",
-        email: "test@example.com", 
-        name: "Test User",
-      };
+      // Login with the mock user account through backend API
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:8000'}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: "test@example.com",
+          password: "password"
+        }),
+      });
 
-      const mockJwtToken = "mock-jwt-token-123";
-      await login(mockJwtToken, user);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Mock user data
+        const user = {
+          id: "1",
+          email: "test@example.com", 
+          name: "Test User",
+        };
+
+        await login(data.token, user);
+      } else {
+        throw new Error("Login failed");
+      }
     } catch (error) {
       console.error("Mock login error:", error);
-      Alert.alert("Error", "Mock login failed");
+      Alert.alert("Error", "Mock login failed. Make sure backend is running.");
     } finally {
       setIsLoading(false);
     }

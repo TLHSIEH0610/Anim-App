@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: animapp-backend
+    env_file:
+      - .env
+    volumes:
+      - ../backend:/app:delegated
+      - media:/data/media
+      - ../workflows:/app/workflows
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
+
+  # RQ Worker for job processing
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: animapp-worker
+    env_file:
+      - .env
+    volumes:
+      - ../backend:/app:delegated
+      - media:/data/media
+      - ../workflows:/app/workflows
+    depends_on:
+      - redis
+      - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["rq", "worker", "jobs", "--url", "redis://redis:6379/0", "--worker-ttl", "900"]
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: animapp-db
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Redis for job queue
+  redis:
+    image: redis:7-alpine
+    container_name: animapp-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  media:
+    driver: local
+
+networks:
+  default:
+    name: animapp-network

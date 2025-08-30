@@ -9,3 +9,6 @@ python-jose[cryptography]
 passlib[bcrypt]
 pydantic
 python-multipart
+requests
+websocket-client
+pillow
