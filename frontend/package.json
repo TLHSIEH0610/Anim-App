@@ -4,15 +4,21 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-google-signin/google-signin": "^15.0.0",
     "axios": "^1.11.0",
+    "eas-cli": "^16.18.0",
     "expo": "~53.0.22",
+    "expo-auth-session": "^6.2.1",
+    "expo-crypto": "^14.1.5",
     "expo-image-picker": "^16.1.4",
     "expo-status-bar": "~2.2.3",
+    "expo-web-browser": "^14.2.0",
     "react": "19.0.0",
     "react-native": "0.79.6"
   },
