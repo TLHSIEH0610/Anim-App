@@ -12,3 +12,5 @@ python-multipart
 requests
 websocket-client
 pillow
+reportlab
+jinja2

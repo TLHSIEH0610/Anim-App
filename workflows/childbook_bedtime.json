@@ -1,0 +1,64 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 42,
+      "steps": 8,
+      "cfg": 7,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.7,
+      "model": ["4", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "class_type": "KSampler"
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "disneyPixarCartoon_v10.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "5": {
+    "inputs": {
+      "pixels": ["8", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEEncode"
+  },
+  "6": {
+    "inputs": {
+      "text": "children's book illustration, bedtime story, soft colors, calm atmosphere, peaceful scenes, gentle lighting, sleepy characters, cozy bedroom, stars, moon, clouds, dreamy, soothing, tranquil, pastel colors, serene, comforting, professional children's book art, published quality",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "7": {
+    "inputs": {
+      "text": "scary, frightening, dark, violent, weapons, blood, death, monsters, inappropriate content, adult themes, bright harsh lighting, loud colors, exciting, energetic, stimulating, complex text, small text, unclear faces, distorted anatomy, low quality, blurry, photorealistic, photography, black and white, monochrome",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "8": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage"
+  },
+  "9": {
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEDecode"
+  },
+  "10": {
+    "inputs": {
+      "filename_prefix": "bedtime_childbook",
+      "images": ["9", 0]
+    },
+    "class_type": "SaveImage"
+  }
+}

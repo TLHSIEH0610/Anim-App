@@ -40,7 +40,7 @@ services:
       - db
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: ["rq", "worker", "jobs", "--url", "redis://redis:6379/0", "--worker-ttl", "900"]
+    command: ["rq", "worker", "jobs", "books", "--url", "redis://redis:6379/0", "--worker-ttl", "900"]
     restart: unless-stopped
 
   # PostgreSQL Database
