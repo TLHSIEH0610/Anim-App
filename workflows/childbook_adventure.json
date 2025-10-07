@@ -1,338 +1,261 @@
 {
-  "1": {
-    "inputs": {
-      "image": "S__677429316.jpg"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
-    }
-  },
-  "2": {
-    "inputs": {
-      "ckpt_name": "toonyou_beta6.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
   "3": {
     "inputs": {
-      "vae_name": "vae-ft-mse-840000-ema-pruned.ckpt"
+      "seed": 497830025260841,
+      "steps": 25,
+      "cfg": 4.5,
+      "sampler_name": "ddpm",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": ["60", 0],
+      "positive": ["89", 0],
+      "negative": ["89", 1],
+      "latent_image": ["5", 0]
     },
-    "class_type": "VAELoader",
-    "_meta": {
-      "title": "Load VAE"
-    }
+    "class_type": "KSampler",
+    "_meta": {"title": "KSampler"}
   },
   "4": {
     "inputs": {
-      "pixels": [
-        "1",
-        0
-      ],
-      "vae": [
-        "3",
-        0
-      ]
+      "ckpt_name": "wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors"
     },
-    "class_type": "VAEEncode",
-    "_meta": {
-      "title": "VAE Encode"
-    }
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {"title": "Load Checkpoint"}
   },
   "5": {
     "inputs": {
-      "add_noise": "disable",
-      "noise_seed": 0,
-      "steps": 25,
-      "cfg": 1,
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
-      "start_at_step": 0,
-      "end_at_step": 25,
-      "return_with_leftover_noise": "disable",
-      "model": [
-        "2",
-        0
-      ],
-      "positive": [
-        "21",
-        0
-      ],
-      "negative": [
-        "21",
-        1
-      ],
-      "latent_image": [
-        "7",
-        0
-      ]
+      "width": 960,
+      "height": 960,
+      "batch_size": 1
     },
-    "class_type": "KSamplerAdvanced",
-    "_meta": {
-      "title": "KSampler (Advanced)"
-    }
-  },
-  "6": {
-    "inputs": {
-      "samples": [
-        "5",
-        0
-      ],
-      "vae": [
-        "3",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "7": {
-    "inputs": {
-      "steps": 25,
-      "end_at_step": 0,
-      "cfg": 1,
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
-      "normalize": "disable",
-      "model": [
-        "2",
-        0
-      ],
-      "positive": [
-        "8",
-        0
-      ],
-      "negative": [
-        "9",
-        0
-      ],
-      "latent_image": [
-        "4",
-        0
-      ]
-    },
-    "class_type": "BNK_Unsampler",
-    "_meta": {
-      "title": "Unsampler"
-    }
+    "class_type": "EmptyLatentImage",
+    "_meta": {"title": "Empty Latent Image"}
   },
   "8": {
     "inputs": {
-      "text": "cute baby wearing glasses, detailed, clear focus, animate style",
-      "clip": [
-        "2",
-        1
-      ]
+      "samples": ["3", 0],
+      "vae": ["4", 2]
     },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "9": {
-    "inputs": {
-      "text": "ugly, blurry, distorted, wearing a glass,",
-      "clip": [
-        "2",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "10": {
-    "inputs": {
-      "text": "cute baby wearing glasses,  detailed, clear focus, animate style",
-      "clip": [
-        "2",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
+    "class_type": "VAEDecode",
+    "_meta": {"title": "VAE Decode"}
   },
   "11": {
     "inputs": {
-      "text": "ugly, blurry, distorted, wearing a glass,",
-      "clip": [
-        "2",
-        1
-      ]
+      "instantid_file": "ip-adapter.bin"
     },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "12": {
-    "inputs": {
-      "images": [
-        "6",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
+    "class_type": "InstantIDModelLoader",
+    "_meta": {"title": "Load InstantID Model"}
   },
   "13": {
     "inputs": {
-      "images": [
-        "1",
-        0
-      ]
+      "image": "Screenshot 2025-09-22 at 7.07.38 PM.png"
     },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
-  },
-  "14": {
-    "inputs": {
-      "control_net_name": "control_v11f1p_sd15_depth_fp16.safetensors"
-    },
-    "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
-    }
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"}
   },
   "15": {
     "inputs": {
-      "a": 6.283185307179586,
-      "bg_threshold": 0.1,
-      "resolution": 512,
-      "image": [
-        "1",
-        0
-      ]
+      "images": ["8", 0]
     },
-    "class_type": "MiDaS-DepthMapPreprocessor",
-    "_meta": {
-      "title": "MiDaS Depth Map"
-    }
+    "class_type": "PreviewImage",
+    "_meta": {"title": "Preview Image"}
   },
   "16": {
     "inputs": {
-      "strength": 0.4000000000000001,
-      "start_percent": 0,
-      "end_percent": 0.5000000000000001,
-      "positive": [
-        "10",
-        0
-      ],
-      "negative": [
-        "11",
-        0
-      ],
-      "control_net": [
-        "14",
-        0
-      ],
-      "image": [
-        "15",
-        0
-      ]
-    },
-    "class_type": "ACN_AdvancedControlNetApply_v2",
-    "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
-    }
-  },
-  "19": {
-    "inputs": {
-      "control_net_name": "control_v11f1p_sd15_depth_fp16.safetensors"
+      "control_net_name": "diffusion_pytorch_model.safetensors"
     },
     "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
-    }
+    "_meta": {"title": "Load ControlNet Model"}
   },
-  "20": {
+  "38": {
     "inputs": {
-      "coarse": "disable",
-      "resolution": 512,
-      "image": [
-        "1",
-        0
-      ]
+      "provider": "CPU"
     },
-    "class_type": "LineArtPreprocessor",
-    "_meta": {
-      "title": "Realistic Lineart"
-    }
+    "class_type": "InstantIDFaceAnalysis",
+    "_meta": {"title": "InstantID Face Analysis"}
   },
-  "21": {
+  "39": {
     "inputs": {
-      "strength": 0.20000000000000004,
+      "text": "Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Prompt)"}
+  },
+  "40": {
+    "inputs": {
+      "text": "photograph, photorealistic, realistic, deformed, glitch, noisy, stock photo, dark, scary, violent, adult themes, complex details, cropped, cut off, partial body, close-up",
+      "clip": ["4", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Prompt)"}
+  },
+  "60": {
+    "inputs": {
+      "weight": 0.8,
+      "start_at": 0,
+      "end_at": 1,
+      "instantid": ["11", 0],
+      "insightface": ["38", 0],
+      "control_net": ["16", 0],
+      "image": ["95", 0],
+      "model": ["4", 0],
+      "positive": ["39", 0],
+      "negative": ["40", 0],
+      "image_kps": ["83", 0]
+    },
+    "class_type": "ApplyInstantID",
+    "_meta": {"title": "Apply InstantID"}
+  },
+  "75": {
+    "inputs": {
+      "image1": ["13", 0],
+      "image2": ["94", 0]
+    },
+    "class_type": "ImageBatch",
+    "_meta": {"title": "Batch Images"}
+  },
+  "77": {
+    "inputs": {
+      "control_net_name": "control-lora-depth-rank256.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {"title": "Load ControlNet Model"}
+  },
+  "78": {
+    "inputs": {
+      "ckpt_name": "wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {"title": "Load Checkpoint"}
+  },
+  "79": {
+    "inputs": {
+      "seed": 70666929130804,
+      "steps": 5,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["78", 0],
+      "positive": ["80", 0],
+      "negative": ["81", 0],
+      "latent_image": ["82", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": {"title": "KSampler"}
+  },
+  "80": {
+    "inputs": {
+      "text": "epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery",
+      "clip": ["78", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Prompt)"}
+  },
+  "81": {
+    "inputs": {
+      "text": "unclear, naked, background",
+      "clip": ["78", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Prompt)"}
+  },
+  "82": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {"title": "Empty Latent Image"}
+  },
+  "83": {
+    "inputs": {
+      "samples": ["79", 0],
+      "vae": ["78", 2]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {"title": "VAE Decode"}
+  },
+  "84": {
+    "inputs": {
+      "images": ["83", 0]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {"title": "Preview Image"}
+  },
+  "89": {
+    "inputs": {
+      "strength": 0.22,
       "start_percent": 0,
-      "end_percent": 1,
-      "positive": [
-        "16",
-        0
-      ],
-      "negative": [
-        "16",
-        1
-      ],
-      "control_net": [
-        "19",
-        0
-      ],
-      "image": [
-        "20",
-        0
-      ]
+      "end_percent": 0.15,
+      "positive": ["60", 1],
+      "negative": ["60", 2],
+      "control_net": ["77", 0],
+      "image": ["91", 0]
     },
-    "class_type": "ACN_AdvancedControlNetApply_v2",
-    "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
-    }
+    "class_type": "ControlNetApplyAdvanced",
+    "_meta": {"title": "Apply ControlNet"}
   },
-  "23": {
+  "91": {
     "inputs": {
-      "images": [
-        "15",
-        0
-      ]
+      "resolution": 960,
+      "image": ["83", 0]
+    },
+    "class_type": "Zoe-DepthMapPreprocessor",
+    "_meta": {"title": "Zoe Depth Map"}
+  },
+  "92": {
+    "inputs": {
+      "images": ["91", 0]
     },
     "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
+    "_meta": {"title": "Preview Image"}
   },
-  "24": {
+  "94": {
     "inputs": {
-      "images": [
-        "20",
-        0
-      ]
+      "image": "Screenshot 2025-09-28 at 2.17.37 PM.png"
     },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"}
+  },
+  "95": {
+    "inputs": {
+      "image1": ["75", 0],
+      "image2": ["98", 0]
+    },
+    "class_type": "ImageBatch",
+    "_meta": {"title": "Batch Images"}
+  },
+  "98": {
+    "inputs": {
+      "image": "Screenshot 2025-09-28 at 2.18.30 PM.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"}
+  },
+  "100": {
+    "inputs": {
+      "image": "Screenshot 2025-09-28 at 2.18.31 PM.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"}
+  },
+  "101": {
+    "inputs": {
+      "image1": ["95", 0],
+      "image2": ["100", 0]
+    },
+    "class_type": "ImageBatch",
+    "_meta": {"title": "Batch Images"}
   },
   "25": {
     "inputs": {
-      "filename_prefix": "adventure_childbook",
-      "images": [
-        "6",
-        0
-      ]
+      "filename_prefix": "childbook_adventure",
+      "images": ["83", 0]
     },
     "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
+    "_meta": {"title": "Save Image"}
   }
 }

@@ -324,11 +324,20 @@ def create_childbook(book_id: int):
                             workflow = json.load(f)
                         print(f"   Workflow loaded successfully with {len(workflow)} nodes")
                         
+                        # Parse image paths from JSON
+                        try:
+                            image_paths = json.loads(book.original_image_paths) if book.original_image_paths else []
+                        except:
+                            # Fallback for backward compatibility (if it's still a single string path)
+                            image_paths = [book.original_image_paths] if book.original_image_paths else []
+
+                        print(f"Using {len(image_paths)} reference image(s) for character consistency")
+
                         # Generate image with ComfyUI
                         print(f"Starting ComfyUI processing for page {page.page_number}...")
                         print(f"Using enhanced prompt: {page.enhanced_prompt}")
                         result = comfyui_client.process_image_to_animation(
-                            book.original_image_path,
+                            image_paths,
                             workflow,
                             page.enhanced_prompt
                         )

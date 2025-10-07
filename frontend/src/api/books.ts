@@ -1,7 +1,7 @@
 import { api } from "./client";
 
 export interface BookCreationData {
-  file: string;
+  files: string[];  // Changed to support 1-4 image files
   title: string;
   theme: string;
   target_age: string;
@@ -58,14 +58,20 @@ export interface BookPreview {
 export async function createBook(token: string, data: BookCreationData): Promise<Book> {
   try {
     const formData = new FormData();
-    
-    // Add the image file
-    formData.append("file", {
-      uri: data.file,
-      type: "image/jpeg", // Could be detected from URI or passed separately
-      name: "book_character.jpg",
-    } as any);
-    
+
+    // Add all image files (1-4 images)
+    data.files.forEach((fileUri, index) => {
+      // Detect file type from URI
+      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+
+      formData.append("files", {
+        uri: fileUri,
+        type: mimeType,
+        name: `character_${index}.${fileExtension}`,
+      } as any);
+    });
+
     // Add form fields
     formData.append("title", data.title);
     formData.append("theme", data.theme);

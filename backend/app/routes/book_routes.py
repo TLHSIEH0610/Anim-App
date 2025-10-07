@@ -2,6 +2,7 @@ import os
 import json
 import base64
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
+from typing import List
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.auth import current_user
@@ -22,7 +23,7 @@ q = Queue("books", connection=_redis)
 
 @router.post("/create", response_model=BookResponse)
 async def create_book(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     title: str = Form(...),
     theme: str = Form(...),
     target_age: str = Form(...),
@@ -33,38 +34,48 @@ async def create_book(
     db: Session = Depends(get_db),
     user = Depends(current_user)
 ):
-    """Create a new children's book with uploaded image and prompts"""
-    
-    # Validate file
-    ext = (file.filename or "").split(".")[-1].lower()
-    if ext not in {"jpg", "jpeg", "png"}:
-        raise HTTPException(400, "Unsupported file type. Use JPG or PNG.")
-    
+    """Create a new children's book with 1-4 uploaded images and prompts"""
+
+    # Validate number of files
+    if not files or len(files) < 1:
+        raise HTTPException(400, "At least 1 image is required")
+    if len(files) > 4:
+        raise HTTPException(400, "Maximum 4 images allowed")
+
+    # Validate all files
+    for file in files:
+        ext = (file.filename or "").split(".")[-1].lower()
+        if ext not in {"jpg", "jpeg", "png"}:
+            raise HTTPException(400, f"Unsupported file type for {file.filename}. Use JPG or PNG.")
+
     # Check user credits/quota
     free_left = user_free_remaining(db, user.id)
     books_this_month = db.query(Book).filter(Book.user_id == user.id).count()
-    
+
     # For books, let's say 1 free book per month, then costs 3 credits
     if books_this_month >= 1 and user.credits < 3:
         raise HTTPException(402, "Insufficient credits. Book creation requires 3 credits after your first free book.")
-    
+
     # Validate inputs
     if not title.strip():
         raise HTTPException(400, "Title is required")
-    
+
     if theme not in ["adventure", "friendship", "learning", "bedtime", "fantasy", "family"]:
         raise HTTPException(400, "Invalid theme. Choose from: adventure, friendship, learning, bedtime, fantasy, family")
-    
+
     if target_age not in ["3-5", "6-8", "9-12"]:
         raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
-    
+
     if page_count not in [1, 4, 6, 8, 10, 12, 16]:
         raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
-    
+
     try:
-        # Save uploaded image
-        saved_path = save_upload(file.file, subdir="book_inputs", filename=file.filename)
-        
+        # Save all uploaded images
+        saved_paths = []
+        for i, file in enumerate(files):
+            saved_path = save_upload(file.file, subdir="book_inputs", filename=f"{i}_{file.filename}")
+            saved_paths.append(saved_path)
+
         # Create book record
         book = Book(
             user_id=user.id,
@@ -75,7 +86,7 @@ async def create_book(
             character_description=character_description.strip(),
             positive_prompt=positive_prompt.strip(),
             negative_prompt=negative_prompt.strip(),
-            original_image_path=saved_path,
+            original_image_paths=json.dumps(saved_paths),  # Store as JSON array
             status="creating"
         )
         
@@ -205,9 +216,18 @@ def delete_book(book_id: int, user = Depends(current_user), db: Session = Depend
     
     try:
         # Delete associated files
-        if book.original_image_path and os.path.exists(book.original_image_path):
-            os.remove(book.original_image_path)
-        
+        # Handle both old (single path) and new (JSON array) formats
+        if book.original_image_paths:
+            try:
+                paths = json.loads(book.original_image_paths)
+                for path in paths:
+                    if os.path.exists(path):
+                        os.remove(path)
+            except:
+                # Fallback for old format (single string path)
+                if os.path.exists(book.original_image_paths):
+                    os.remove(book.original_image_paths)
+
         if book.pdf_path and os.path.exists(book.pdf_path):
             os.remove(book.pdf_path)
         

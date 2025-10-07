@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .db import Base
+import json
 
 
 class User(Base):
@@ -44,7 +45,7 @@ class Book(Base):
     character_description = Column(Text)
     positive_prompt = Column(Text)
     negative_prompt = Column(Text)
-    original_image_path = Column(Text)
+    original_image_paths = Column(Text)  # JSON array of image paths (1-4 images)
     
     # Story data (JSON string)
     story_data = Column(Text)  # JSON of the generated story

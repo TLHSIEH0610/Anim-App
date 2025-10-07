@@ -23,7 +23,7 @@ interface BookForm {
   characterDescription: string;
   positivePrompt: string;
   negativePrompt: string;
-  image: string | null;
+  images: string[];  // Changed from single image to array (1-4 images)
 }
 
 const THEMES = [
@@ -48,12 +48,12 @@ export default function BookCreationScreen({ navigation }) {
   const [form, setForm] = useState<BookForm>({
     title: "",
     theme: "adventure",
-    targetAge: "6-8", 
+    targetAge: "6-8",
     pageCount: 8,
     characterDescription: "",
     positivePrompt: "",
     negativePrompt: "",
-    image: null,
+    images: [],  // Changed from single image to array
   });
   
   const [isCreating, setIsCreating] = useState(false);
@@ -74,53 +74,68 @@ export default function BookCreationScreen({ navigation }) {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: false,  // Disable editing for multiple selection
         quality: 0.8,
-        allowsMultipleSelection: false,
+        allowsMultipleSelection: true,
+        selectionLimit: 4,  // Max 4 images
       });
 
       if (!result.canceled) {
-        const asset = result.assets[0];
-        
-        // Validate file size (10MB limit)
-        if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-          Alert.alert("File Too Large", "Please select an image smaller than 10MB");
+        const selectedAssets = result.assets;
+
+        // Validate total number
+        if (selectedAssets.length > 4) {
+          Alert.alert("Too Many Images", "You can select up to 4 images maximum");
           return;
         }
-        
-        updateForm('image', asset.uri);
-        
+
+        // Validate file sizes (10MB limit per file)
+        for (const asset of selectedAssets) {
+          if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
+            Alert.alert("File Too Large", `${asset.fileName || 'An image'} is larger than 10MB. Please select smaller images.`);
+            return;
+          }
+        }
+
+        const imageUris = selectedAssets.map(asset => asset.uri);
+        updateForm('images', imageUris);
+
         // Auto-advance to next step
         if (currentStep === 0) {
           setCurrentStep(1);
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to pick image");
+      Alert.alert("Error", "Failed to pick images");
     }
   };
 
+  const removeImage = (index: number) => {
+    const newImages = form.images.filter((_, i) => i !== index);
+    updateForm('images', newImages);
+  };
+
   const createChildBook = async () => {
-    if (!form.image) {
-      Alert.alert("Missing Image", "Please select an image first");
+    if (!form.images || form.images.length === 0) {
+      Alert.alert("Missing Images", "Please select at least 1 image");
       return;
     }
-    
+
     if (!form.title.trim()) {
       Alert.alert("Missing Title", "Please enter a book title");
       return;
     }
-    
+
     if (!form.characterDescription.trim()) {
       Alert.alert("Missing Character", "Please describe the main character");
       return;
     }
 
     setIsCreating(true);
-    
+
     try {
       const response = await createBook(token, {
-        file: form.image,
+        files: form.images,  // Changed to send multiple files
         title: form.title.trim(),
         theme: form.theme,
         target_age: form.targetAge,
@@ -186,26 +201,44 @@ export default function BookCreationScreen({ navigation }) {
 
   const renderStep0 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>📷 Upload Character Image</Text>
+      <Text style={styles.stepTitle}>📷 Upload Character Images</Text>
       <Text style={styles.stepDescription}>
-        Choose an image that will be the main character of your story
+        Select 1-4 images of your character for better consistency throughout the book
       </Text>
-      
-      {form.image ? (
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: form.image }} style={styles.selectedImage} />
-          <TouchableOpacity style={styles.changeImageButton} onPress={pickImage}>
-            <Text style={styles.changeImageText}>Change Image</Text>
-          </TouchableOpacity>
+
+      <View style={styles.imageCountBadge}>
+        <Text style={styles.imageCountText}>{form.images.length}/4 images selected</Text>
+      </View>
+
+      {form.images.length > 0 ? (
+        <View>
+          <View style={styles.imageGallery}>
+            {form.images.map((uri, index) => (
+              <View key={index} style={styles.imageWrapper}>
+                <Image source={{ uri }} style={styles.galleryImage} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                >
+                  <Text style={styles.removeImageText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          {form.images.length < 4 && (
+            <TouchableOpacity style={styles.addMoreButton} onPress={pickImage}>
+              <Text style={styles.addMoreText}>+ Add More Images</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-          <Text style={styles.uploadButtonText}>📱 Select Image</Text>
+          <Text style={styles.uploadButtonText}>📱 Select Images (1-4)</Text>
         </TouchableOpacity>
       )}
-      
+
       <Text style={styles.helpText}>
-        💡 Tip: Choose a clear image with good lighting. This character will appear throughout your book!
+        💡 Tip: Multiple images help AI understand your character better! Choose clear images with good lighting.
       </Text>
     </View>
   );
@@ -331,19 +364,22 @@ export default function BookCreationScreen({ navigation }) {
   const renderStep3 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>📋 Review & Create</Text>
-      
-      <View style={styles.reviewContainer}>
-        {form.image && (
-          <Image source={{ uri: form.image }} style={styles.reviewImage} />
-        )}
-        
-        <View style={styles.reviewDetails}>
-          <Text style={styles.reviewTitle}>"{form.title}"</Text>
-          <Text style={styles.reviewDetail}>Theme: {THEMES.find(t => t.value === form.theme)?.label}</Text>
-          <Text style={styles.reviewDetail}>Age: {form.targetAge} years</Text>
-          <Text style={styles.reviewDetail}>Pages: {form.pageCount}</Text>
-          <Text style={styles.reviewDetail}>Character: {form.characterDescription.substring(0, 50)}...</Text>
+
+      {form.images.length > 0 && (
+        <View style={styles.reviewImageGallery}>
+          {form.images.map((uri, index) => (
+            <Image key={index} source={{ uri }} style={styles.reviewImage} />
+          ))}
         </View>
+      )}
+
+      <View style={styles.reviewDetails}>
+        <Text style={styles.reviewTitle}>"{form.title}"</Text>
+        <Text style={styles.reviewDetail}>Theme: {THEMES.find(t => t.value === form.theme)?.label}</Text>
+        <Text style={styles.reviewDetail}>Age: {form.targetAge} years</Text>
+        <Text style={styles.reviewDetail}>Pages: {form.pageCount}</Text>
+        <Text style={styles.reviewDetail}>Images: {form.images.length} reference image(s)</Text>
+        <Text style={styles.reviewDetail}>Character: {form.characterDescription.substring(0, 50)}...</Text>
       </View>
 
       <View style={styles.costInfo}>
@@ -379,7 +415,7 @@ export default function BookCreationScreen({ navigation }) {
 
   const canProceedToNext = () => {
     switch (currentStep) {
-      case 0: return !!form.image;
+      case 0: return form.images.length > 0;  // At least 1 image required
       case 1: return !!form.title.trim();
       case 2: return !!form.characterDescription.trim();
       case 3: return true;
@@ -703,5 +739,68 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  imageCountBadge: {
+    backgroundColor: '#e0e7ff',
+    padding: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  imageCountText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  imageGallery: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 15,
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: '48%',
+  },
+  galleryImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeImageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addMoreButton: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderStyle: 'dashed',
+  },
+  addMoreText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewImageGallery: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 15,
   },
 });

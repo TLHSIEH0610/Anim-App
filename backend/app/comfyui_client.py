@@ -81,30 +81,104 @@ class ComfyUIClient:
         print(f"⏰ ComfyUI processing timed out after {timeout}s")
         return result
     
-    def process_image_to_animation(self, input_image_path: str, workflow_json: Dict[str, Any], custom_prompt: str = None) -> Dict:
+    def prepare_dynamic_workflow(self, workflow: Dict[str, Any], image_filenames: list) -> Dict[str, Any]:
         """
-        Process an image through ComfyUI workflow
-        
+        Dynamically adjust workflow based on number of images (1-4)
+
         Args:
-            input_image_path: Path to input image
+            workflow: Base workflow JSON
+            image_filenames: List of uploaded image filenames (1-4 images)
+
+        Returns:
+            Modified workflow optimized for the number of images
+        """
+        num_images = len(image_filenames)
+
+        # Update LoadImage nodes with actual filenames
+        image_nodes = ["13", "94", "98", "100"]
+        for i, filename in enumerate(image_filenames):
+            if i < len(image_nodes) and image_nodes[i] in workflow:
+                workflow[image_nodes[i]]["inputs"]["image"] = filename
+
+        # Modify workflow structure based on number of images
+        if num_images == 1:
+            # Single image: Connect node 13 directly to ApplyInstantID (node 60)
+            workflow["60"]["inputs"]["image"] = ["13", 0]
+            # Remove unused nodes
+            for node_id in ["75", "94", "95", "98", "101", "100"]:
+                if node_id in workflow:
+                    del workflow[node_id]
+
+        elif num_images == 2:
+            # Two images: Use node 75 (batch 13+94), connect to node 60
+            workflow["60"]["inputs"]["image"] = ["75", 0]
+            # Remove unused nodes
+            for node_id in ["95", "98", "101", "100"]:
+                if node_id in workflow:
+                    del workflow[node_id]
+
+        elif num_images == 3:
+            # Three images: Use nodes 75 (13+94) and 95 (75+98), connect 95 to node 60
+            workflow["60"]["inputs"]["image"] = ["95", 0]
+            # Remove unused nodes
+            for node_id in ["101", "100"]:
+                if node_id in workflow:
+                    del workflow[node_id]
+
+        else:  # num_images == 4
+            # Four images: Use all batch nodes (75, 95, 101), connect 101 to node 60
+            workflow["60"]["inputs"]["image"] = ["101", 0]
+
+        return workflow
+
+    def process_image_to_animation(self, input_image_paths: list, workflow_json: Dict[str, Any], custom_prompt: str = None) -> Dict:
+        """
+        Process image(s) through ComfyUI workflow
+
+        Args:
+            input_image_paths: List of paths to input images (1-4 images)
             workflow_json: ComfyUI workflow JSON
-            
+            custom_prompt: Optional custom prompt to override default
+
         Returns:
             Dict with status, output_path, and error info
         """
         try:
-            # Upload the image to ComfyUI
-            image_filename = self._upload_image(input_image_path)
-            
-            # Update workflow with the uploaded image and custom prompt
-            workflow = self._prepare_workflow(workflow_json, image_filename, custom_prompt)
-            
+            # Ensure input_image_paths is a list
+            if isinstance(input_image_paths, str):
+                input_image_paths = [input_image_paths]
+
+            # Validate number of images
+            if not input_image_paths or len(input_image_paths) > 4:
+                return {
+                    "status": "failed",
+                    "error": f"Invalid number of images: {len(input_image_paths)}. Must be 1-4 images."
+                }
+
+            print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")
+
+            # Upload all images to ComfyUI
+            image_filenames = []
+            for i, image_path in enumerate(input_image_paths):
+                print(f"Uploading image {i+1}/{len(input_image_paths)}: {image_path}")
+                filename = self._upload_image(image_path)
+                image_filenames.append(filename)
+
+            # Prepare workflow with dynamic adjustments based on number of images
+            import copy
+            workflow = copy.deepcopy(workflow_json)
+            workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
+
+            # Update workflow with custom prompt if provided
+            if custom_prompt:
+                workflow = self._update_prompt(workflow, custom_prompt)
+
             # Queue the prompt
             prompt_id = self.queue_prompt(workflow)
-            
+
             # Wait for completion
             result = self.wait_for_completion(prompt_id)
-            
+
             if result["status"] == "completed" and result["outputs"]:
                 # Download the result
                 output_path = self._download_result(result["outputs"])
@@ -119,7 +193,7 @@ class ComfyUIClient:
                     "error": result.get("error", "Unknown error"),
                     "prompt_id": prompt_id
                 }
-                
+
         except Exception as e:
             return {
                 "status": "failed",
@@ -136,46 +210,44 @@ class ComfyUIClient:
             response.raise_for_status()
             return response.json()['name']
     
-    def _prepare_workflow(self, workflow: Dict[str, Any], image_filename: str, custom_prompt: str = None) -> Dict[str, Any]:
+    def _update_prompt(self, workflow: Dict[str, Any], custom_prompt: str) -> Dict[str, Any]:
         """
-        Update workflow JSON to use the uploaded image and custom prompt
-        
-        Note: This needs to be customized based on your specific workflow structure
+        Update workflow JSON with custom prompt
+
+        Args:
+            workflow: Workflow JSON
+            custom_prompt: Custom prompt text
+
+        Returns:
+            Updated workflow
         """
-        # Find the Load Image node and update it
-        for node_id, node in workflow.items():
-            if node.get("class_type") == "LoadImage":
-                node["inputs"]["image"] = image_filename
-                break
-        
         # Find the positive prompt CLIPTextEncode node and update it with custom prompt
-        if custom_prompt:
-            # First, try to find nodes with "children's book illustration" (old workflow)
-            updated = False
-            for node_id, node in workflow.items():
-                if (node.get("class_type") == "CLIPTextEncode" and 
-                    "text" in node.get("inputs", {}) and 
-                    "children's book illustration" in node["inputs"]["text"]):
-                    print(f"Updating prompt from: {node['inputs']['text']}")
-                    node["inputs"]["text"] = custom_prompt
-                    print(f"Updated prompt to: {custom_prompt}")
+        # First, try to find nodes with "children's book illustration" (old workflow)
+        updated = False
+        for node_id, node in workflow.items():
+            if (node.get("class_type") == "CLIPTextEncode" and
+                "text" in node.get("inputs", {}) and
+                "children's book illustration" in node["inputs"]["text"]):
+                print(f"Updating prompt from: {node['inputs']['text']}")
+                node["inputs"]["text"] = custom_prompt
+                print(f"Updated prompt to: {custom_prompt}")
+                updated = True
+                break
+
+        # If not found, update the main positive prompt nodes (nodes 8 and 10 in new workflow)
+        if not updated:
+            for node_id in ["8", "10", "39", "80"]:
+                if (node_id in workflow and
+                    workflow[node_id].get("class_type") == "CLIPTextEncode" and
+                    "text" in workflow[node_id].get("inputs", {})):
+                    print(f"Updating node {node_id} prompt from: {workflow[node_id]['inputs']['text']}")
+                    workflow[node_id]["inputs"]["text"] = custom_prompt
+                    print(f"Updated node {node_id} prompt to: {custom_prompt}")
                     updated = True
-                    break
-            
-            # If not found, update the main positive prompt nodes (nodes 8 and 10 in new workflow)
+
             if not updated:
-                for node_id in ["8", "10"]:
-                    if (node_id in workflow and 
-                        workflow[node_id].get("class_type") == "CLIPTextEncode" and
-                        "text" in workflow[node_id].get("inputs", {})):
-                        print(f"Updating node {node_id} prompt from: {workflow[node_id]['inputs']['text']}")
-                        workflow[node_id]["inputs"]["text"] = custom_prompt
-                        print(f"Updated node {node_id} prompt to: {custom_prompt}")
-                        updated = True
-                
-                if not updated:
-                    print("⚠️ Warning: No suitable CLIPTextEncode node found to update with custom prompt")
-        
+                print("⚠️ Warning: No suitable CLIPTextEncode node found to update with custom prompt")
+
         return workflow
     
     def _download_result(self, outputs: Dict[str, Any]) -> str:
