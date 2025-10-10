@@ -5,12 +5,14 @@ from . import models  # noqa: F401 (register models)
 from .routes import auth_routes, job_routes, book_routes, admin_routes
 from fastapi.middleware.cors import CORSMiddleware
 from .default_workflows import ensure_default_workflows
+from .default_stories import ensure_default_stories
 from .db_utils import apply_schema_patches
 
 # create tables at startup (simple approach for dev)
 Base.metadata.create_all(bind=engine)
 apply_schema_patches(engine)
 ensure_default_workflows(SessionLocal)
+ensure_default_stories(SessionLocal)
 
 app = FastAPI(title="Children's Book Creator API")
 

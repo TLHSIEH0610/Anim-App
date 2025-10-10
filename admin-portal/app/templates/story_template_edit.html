@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Edit Story Template</h2>
+
+<form method="post" action="/stories/{{ story.slug }}">
+  <label for="name">Name</label>
+  <input id="name" name="name" value="{{ story.name }}" required>
+
+  <label for="slug">Slug</label>
+  <input id="slug" name="slug" value="{{ story.slug }}" required>
+
+  <label for="description">Description</label>
+  <textarea id="description" name="description">{{ story.description }}</textarea>
+
+  <label for="default_age">Default Age</label>
+  <input id="default_age" name="default_age" value="{{ story.default_age }}">
+
+  <label for="illustration_style">Illustration Style</label>
+  <textarea id="illustration_style" name="illustration_style">{{ story.illustration_style }}</textarea>
+
+  <label for="workflow_slug">Workflow Slug</label>
+  <input id="workflow_slug" name="workflow_slug" value="{{ story.workflow_slug }}">
+
+  <label for="is_active">Active</label>
+  <select id="is_active" name="is_active">
+    <option value="true" {% if story.is_active %}selected{% endif %}>True</option>
+    <option value="false" {% if not story.is_active %}selected{% endif %}>False</option>
+  </select>
+
+  <label for="pages">Pages JSON</label>
+  <textarea id="pages" name="pages" style="min-height:320px;">{{ story.pages | tojson(indent=2) }}</textarea>
+
+  <div class="form-help">
+    <strong>Available template variables</strong>
+    <p>Use these placeholders inside story text and prompts. They are populated when a user creates a book:</p>
+    <ul>
+      <li><code>{Name}</code> – lead character name collected from the book creator UI.</li>
+      <li><code>{name}</code> – lowercase version of the name.</li>
+      <li><code>{gender}</code> – descriptive word such as “boy”, “girl”, or “child” based on the selected pronouns.</li>
+      <li><code>{they}</code>, <code>{them}</code>, <code>{their}</code>, <code>{theirs}</code> (and capitalised variants) – pronouns derived from the chosen gender.</li>
+    </ul>
+  </div>
+
+  <button type="submit" class="button button-primary">Save Story Template</button>
+</form>
+
+<a href="/stories" style="margin-top: 2rem; display: inline-block;">Back to stories</a>
+{% endblock %}

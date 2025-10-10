@@ -11,47 +11,12 @@ def _base_childbook_workflow() -> dict:
 
 DEFAULT_WORKFLOWS = [
     {
-        "slug": "childbook_adventure_v2",
-        "name": "Childbook Adventure",
+        "slug": "base",
+        "name": "Base Childbook Workflow",
         "type": "template",
         "version": 1,
         "content": _base_childbook_workflow(),
-    },
-    {
-        "slug": "childbook_friendship",
-        "name": "Childbook Friendship",
-        "type": "template",
-        "version": 1,
-        "content": _base_childbook_workflow(),
-    },
-    {
-        "slug": "childbook_fantasy",
-        "name": "Childbook Fantasy",
-        "type": "template",
-        "version": 1,
-        "content": _base_childbook_workflow(),
-    },
-    {
-        "slug": "childbook_bedtime",
-        "name": "Childbook Bedtime",
-        "type": "template",
-        "version": 1,
-        "content": _base_childbook_workflow(),
-    },
-    {
-        "slug": "childbook_educational",
-        "name": "Childbook Educational",
-        "type": "template",
-        "version": 1,
-        "content": _base_childbook_workflow(),
-    },
-    {
-        "slug": "childbook_family",
-        "name": "Childbook Family",
-        "type": "template",
-        "version": 1,
-        "content": _base_childbook_workflow(),
-    },
+    }
 ]
 
 
@@ -60,10 +25,12 @@ def ensure_default_workflows(session_factory):
 
     session = session_factory()
     try:
-        existing = session.query(WorkflowDefinition).count()
+        session.query(WorkflowDefinition).filter(WorkflowDefinition.slug != "base").delete()
+        session.commit()
+
+        existing = session.query(WorkflowDefinition).filter(WorkflowDefinition.slug == "base").count()
         if existing:
             return
-
         for wf in DEFAULT_WORKFLOWS:
             definition = WorkflowDefinition(
                 slug=wf["slug"],

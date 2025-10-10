@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 from datetime import datetime, timezone
 from .db import Base
 import json
@@ -77,6 +77,11 @@ class Book(Base):
         back_populates="book",
         cascade="all, delete-orphan",
     )
+    story_template = relationship(
+        "StoryTemplate",
+        primaryjoin="Book.template_key==foreign(StoryTemplate.slug)",
+        viewonly=True,
+    )
 
 
 class BookPage(Base):
@@ -135,3 +140,41 @@ class WorkflowDefinition(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class StoryTemplate(Base):
+    __tablename__ = "story_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(100), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    default_age = Column(String(10))
+    illustration_style = Column(Text)
+    workflow_slug = Column(String(100), nullable=False, default="base")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    pages = relationship(
+        "StoryTemplatePage",
+        back_populates="template",
+        cascade="all, delete-orphan",
+        order_by="StoryTemplatePage.page_number",
+    )
+
+
+class StoryTemplatePage(Base):
+    __tablename__ = "story_template_pages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    story_template_id = Column(Integer, ForeignKey("story_templates.id"), nullable=False, index=True)
+    page_number = Column(Integer, nullable=False)
+    story_text = Column(Text, nullable=False)
+    image_prompt = Column(Text, nullable=False)
+    positive_prompt = Column(Text, nullable=False)
+    pose_prompt = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    template = relationship("StoryTemplate", back_populates="pages")

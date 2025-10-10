@@ -8,8 +8,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.models import Book, BookPage, BookWorkflowSnapshot, WorkflowDefinition
+from sqlalchemy.orm import sessionmaker, joinedload
+from app.models import (
+    Book,
+    BookPage,
+    BookWorkflowSnapshot,
+    WorkflowDefinition,
+    StoryTemplate,
+    StoryTemplatePage,
+)
 from app.comfyui_client import ComfyUIClient
 from app.story_generator import OllamaStoryGenerator, enhance_childbook_prompt
 from reportlab.lib.pagesizes import A4, letter
@@ -22,7 +29,6 @@ from PIL import Image as PILImage
 import textwrap
 from typing import Dict, Optional, Any
 
-from app.story_templates import get_template, StoryTemplate
 from app.storage import move_to
 
 BASE_INSTANT_PROMPT = (
@@ -110,12 +116,28 @@ def _build_prompt_description(description: str, age: Optional[str], gender: Opti
     return f"a {age_adj} {gender_word} {desc}"
 
 
-def _build_template_story(book: Book, template: StoryTemplate) -> tuple[Dict[str, Any], Dict[int, Dict[str, str]]]:
+def _load_story_template(slug: Optional[str]) -> Optional[StoryTemplate]:
+    if not slug:
+        return None
+    session = _Session()
+    try:
+        return (
+            session.query(StoryTemplate)
+            .options(joinedload(StoryTemplate.pages))
+            .filter(StoryTemplate.slug == slug, StoryTemplate.is_active.is_(True))
+            .first()
+        )
+    finally:
+        session.close()
+
+
+def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dict[str, Any], Dict[int, Dict[str, str]]]:
     params = _normalized_template_params(book)
     name = params.get("name") or (book.character_description or "The hero")
     name = name.strip() or "The hero"
     gender = params.get("gender", "neutral")
     pronouns = _build_pronouns(gender)
+    gender_word = _gender_word(gender)
 
     replacements = {
         "Name": name,
@@ -128,48 +150,53 @@ def _build_template_story(book: Book, template: StoryTemplate) -> tuple[Dict[str
         "Them": pronouns["Them"],
         "Their": pronouns["Their"],
         "Theirs": pronouns["Theirs"],
+        "gender": gender_word,
+        "Gender": gender_word.capitalize(),
     }
 
+    template_pages = sorted(template.pages, key=lambda p: p.page_number)
+    if not template_pages:
+        raise ValueError(f"Story template '{template.slug}' has no pages configured")
+
     pages = []
-    prompt_overrides: Dict[int, Dict[str, str]] = {}
-    outline = template.story_outline
-    if not outline:
-        raise ValueError(f"Template '{template.key}' has no outline")
+    overrides: Dict[int, Dict[str, str]] = {}
 
     for index in range(book.page_count):
-        entry = outline[index % len(outline)]
         page_number = index + 1
-        text = _format_template_text(entry["text"], replacements)
-        image = _format_template_text(entry["image"], replacements)
-        pose = _format_template_text(entry["pose"], replacements)
+        page_template = template_pages[index % len(template_pages)]
 
-        prompt_subject = _build_prompt_description(image, book.target_age, gender)
-        positive_prompt = f"{BASE_INSTANT_PROMPT}, {prompt_subject}"
-        control_prompt = pose.strip() or prompt_subject
+        story_text = _format_template_text(page_template.story_text, replacements)
+        image_prompt = _format_template_text(page_template.image_prompt, replacements)
+        positive_prompt = _format_template_text(page_template.positive_prompt, replacements)
+        pose_prompt = _format_template_text(page_template.pose_prompt, replacements)
+
+        if not positive_prompt.strip():
+            subject = _build_prompt_description(image_prompt, book.target_age, gender)
+            positive_prompt = f"{BASE_INSTANT_PROMPT}, {subject}"
 
         pages.append(
             {
                 "page": page_number,
-                "text": text,
-                "image_description": image,
+                "text": story_text,
+                "image_description": image_prompt,
             }
         )
-        prompt_overrides[page_number] = {
-            "positive": positive_prompt,
-            "control": control_prompt,
+        overrides[page_number] = {
+            "positive": positive_prompt.strip(),
+            "control": pose_prompt.strip() or image_prompt.strip(),
         }
 
     story_data = {
         "title": book.title,
         "pages": pages,
         "age_group": book.target_age or template.default_age,
-        "theme": template.display_name,
+        "theme": template.name,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generator": "template",
-        "model": template.key,
+        "model": template.workflow_slug,
     }
 
-    return story_data, prompt_overrides
+    return story_data, overrides
 
 
 def _randomize_k_sampler_seeds(workflow: Dict[str, Any]) -> None:
@@ -389,17 +416,20 @@ def create_childbook(book_id: int):
         book_composer = BookComposer()
         template_prompt_overrides: Dict[int, Dict[str, str]] = {}
         template_obj: Optional[StoryTemplate] = None
+        workflow_slug = "base"
         story_generator: Optional[OllamaStoryGenerator] = None
         is_template = (book.story_source or "custom") == "template"
         if is_template:
-            template_obj = get_template(book.template_key or "")
+            template_obj = _load_story_template(book.template_key)
             if not template_obj:
-                raise Exception("Template not found or not configured")
+                raise Exception("Story template not found or inactive")
             if not book.target_age:
                 book.target_age = template_obj.default_age
-            story_data, template_prompt_overrides = _build_template_story(book, template_obj)
+            story_data, template_prompt_overrides = _build_story_from_template(book, template_obj)
+            workflow_slug = template_obj.workflow_slug or "base"
         else:
             story_generator = OllamaStoryGenerator(OLLAMA_SERVER)
+            workflow_slug = "base"
 
         # Stage 1: Generate story text
         print("Stage 1: Generating story...")
@@ -482,7 +512,7 @@ def create_childbook(book_id: int):
                         f"Page {page.page_number} of children's book",
                         character_description=book.character_description,
                     )
-                        
+
                     positive_prompt = enhanced_prompts["positive"]
                     control_prompt = positive_prompt
                     page.enhanced_prompt = positive_prompt
@@ -491,10 +521,10 @@ def create_childbook(book_id: int):
                 # Try to generate image with ComfyUI
                 try:
                     # Load appropriate workflow
-                    workflow, workflow_version, workflow_slug = get_childbook_workflow(book.theme)
+                    workflow, workflow_version, workflow_slug_active = get_childbook_workflow(workflow_slug)
                     print(f"🔍 Debug ComfyUI workflow for page {page.page_number}:")
                     print(f"   Theme: {book.theme}")
-                    print(f"   Workflow slug: {workflow_slug}")
+                    print(f"   Workflow slug: {workflow_slug_active}")
                     print(f"   Workflow version: {workflow_version}")
                     print(f"   Workflow loaded successfully with {len(workflow)} nodes")
 
@@ -515,7 +545,7 @@ def create_childbook(book_id: int):
                         image_paths,
                         copy.deepcopy(workflow),
                         page.enhanced_prompt,
-                        control_prompt
+                        control_prompt,
                     )
 
                     workflow_payload = result.get("workflow")
@@ -550,7 +580,7 @@ def create_childbook(book_id: int):
                             workflow_json=serialized_workflow,
                             vae_image_path=vae_preview_path,
                             workflow_version=workflow_version,
-                            workflow_slug=workflow_slug,
+                            workflow_slug=workflow_slug_active,
                         )
                         session.add(snapshot)
                         session.commit()
@@ -653,41 +683,6 @@ def create_childbook(book_id: int):
         
     finally:
         session.close()
-
-THEME_WORKFLOW_SLUGS = {
-    "adventure": "childbook_adventure_v2",
-    "friendship": "childbook_friendship",
-    "learning": "childbook_educational",
-    "bedtime": "childbook_bedtime",
-    "fantasy": "childbook_fantasy",
-    "family": "childbook_family",
-    "custom": "childbook_adventure_v2",
-    "space_explorer": "childbook_adventure_v2",
-    "forest_friends": "childbook_friendship",
-    "magic_school": "childbook_fantasy",
-    "pirate_adventure": "childbook_adventure_v2",
-    "bedtime_lullaby": "childbook_bedtime",
-}
-
-
-def get_childbook_workflow(theme: str) -> tuple[Dict[str, Any], int, str]:
-    slug = THEME_WORKFLOW_SLUGS.get(theme, "childbook_adventure_v2")
-    session = _Session()
-    try:
-        definition = (
-            session.query(WorkflowDefinition)
-            .filter(WorkflowDefinition.slug == slug, WorkflowDefinition.is_active.is_(True))
-            .order_by(WorkflowDefinition.version.desc())
-            .first()
-        )
-        if not definition:
-            raise Exception(f"Workflow definition not found for slug '{slug}'")
-        content = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
-        return copy.deepcopy(content), definition.version, definition.slug
-    finally:
-        session.close()
-
-
 def _reset_book_state(book: Book):
     book.status = "creating"
     book.progress_percentage = 0.0
@@ -737,6 +732,24 @@ def admin_regenerate_book(book_id: int, new_prompt: Optional[str] = None):
         session.close()
 
     create_childbook(book_id)
+
+def get_childbook_workflow(slug: Optional[str]) -> tuple[Dict[str, Any], int, str]:
+    slug = slug or "base"
+    session = _Session()
+    try:
+        definition = (
+            session.query(WorkflowDefinition)
+            .filter(WorkflowDefinition.slug == slug, WorkflowDefinition.is_active.is_(True))
+            .order_by(WorkflowDefinition.version.desc())
+            .first()
+        )
+        if not definition:
+            raise Exception(f"Workflow definition '{slug}' not found")
+        content = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+        return copy.deepcopy(content), definition.version, definition.slug
+    finally:
+        session.close()
+
 
 def create_placeholder_image(page_number: int, book_title: str) -> str:
     """Create a placeholder image when ComfyUI is not available"""

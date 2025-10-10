@@ -37,7 +37,10 @@ def load_workflow() -> dict:
     try:
         definition = (
             session.query(WorkflowDefinition)
-            .filter(WorkflowDefinition.slug == "childbook_adventure_v2")
+            .filter(
+                WorkflowDefinition.slug == "base",
+                WorkflowDefinition.is_active.is_(True),
+            )
             .order_by(WorkflowDefinition.version.desc())
             .first()
         )

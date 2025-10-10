@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Story Templates</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Slug</th>
+      <th>Name</th>
+      <th>Default Age</th>
+      <th>Workflow</th>
+      <th>Active</th>
+      <th>Pages</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for story in stories %}
+    <tr>
+      <td>{{ story.slug }}</td>
+      <td>{{ story.name }}</td>
+      <td>{{ story.default_age }}</td>
+      <td>{{ story.workflow_slug }}</td>
+      <td>{{ story.is_active }}</td>
+      <td>{{ story.page_count }}</td>
+      <td><a href="/stories/{{ story.slug }}">Edit</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<section style="margin-top:2rem;">
+  <h3>Create New Story Template</h3>
+  <form method="post" action="/stories/create">
+    <label for="slug">Slug</label>
+    <input id="slug" name="slug" placeholder="space_explorer" required>
+
+    <label for="name">Name</label>
+    <input id="name" name="name" placeholder="Space Explorer" required>
+
+    <label for="description">Description</label>
+    <textarea id="description" name="description" placeholder="Short summary"></textarea>
+
+    <label for="default_age">Default Age</label>
+    <input id="default_age" name="default_age" placeholder="6-8">
+
+    <label for="workflow_slug">Workflow Slug</label>
+    <input id="workflow_slug" name="workflow_slug" value="base">
+
+    <label for="is_active">Active</label>
+    <select id="is_active" name="is_active">
+      <option value="true" selected>True</option>
+      <option value="false">False</option>
+    </select>
+
+    <label for="pages">Pages JSON</label>
+    <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","pose_prompt":"..."}]' required></textarea>
+
+    <button type="submit" class="button button-primary">Create Story Template</button>
+  </form>
+</section>
+
+<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+{% endblock %}

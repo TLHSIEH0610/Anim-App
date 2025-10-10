@@ -19,11 +19,12 @@ python main.py --listen
 # Should be available at http://127.0.0.1:8188
 ```
 
-### **3. Create workflows directory**
+### **3. (Optional) Prepare a fallback workflow file**
+The backend loads workflows from PostgreSQL. If you want a filesystem fallback (used only when the database record is missing), copy your exported ComfyUI JSON here:
 ```bash
 mkdir -p workflows
-# Copy your workflow JSON file here:
-# workflows/image_to_animation.json
+# Example fallback filename:
+cp /path/from/ComfyUI/Anmi-App.json workflows/Anmi-App.json
 ```
 
 ### **4. Start all services with Docker**
@@ -60,8 +61,8 @@ DATABASE_URL=postgresql://animapp:password@db:5432/animapp
 # Redis runs in container  
 REDIS_URL=redis://redis:6379/0
 
-# Workflows mounted from local directory
-COMFYUI_WORKFLOW=/app/workflows/image_to_animation.json
+# Optional fallback if database workflow lookup fails
+COMFYUI_WORKFLOW=/app/workflows/Anmi-App.json
 ```
 
 ### **Network magic:**

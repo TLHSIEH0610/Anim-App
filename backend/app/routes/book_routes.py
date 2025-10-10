@@ -4,14 +4,13 @@ import base64
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
 from typing import List, Optional
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
 from app.db import get_db
-from app.models import Book, BookPage, User
+from app.models import Book, BookPage, User, StoryTemplate
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
 from app.storage import save_upload
 from app.utility import user_free_remaining
-from app.story_templates import get_template
 from rq import Queue
 import redis
 
@@ -67,7 +66,7 @@ async def create_book(
     if story_source not in {"custom", "template"}:
         raise HTTPException(400, "story_source must be 'custom' or 'template'")
 
-    template = None
+    story_template = None
     template_params_dict = None
     if template_params:
         try:
@@ -82,14 +81,22 @@ async def create_book(
     if page_count not in allowed_pages:
         raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
 
+    theme_value = "custom"
+
     if story_source == "template":
         if not template_key:
             raise HTTPException(400, "Template selection required")
-        template = get_template(template_key)
-        if not template:
+        story_template = (
+            db.query(StoryTemplate)
+            .options(joinedload(StoryTemplate.pages))
+            .filter(StoryTemplate.slug == template_key, StoryTemplate.is_active.is_(True))
+            .first()
+        )
+        if not story_template:
             raise HTTPException(400, "Unknown template key")
         if not target_age:
-            target_age = template.default_age
+            target_age = story_template.default_age
+        theme_value = story_template.slug
     else:
         if target_age not in ["3-5", "6-8", "9-12"]:
             raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
@@ -100,8 +107,6 @@ async def create_book(
         if story_source == "template" and not character_desc_value:
             if template_params_dict and template_params_dict.get("name"):
                 character_desc_value = template_params_dict["name"].strip()
-
-        theme_value = template_key if story_source == "template" else "custom"
 
         book = Book(
             user_id=user.id,
@@ -114,7 +119,7 @@ async def create_book(
             negative_prompt=negative_prompt.strip() if story_source == "custom" else "",
             original_image_paths=json.dumps([]),
             story_source=story_source,
-            template_key=template_key,
+            template_key=template_key if story_source == "template" else None,
             template_params=template_params_dict,
             status="creating"
         )
@@ -367,3 +372,26 @@ def admin_regenerate_book(book_id: int, user = Depends(current_user), db: Sessio
     except Exception as e:
         db.rollback()
         raise HTTPException(500, f"Failed to regenerate book: {str(e)}")
+
+
+@router.get("/stories/templates")
+def list_story_templates(db: Session = Depends(get_db)):
+    templates = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.is_active.is_(True))
+        .order_by(StoryTemplate.name.asc())
+        .all()
+    )
+    stories = []
+    for template in templates:
+        stories.append(
+            {
+                "slug": template.slug,
+                "name": template.name,
+                "description": template.description,
+                "default_age": template.default_age,
+                "page_count": len(template.pages) or 0,
+            }
+        )
+    return {"stories": stories}

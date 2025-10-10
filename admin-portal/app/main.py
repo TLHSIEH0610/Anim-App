@@ -249,6 +249,133 @@ async def users_update(user_id: int, request: Request):
         )
 
 
+@app.get("/stories", response_class=HTMLResponse)
+async def stories_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    message = request.query_params.get("message")
+    error = request.query_params.get("error")
+
+    try:
+        resp = await backend_request("GET", "/admin/story-templates")
+        data = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    return templates.TemplateResponse(
+        "stories.html",
+        {
+            "request": request,
+            "admin_email": session.get("email"),
+            "stories": data.get("stories", []),
+            "message": message,
+            "error": error,
+        },
+    )
+
+
+@app.post("/stories/create")
+async def create_story_template(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    form = await request.form()
+    pages_raw = form.get("pages", "")
+    try:
+        pages = json.loads(pages_raw) if pages_raw else []
+    except json.JSONDecodeError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus('Invalid JSON: ' + str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    payload = {
+        "slug": form.get("slug", "").strip(),
+        "name": form.get("name", "").strip(),
+        "description": form.get("description", "").strip() or None,
+        "default_age": form.get("default_age", "").strip() or None,
+        "illustration_style": form.get("illustration_style", "").strip() or None,
+        "workflow_slug": form.get("workflow_slug", "").strip() or "base",
+        "is_active": form.get("is_active", "true").lower() == "true",
+        "pages": pages,
+    }
+
+    try:
+        await backend_request("POST", "/admin/story-templates", json=payload)
+        return RedirectResponse("/stories?message=Story%20template%20created", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.get("/stories/{slug}", response_class=HTMLResponse)
+async def edit_story_template(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("GET", f"/admin/story-templates/{slug}")
+        story = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    return templates.TemplateResponse(
+        "story_template_edit.html",
+        {
+            "request": request,
+            "admin_email": session.get("email"),
+            "story": story,
+        },
+    )
+
+
+@app.post("/stories/{slug}")
+async def update_story_template(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    form = await request.form()
+    pages_raw = form.get("pages", "")
+    try:
+        pages = json.loads(pages_raw) if pages_raw else []
+    except json.JSONDecodeError as exc:
+        return RedirectResponse(
+            f"/stories/{slug}?error={quote_plus('Invalid JSON: ' + str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    payload = {
+        "slug": form.get("slug", slug).strip() or slug,
+        "name": form.get("name", "").strip(),
+        "description": form.get("description", "").strip() or None,
+        "default_age": form.get("default_age", "").strip() or None,
+        "illustration_style": form.get("illustration_style", "").strip() or None,
+        "workflow_slug": form.get("workflow_slug", "").strip() or "base",
+        "is_active": form.get("is_active", "true").lower() == "true",
+        "pages": pages,
+    }
+
+    try:
+        await backend_request("PUT", f"/admin/story-templates/{slug}", json=payload)
+        return RedirectResponse("/stories?message=Story%20template%20updated", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories/{slug}?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 @app.get("/workflows", response_class=HTMLResponse)
 async def workflows_page(request: Request):
     session = get_admin_session(request)
@@ -349,7 +476,7 @@ async def update_workflow(workflow_id: int, request: Request):
 
     form = await request.form()
     payload = {
-        "slug": form.get("slug", "childbook_adventure_v2"),
+        "slug": form.get("slug", "base"),
         "name": form.get("name", ""),
         "type": form.get("type", "template"),
     }

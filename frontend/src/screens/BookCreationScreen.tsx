@@ -312,6 +312,7 @@ export default function BookCreationScreen({ navigation }) {
           value={form.templateInput.name}
           onChangeText={(text) => updateTemplateInput("name", text)}
         />
+        <Text style={styles.helpText}>Used for the <Text style={{ fontWeight: "600" }}>{"{Name}"}</Text> placeholder in story templates.</Text>
       </View>
 
       <View style={styles.formGroup}>
@@ -327,6 +328,7 @@ export default function BookCreationScreen({ navigation }) {
             ))}
           </Picker>
         </View>
+        <Text style={styles.helpText}>Controls <Text style={{ fontWeight: "600" }}>{"{gender}"}</Text> and pronoun placeholders such as <Text style={{ fontWeight: "600" }}>{"{they}"}</Text>.</Text>
       </View>
 
       <View style={styles.formGroup}>
@@ -823,4 +825,3 @@ const styles = StyleSheet.create({
     color: "white",
   },
 });
-

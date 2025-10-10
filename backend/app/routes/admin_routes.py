@@ -1,24 +1,37 @@
+from __future__ import annotations
+
 import os
 import json
 import base64
 import copy
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from rq import Queue
 import redis
 from pydantic import BaseModel
 
 from ..db import get_db
-from ..models import Book, BookPage, BookWorkflowSnapshot, User, WorkflowDefinition
+from ..models import (
+    Book,
+    BookPage,
+    BookWorkflowSnapshot,
+    User,
+    WorkflowDefinition,
+    StoryTemplate,
+    StoryTemplatePage,
+)
 from ..comfyui_client import ComfyUIClient
-from ..worker.book_processor import THEME_WORKFLOW_SLUGS, _build_template_story
-from ..story_templates import get_template
+from ..worker.book_processor import (
+    get_childbook_workflow,
+    _load_story_template,
+    _build_story_from_template,
+)
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -68,6 +81,34 @@ def _encode_image_base64(path: Optional[str]) -> Optional[str]:
             return f"data:{mime};base64,{b64}"
     except Exception:
         return None
+
+
+def _story_template_to_dict(template: StoryTemplate) -> dict:
+    pages = [
+        {
+            "page_number": page.page_number,
+            "story_text": page.story_text,
+            "image_prompt": page.image_prompt,
+            "positive_prompt": page.positive_prompt,
+            "pose_prompt": page.pose_prompt,
+        }
+        for page in sorted(template.pages, key=lambda p: p.page_number)
+    ]
+
+    return {
+        "id": template.id,
+        "slug": template.slug,
+        "name": template.name,
+        "description": template.description,
+        "default_age": template.default_age,
+        "illustration_style": template.illustration_style,
+        "workflow_slug": template.workflow_slug,
+        "is_active": template.is_active,
+        "page_count": len(pages),
+        "pages": pages,
+        "created_at": template.created_at.isoformat() if template.created_at else None,
+        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+    }
 
 
 @router.get("/books")
@@ -126,8 +167,8 @@ def admin_list_books(_: None = Depends(require_admin), db: Session = Depends(get
     return {"books": items}
 
 
-@router.get("/books/{book_id}/workflow")
-def admin_get_workflow(
+# Legacy implementation retained for reference
+def _legacy_admin_get_workflow(
     book_id: int,
     page: int = Query(1, ge=1),
     _: None = Depends(require_admin),
@@ -137,10 +178,12 @@ def admin_get_workflow(
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    workflow_slug = THEME_WORKFLOW_SLUGS.get(book.theme, "childbook_adventure_v2")
+    story_template = _load_story_template(book.template_key)
+    workflow_slug = story_template.workflow_slug if story_template else "base"
+
     definition = (
         db.query(WorkflowDefinition)
-        .filter(WorkflowDefinition.slug == workflow_slug)
+        .filter(WorkflowDefinition.slug == workflow_slug, WorkflowDefinition.is_active.is_(True))
         .order_by(WorkflowDefinition.version.desc())
         .first()
     )
@@ -224,26 +267,24 @@ def admin_get_workflow(
 
     control_prompt = None
 
-    if book.story_source == "template" and book.template_key:
-        template_obj = get_template(book.template_key)
-        if template_obj:
-            try:
-                temp_book = SimpleNamespace(
-                    title=book.title,
-                    template_key=book.template_key,
-                    page_count=book.page_count,
-                    story_source=book.story_source,
-                    template_params=book.template_params,
-                    target_age=book.target_age or template_obj.default_age,
-                    character_description=book.character_description,
-                )
-                _, overrides = _build_template_story(temp_book, template_obj)
-                if target_page:
-                    override = overrides.get(target_page.page_number)
-                    if override:
-                        control_prompt = override.get("control")
-            except Exception:
-                control_prompt = None
+    if book.story_source == "template" and book.template_key and story_template:
+        try:
+            temp_book = SimpleNamespace(
+                title=book.title,
+                template_key=book.template_key,
+                page_count=book.page_count,
+                story_source=book.story_source,
+                template_params=book.template_params,
+                target_age=book.target_age or story_template.default_age,
+                character_description=book.character_description,
+            )
+            _, overrides = _build_story_from_template(temp_book, story_template)
+            if target_page:
+                override = overrides.get(target_page.page_number)
+                if override:
+                    control_prompt = override.get("control")
+        except Exception:
+            control_prompt = None
 
     if not control_prompt and target_page and target_page.image_description:
         control_prompt = target_page.image_description
@@ -251,13 +292,13 @@ def admin_get_workflow(
     if prompt:
         workflow = comfy_client._update_prompt(workflow, prompt, control_prompt)  # type: ignore[attr-defined]
 
-        return {
-            "book_id": book.id,
-            "image_filenames": filenames,
-            "prompt": prompt,
-            "story_source": book.story_source,
-            "template_key": book.template_key,
-            "template_params": book.template_params,
+    return {
+        "book_id": book.id,
+        "image_filenames": filenames,
+        "prompt": prompt,
+        "story_source": book.story_source,
+        "template_key": book.template_key,
+        "template_params": book.template_params,
         "page_number": page,
         "source": "reconstructed",
         "workflow": workflow,
@@ -408,6 +449,111 @@ def admin_update_user(
     }
 
 
+@router.get("/story-templates")
+def admin_list_story_templates(_: None = Depends(require_admin), db: Session = Depends(get_db)):
+    templates = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .order_by(StoryTemplate.name.asc())
+        .all()
+    )
+    return {"stories": [_story_template_to_dict(t) for t in templates]}
+
+
+@router.get("/story-templates/{slug}")
+def admin_get_story_template(slug: str, _: None = Depends(require_admin), db: Session = Depends(get_db)):
+    template = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.slug == slug)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+    return _story_template_to_dict(template)
+
+
+@router.post("/story-templates")
+def admin_create_story_template(
+    payload: StoryTemplatePayload,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(StoryTemplate).filter(StoryTemplate.slug == payload.slug).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Story template with this slug already exists")
+
+    template = StoryTemplate(
+        slug=payload.slug,
+        name=payload.name,
+        description=payload.description,
+        default_age=payload.default_age,
+        illustration_style=payload.illustration_style,
+        workflow_slug=payload.workflow_slug or "base",
+        is_active=payload.is_active if payload.is_active is not None else True,
+    )
+    db.add(template)
+    db.flush()
+
+    for page in sorted(payload.pages, key=lambda p: p.page_number):
+        page_row = StoryTemplatePage(
+            story_template_id=template.id,
+            page_number=page.page_number,
+            story_text=page.story_text,
+            image_prompt=page.image_prompt,
+            positive_prompt=page.positive_prompt,
+            pose_prompt=page.pose_prompt,
+        )
+        db.add(page_row)
+
+    db.commit()
+    db.refresh(template)
+    return _story_template_to_dict(template)
+
+
+@router.put("/story-templates/{slug}")
+def admin_update_story_template(
+    slug: str,
+    payload: StoryTemplatePayload,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.slug == slug)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+
+    template.slug = payload.slug
+    template.name = payload.name
+    template.description = payload.description
+    template.default_age = payload.default_age
+    template.illustration_style = payload.illustration_style
+    template.workflow_slug = payload.workflow_slug or "base"
+    if payload.is_active is not None:
+        template.is_active = payload.is_active
+
+    db.query(StoryTemplatePage).filter(StoryTemplatePage.story_template_id == template.id).delete()
+
+    for page in sorted(payload.pages, key=lambda p: p.page_number):
+        page_row = StoryTemplatePage(
+            story_template_id=template.id,
+            page_number=page.page_number,
+            story_text=page.story_text,
+            image_prompt=page.image_prompt,
+            positive_prompt=page.positive_prompt,
+            pose_prompt=page.pose_prompt,
+        )
+        db.add(page_row)
+
+    db.commit()
+    db.refresh(template)
+    return _story_template_to_dict(template)
+
+
 class AdminRegeneratePayload(BaseModel):
     new_prompt: Optional[str] = None
 
@@ -421,8 +567,23 @@ class WorkflowUpsertPayload(BaseModel):
     is_active: Optional[bool] = True
 
 
-class AdminStoryUpdatePayload(BaseModel):
-    story: dict
+class StoryTemplatePagePayload(BaseModel):
+    page_number: int
+    story_text: str
+    image_prompt: str
+    positive_prompt: str
+    pose_prompt: str
+
+
+class StoryTemplatePayload(BaseModel):
+    slug: str
+    name: str
+    description: Optional[str] = None
+    default_age: Optional[str] = None
+    illustration_style: Optional[str] = None
+    workflow_slug: Optional[str] = "base"
+    is_active: Optional[bool] = True
+    pages: List[StoryTemplatePagePayload]
 
 
 @router.post("/books/{book_id}/regenerate")
@@ -443,37 +604,6 @@ def admin_regenerate_book(
         job_timeout=1800,
     )
     return {"message": "Book regeneration queued", "job_id": job.id}
-
-
-@router.get("/books/{book_id}/story")
-def admin_get_story(book_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
-    try:
-        story = json.loads(book.story_data) if book.story_data else None
-    except Exception:
-        story = None
-    return {
-        "book_id": book.id,
-        "story": story,
-    }
-
-
-@router.put("/books/{book_id}/story")
-def admin_update_story(
-    book_id: int,
-    payload: AdminStoryUpdatePayload,
-    _: None = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
-
-    book.story_data = json.dumps(payload.story)
-    db.commit()
-    return {"message": "Story updated"}
 
 
 @router.get("/workflows")
@@ -634,3 +764,144 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return FileResponse(file_path)
+# New workflow inspector using DB-backed stories/workflows
+@router.get("/books/{book_id}/workflow")
+def admin_get_workflow(
+    book_id: int,
+    page: int = Query(1, ge=1),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    story_template = _load_story_template(book.template_key)
+    workflow_slug = story_template.workflow_slug if story_template else "base"
+
+    definition = (
+        db.query(WorkflowDefinition)
+        .filter(WorkflowDefinition.slug == workflow_slug, WorkflowDefinition.is_active.is_(True))
+        .order_by(WorkflowDefinition.version.desc())
+        .first()
+    )
+    if not definition:
+        raise HTTPException(status_code=404, detail="Workflow definition not found")
+
+    base_workflow = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+
+    image_paths = _load_original_images(book)
+    filenames = [Path(p).name for p in image_paths]
+
+    snapshots = (
+        db.query(BookWorkflowSnapshot.page_number)
+        .filter(BookWorkflowSnapshot.book_id == book_id)
+        .distinct()
+        .order_by(BookWorkflowSnapshot.page_number)
+        .all()
+    )
+    available_pages = [row.page_number for row in snapshots]
+
+    snapshot = (
+        db.query(BookWorkflowSnapshot)
+        .filter(
+            BookWorkflowSnapshot.book_id == book_id,
+            BookWorkflowSnapshot.page_number == page,
+        )
+        .order_by(BookWorkflowSnapshot.created_at.desc())
+        .first()
+    )
+
+    if snapshot:
+        prompt = None
+        page_record = (
+            db.query(BookPage)
+            .filter(
+                BookPage.book_id == book_id,
+                BookPage.page_number == page,
+            )
+            .first()
+        )
+        if page_record and page_record.enhanced_prompt:
+            prompt = page_record.enhanced_prompt
+        elif book.positive_prompt:
+            prompt = book.positive_prompt
+
+        return {
+            "book_id": book.id,
+            "image_filenames": filenames,
+            "prompt": prompt,
+            "story_source": book.story_source,
+            "template_key": book.template_key,
+            "template_params": book.template_params,
+            "page_number": page,
+            "prompt_id": snapshot.prompt_id,
+            "workflow": snapshot.workflow_json,
+            "source": "stored",
+            "page_count": book.page_count,
+            "available_pages": available_pages,
+            "workflow_version": snapshot.workflow_version,
+            "workflow_slug": snapshot.workflow_slug,
+        }
+
+    comfy_client = ComfyUIClient(COMFYUI_SERVER)
+    workflow = copy.deepcopy(base_workflow)
+    if filenames:
+        workflow = comfy_client.prepare_dynamic_workflow(workflow, filenames)
+
+    prompt = None
+    target_page = (
+        db.query(BookPage)
+        .filter(
+            BookPage.book_id == book_id,
+            BookPage.page_number == page,
+        )
+        .first()
+    )
+    if target_page and target_page.enhanced_prompt:
+        prompt = target_page.enhanced_prompt
+    elif book.positive_prompt:
+        prompt = book.positive_prompt
+
+    control_prompt = None
+
+    if book.story_source == "template" and book.template_key and story_template:
+        try:
+            temp_book = SimpleNamespace(
+                title=book.title,
+                template_key=book.template_key,
+                page_count=book.page_count,
+                story_source=book.story_source,
+                template_params=book.template_params,
+                target_age=book.target_age or story_template.default_age,
+                character_description=book.character_description,
+            )
+            _, overrides = _build_story_from_template(temp_book, story_template)
+            if target_page:
+                override = overrides.get(target_page.page_number)
+                if override:
+                    control_prompt = override.get("control")
+        except Exception:
+            control_prompt = None
+
+    if not control_prompt and target_page and target_page.image_description:
+        control_prompt = target_page.image_description
+
+    if prompt:
+        workflow = comfy_client._update_prompt(workflow, prompt, control_prompt)  # type: ignore[attr-defined]
+
+    return {
+        "book_id": book.id,
+        "image_filenames": filenames,
+        "prompt": prompt,
+        "story_source": book.story_source,
+        "template_key": book.template_key,
+        "template_params": book.template_params,
+        "page_number": page,
+        "source": "reconstructed",
+        "workflow": workflow,
+        "page_count": book.page_count,
+        "available_pages": available_pages,
+        "workflow_version": definition.version,
+        "workflow_slug": workflow_slug,
+    }

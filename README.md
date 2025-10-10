@@ -38,18 +38,20 @@ AnimApp is an AI-powered children's book creation platform that enables users to
 - ✅ Theme-specific image generation (ComfyUI workflows)
 - ✅ Real-time job processing with RQ
 - ✅ PDF generation and preview
-- ✅ Dual story modes (fully custom or curated templates)
+- ✅ Template-driven stories stored in the database and editable from the admin portal
 - ✅ Cross-platform support (macOS, Windows, Linux)
 - ✅ Docker containerization
 
 ---
 
-## 🧠 Story Modes
+## 🧠 Story Templates
 
-AnimApp now supports two creation paths:
+AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_definitions` table) that every book uses. Variety comes from database-backed story templates that drive both the narrative and prompt engineering.
 
-- **Custom Story** – upload reference photos, describe your character, and provide optional plot ideas. The system routes your text into both InstantID (node 39) and ControlNet (node 80) prompts so the illustrations and poses stay faithful to your description.
-- **Existing Story Templates** – choose from curated adventures (Space Explorer, Forest Friends, Magic School Day, Pirate Treasure, Bedtime Lullaby). Supply a name and pronouns if you like; AnimApp generates the storyline, illustration prompts, and explicit ControlNet pose cues automatically.
+- Users pick a template such as Space Explorer, Forest Friends, Magic School Day, Pirate Adventure, or Bedtime Lullaby directly in the mobile app.
+- Each template page defines `story_text`, `image_prompt`, `positive_prompt` (InstantID → node 39) and `pose_prompt` (ControlNet → node 80). Placeholders like `{Name}`, `{gender}`, `{they}` are filled using the name and pronouns collected in the UI.
+- Admins manage templates, versions, and the base workflow at `http://localhost:8090`, so content updates no longer require code changes.
+- Additional templates or workflow revisions can be introduced entirely through the admin portal, making experimentation easy without redeploying the backend.
 
 ---
 
@@ -160,6 +162,8 @@ anim-app/
 │   │   ├── queue.py           # RQ job queue management
 │   │   ├── comfyui_client.py  # ComfyUI API client
 │   │   ├── story_generator.py # Ollama LLM story generation
+│   │   ├── default_workflows.py # Seeds the base ComfyUI workflow into the database
+│   │   ├── default_stories.py   # Seeds built-in story templates into the database
 │   │   ├── utility.py         # Helper functions
 │   │   ├── routes/
 │   │   │   ├── auth_routes.py # Login, register, Google OAuth
@@ -199,17 +203,6 @@ anim-app/
 │   ├── docker-compose.local-comfyui.yml  # Docker services config
 │   ├── monitor.sh             # Container monitoring script
 │   └── .env                   # Docker environment variables
-│
-├── workflows/                 # ComfyUI workflow definitions
-│   ├── Anmi-App.json          # Base animation workflow
-│   ├── childbook_adventure.json    # Adventure theme
-│   ├── childbook_adventure_v2.json
-│   ├── childbook_bedtime.json      # Bedtime theme
-│   ├── childbook_educational.json  # Educational theme
-│   ├── childbook_family.json       # Family theme
-│   ├── childbook_fantasy.json      # Fantasy theme
-│   ├── childbook_friendship.json   # Friendship theme
-│   └── image_to_animation.json     # Image animation workflow
 │
 ├── scripts/                   # Utility scripts
 │   └── cleanup.py             # Delete old files (>3 days)
@@ -521,7 +514,7 @@ OLLAMA_MODEL=llama3.1:8b
 # Storage
 MEDIA_ROOT=/data/media
 
-# Workflows
+# Workflows (optional fallback if DB lookup fails)
 COMFYUI_WORKFLOW=/app/workflows/Anmi-App.json
 
 # JWT
@@ -553,8 +546,8 @@ OLLAMA_MODEL=llama3.1:8b
 # Windows: C:\Users\{username}\Documents\AnimApp\media
 MEDIA_ROOT=~/Documents/AnimApp/media
 
-# Workflows
-COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/image_to_animation.json
+# Workflows (optional fallback if DB lookup fails)
+COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/Anmi-App.json
 
 # JWT
 SECRET_KEY=dev-secret-key-change-in-production
@@ -1067,44 +1060,24 @@ ORDER BY page_number;
 
 ---
 
-## 🎨 Workflows
+## 🎨 Workflows & Templates
 
-### ComfyUI Workflow Files
+### ComfyUI Workflows
 
-Located in `/workflows/` directory:
+- The backend seeds a single `base` workflow into the `workflow_definitions` table during startup (`backend/app/default_workflows.py`).
+- RQ workers fetch the latest active record for the slug referenced by each story template (currently `base`). No JSON files need to live in the repository.
+- To publish an update:
+  1. Export your ComfyUI graph via **Save → API Format**.
+  2. Open the admin portal → **Workflows** → Edit the `base` record (or add a new slug) and paste the JSON.
+  3. The next job will automatically use the new version.
+- The optional `COMFYUI_WORKFLOW` environment variable remains as a fallback path should the database lookup fail.
 
-1. **Anmi-App.json** - Base animation workflow
-2. **childbook_adventure.json** - Adventure theme (exciting landscapes)
-3. **childbook_bedtime.json** - Bedtime theme (soft colors, calm)
-4. **childbook_educational.json** - Educational theme
-5. **childbook_family.json** - Family theme
-6. **childbook_fantasy.json** - Fantasy theme (magical elements)
-7. **childbook_friendship.json** - Friendship theme (warm interactions)
+### Story Templates
 
-### Adding New Workflows
-
-```bash
-# 1. Create workflow in ComfyUI UI
-# 2. Save as API format: Menu → Save → API Format
-# 3. Save to workflows/childbook_[theme].json
-
-# 4. Update backend code
-# Edit backend/app/story_generator.py:
-THEMES = [
-    "adventure",
-    "friendship",
-    "bedtime",
-    "fantasy",
-    "your-new-theme"  # Add here
-]
-
-# 5. Update frontend
-# Edit frontend/src/screens/BookCreationScreen.tsx:
-const THEMES = [
-    { label: "Adventure", value: "adventure" },
-    { label: "Your New Theme", value: "your-new-theme" }  // Add here
-];
-```
+- Templates are stored in `story_templates` and `story_template_pages` (seeded by `backend/app/default_stories.py`).
+- Each page captures `story_text`, `image_prompt`, `positive_prompt` (InstantID / node 39) and `pose_prompt` (ControlNet / node 80).
+- Supported placeholders inside those fields: `{Name}`, `{name}`, `{gender}`, `{Gender}`, `{they}`, `{them}`, `{their}`, `{theirs}` (plus capitalised variants). Values come from the mobile creation form.
+- Manage templates from the admin portal → **Stories**. Paste updated JSON into the “Pages” textarea to tweak narratives and prompts without redeploying.
 
 ---
 

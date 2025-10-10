@@ -6,14 +6,14 @@ This guide helps you run AnimApp on both **macOS** (development) and **Windows P
 
 ### **macOS (Development)**
 - **Media Storage**: `~/Documents/AnimApp/media/`
-- **Workflows**: `~/Documents/AnimApp/workflows/`
+- **Optional fallback workflow**: `~/Documents/AnimApp/workflows/Anmi-App.json`
 - **Database**: `localhost:5432` (local PostgreSQL)
 - **Redis**: `localhost:6379` (local Redis)
 - **ComfyUI**: `127.0.0.1:8188` (local ComfyUI)
 
 ### **Windows PC (Production)**
 - **Media Storage**: `C:\Users\{username}\Documents\AnimApp\media\`
-- **Workflows**: `C:\Users\{username}\Documents\AnimApp\workflows\`
+- **Optional fallback workflow**: `C:\Users\{username}\Documents\AnimApp\workflows\Anmi-App.json`
 - **Database**: `localhost:5432` (local PostgreSQL)
 - **Redis**: `localhost:6379` (local Redis)
 - **ComfyUI**: `127.0.0.1:8188` (local ComfyUI)
@@ -82,13 +82,15 @@ DATABASE_URL=postgresql://arnie:password@localhost:5432/appdb
 REDIS_URL=redis://localhost:6379/0
 COMFYUI_SERVER=127.0.0.1:8188
 MEDIA_ROOT=~/Documents/AnimApp/media
-COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/image_to_animation.json
+# Optional fallback if DB lookup fails
+COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/Anmi-App.json
 ```
 
 ### **ComfyUI Workflow**
-1. Create your image-to-animation workflow in ComfyUI
-2. Export as JSON: `Save -> Save (API Format)`
-3. Save to: `~/Documents/AnimApp/workflows/image_to_animation.json`
+1. Create or tweak your graph in ComfyUI.
+2. Export via **Save → API Format**.
+3. Upload the JSON in the admin portal → **Workflows** (create or update a slug such as `base`).
+4. The backend stores the workflow in PostgreSQL, so updating the DB is enough—no manual file copies required unless you want an optional fallback file for `COMFYUI_WORKFLOW`.
 
 ---
 
@@ -149,7 +151,7 @@ After upload, you should see:
 1. Open ComfyUI web interface
 2. Build image-to-animation workflow
 3. Test with sample image
-4. Save as API format JSON
+4. Save as API-format JSON so it can be uploaded through the admin portal
 
 ### **2. Update Workflow Integration**
 The `ComfyUIClient` automatically:
@@ -195,7 +197,7 @@ python -m rq worker jobs --url redis://localhost:6379/0
 ## 🔄 Moving Between Platforms
 
 ### **From macOS to Windows**
-1. Copy your ComfyUI workflow JSON file
+1. Export your ComfyUI workflow JSON (API format) and upload it through the admin portal on the target machine.
 2. Run `python setup_platform.py` on Windows
 3. Update database and Redis URLs if needed
 4. Install services (PostgreSQL, Redis)

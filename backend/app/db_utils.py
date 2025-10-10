@@ -19,3 +19,17 @@ def apply_schema_patches(engine):
                 if "already exists" in message or "duplicate" in message or "duplicate column" in message:
                     continue
                 raise
+
+    post_updates = [
+        "UPDATE book_workflow_snapshots SET workflow_slug = COALESCE(workflow_slug, 'legacy')",
+        "UPDATE book_workflow_snapshots SET workflow_version = COALESCE(workflow_version, 0)",
+    ]
+
+    with engine.connect() as conn:
+        for stmt in post_updates:
+            trans = conn.begin()
+            try:
+                conn.execute(text(stmt))
+                trans.commit()
+            except Exception:
+                trans.rollback()

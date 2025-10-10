@@ -71,15 +71,15 @@ npm start
 ## 📱 New User Experience
 
 ### Book Creation Flow:
-1. **Upload Image**: User selects character image
-2. **Book Details**: Title, theme, age group, page count
-3. **Story Elements**: Character description, positive/negative prompts
-4. **Review & Create**: Final review before generation
+1. **Upload Images**: User selects 1–4 reference photos for InstantID.
+2. **Choose Template**: Pick a curated story (Space Explorer, Forest Friends, etc.) and confirm target age/page count.
+3. **Personalize**: Provide an optional lead character name and pronouns that feed `{Name}` / `{gender}` placeholders.
+4. **Review & Create**: Confirm details and queue the generation job.
 
 ### Creation Process:
-- **Story Generation**: Ollama creates age-appropriate narrative
-- **Image Creation**: ComfyUI generates themed illustrations  
-- **PDF Assembly**: ReportLab combines into professional book
+- **Story Generation**: Template pages become the narrative; placeholders are filled with the user’s inputs.
+- **Image Creation**: ComfyUI generates illustrations via the shared `base` workflow with per-page prompts from the template.
+- **PDF Assembly**: ReportLab combines text and images into a finished book.
 - **Real-time Progress**: WebSocket updates throughout
 
 ### Book Management:
@@ -106,12 +106,9 @@ ollama pull llama3.1:70b
 
 ### ComfyUI Workflows
 
-Theme-specific workflows in `/workflows/`:
-
-- `childbook_adventure.json` - Exciting landscapes, exploration
-- `childbook_friendship.json` - Warm interactions, cooperation  
-- `childbook_bedtime.json` - Soft colors, calm scenes
-- `childbook_fantasy.json` - Magical elements, sparkles
+- The backend seeds a single `base` workflow into the database on startup (`backend/app/default_workflows.py`).
+- Every page generation job loads that workflow and rewrites node 39 (InstantID positive prompt) and node 80 (ControlNet pose prompt) using the active story template.
+- To update the workflow, export a new graph from ComfyUI (Save → API Format) and upload it through the admin portal (**Workflows** page). No filesystem changes are required.
 
 ### Environment Variables
 
@@ -168,6 +165,13 @@ The system automatically enhances user prompts with:
 - **Theme elements**: Adventure landscapes, friendship warmth, etc.
 - **Safety filters**: Removes scary/inappropriate content
 - **Professional quality**: "children's book illustration, published quality"
+
+### Prompt Routing
+
+- Each story template page defines two key strings:
+  - `positive_prompt` → injected into InstantID (node 39) for style/character cues.
+  - `pose_prompt` → injected into ControlNet (node 80) to lock pose and composition.
+- Placeholders such as `{Name}`, `{gender}`, `{they}` are replaced with per-book values before sending the workflow to ComfyUI.
 
 ### Fallback System
 
@@ -259,11 +263,11 @@ COMFYUI_MAX_WORKERS=2
 
 ## 🎨 Customization Options
 
-### Story Themes
-Add new themes by:
-1. Creating workflow JSON in `/workflows/childbook_[theme].json`
-2. Adding theme to `THEMES` array in `BookCreationScreen.tsx`
-3. Updating `enhance_childbook_prompt()` function
+### Story Templates
+Add or adjust templates by:
+1. Exporting a ComfyUI workflow update if needed and publishing it via the admin **Workflows** page (optional if you keep using the shared `base` slug).
+2. Visiting the admin **Stories** page and creating a new template or editing an existing one. Paste the updated `Pages` JSON to define `story_text`, `image_prompt`, `positive_prompt`, and `pose_prompt` for each page.
+3. Informing users of the new template by updating display assets/text in the mobile app if desired (template metadata is delivered from the backend, so no code change is required for availability).
 
 ### Age Groups
 Modify age-specific prompts in `story_generator.py`:
