@@ -190,8 +190,10 @@ export default function BookStatusScreen({ route, navigation }) {
         {/* Book Details */}
         <View style={styles.detailsCard}>
           <Text style={styles.detailsTitle}>📋 Book Details</Text>
-          <Text style={styles.detailItem}>Theme: {book.theme}</Text>
-          <Text style={styles.detailItem}>Age Group: {book.target_age} years</Text>
+          <Text style={styles.detailItem}>
+            Story: {book.story_source === 'template' ? `Template (${book.template_key || 'prebuilt'})` : 'Custom Story'}
+          </Text>
+          <Text style={styles.detailItem}>Age Group: {book.target_age || 'n/a'} years</Text>
           <Text style={styles.detailItem}>Pages: {book.page_count}</Text>
           <Text style={styles.detailItem}>
             Created: {new Date(book.created_at).toLocaleDateString()}

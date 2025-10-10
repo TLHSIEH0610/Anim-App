@@ -135,7 +135,7 @@ export default function BookLibraryScreen({ navigation }) {
         <View style={styles.bookTitleContainer}>
           <Text style={styles.bookTitle}>{book.title}</Text>
           <Text style={styles.bookDetails}>
-            {book.theme} • {book.target_age} years • {book.page_count} pages
+            {book.story_source === 'template' ? `Template (${book.template_key || 'story'})` : 'Custom Story'} • {book.target_age || 'n/a'} years • {book.page_count} pages
           </Text>
         </View>
         

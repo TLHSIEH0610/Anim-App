@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 class UserCreate(BaseModel):
     email: str
@@ -30,12 +30,14 @@ class JobResponse(BaseModel):
 # New schemas for books
 class BookCreate(BaseModel):
     title: str
-    theme: str  # adventure, friendship, learning, etc.
-    target_age: str  # 3-5, 6-8, 9-12
+    target_age: Optional[str] = None
     page_count: int = 8
-    character_description: str
-    positive_prompt: str = ""
-    negative_prompt: str = ""
+    character_description: Optional[str] = None
+    positive_prompt: Optional[str] = None
+    negative_prompt: Optional[str] = None
+    story_source: str = "custom"
+    template_key: Optional[str] = None
+    template_params: Optional[Dict[str, Any]] = None
 
 class BookPageResponse(BaseModel):
     id: int
@@ -53,6 +55,9 @@ class BookPageResponse(BaseModel):
 class BookResponse(BaseModel):
     id: int
     title: str
+    story_source: Optional[str] = "custom"
+    template_key: Optional[str] = None
+    template_params: Optional[Dict[str, Any]] = None
     theme: Optional[str] = None
     target_age: Optional[str] = None
     page_count: int

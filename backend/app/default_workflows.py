@@ -1,0 +1,79 @@
+import json
+
+
+_BASE_CHILDBOOK_WORKFLOW_JSON = """{
+  \"3\": {\n    \"inputs\": {\n      \"seed\": 497830025260841,\n      \"steps\": 25,\n      \"cfg\": 4.5,\n      \"sampler_name\": \"ddpm\",\n      \"scheduler\": \"karras\",\n      \"denoise\": 1,\n      \"model\": [\n        \"60\",\n        0\n      ],\n      \"positive\": [\n        \"89\",\n        0\n      ],\n      \"negative\": [\n        \"89\",\n        1\n      ],\n      \"latent_image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"ckpt_name\": \"wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"Load Checkpoint\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"width\": 960,\n      \"height\": 960,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"Empty Latent Image\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"3\",\n        0\n      ],\n      \"vae\": [\n        \"4\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"instantid_file\": \"ip-adapter.bin\"\n    },\n    \"class_type\": \"InstantIDModelLoader\",\n    \"_meta\": {\n      \"title\": \"Load InstantID Model\"\n    }\n  },\n  \"13\": {\n    \"inputs\": {\n      \"image\": \"0_character_0.png\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Image\"\n    }\n  },\n  \"15\": {\n    \"inputs\": {\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"16\": {\n    \"inputs\": {\n      \"control_net_name\": \"diffusion_pytorch_model.safetensors\"\n    },\n    \"class_type\": \"ControlNetLoader\",\n    \"_meta\": {\n      \"title\": \"Load ControlNet Model\"\n    }\n  },\n  \"38\": {\n    \"inputs\": {\n      \"provider\": \"CPU\"\n    },\n    \"class_type\": \"InstantIDFaceAnalysis\",\n    \"_meta\": {\n      \"title\": \"InstantID Face Analysis\"\n    }\n  },\n  \"39\": {\n    \"inputs\": {\n      \"text\": \"Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"photograph, photorealistic, realistic, deformed, glitch, noisy, stock photo, dark, scary, violent, adult themes, complex details, cropped, cut off, partial body, close-up\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"60\": {\n    \"inputs\": {\n      \"weight\": 0.8,\n      \"start_at\": 0,\n      \"end_at\": 1,\n      \"instantid\": [\n        \"11\",\n        0\n      ],\n      \"insightface\": [\n        \"38\",\n        0\n      ],\n      \"control_net\": [\n        \"16\",\n        0\n      ],\n      \"image\": [\n        \"95\",\n        0\n      ],\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"39\",\n        0\n      ],\n      \"negative\": [\n        \"40\",\n        0\n      ],\n      \"image_kps\": [\n        \"83\",\n        0\n      ]\n    },\n    \"class_type\": \"ApplyInstantID\",\n    \"_meta\": {\n      \"title\": \"Apply InstantID\"\n    }\n  },\n  \"75\": {\n    \"inputs\": {\n      \"image1\": [\n        \"13\",\n        0\n      ],\n      \"image2\": [\n        \"94\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageBatch\",\n    \"_meta\": {\n      \"title\": \"Batch Images\"\n    }\n  },\n  \"77\": {\n    \"inputs\": {\n      \"control_net_name\": \"control-lora-depth-rank256.safetensors\"\n    },\n    \"class_type\": \"ControlNetLoader\",\n    \"_meta\": {\n      \"title\": \"Load ControlNet Model\"\n    }\n  },\n  \"78\": {\n    \"inputs\": {\n      \"ckpt_name\": \"wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"Load Checkpoint\"\n    }\n  },\n  \"79\": {\n    \"inputs\": {\n      \"seed\": 70666929130804,\n      \"steps\": 5,\n      \"cfg\": 8,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\n        \"78\",\n        0\n      ],\n      \"positive\": [\n        \"80\",\n        0\n      ],\n      \"negative\": [\n        \"81\",\n        0\n      ],\n      \"latent_image\": [\n        \"82\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"80\": {\n    \"inputs\": {\n      \"text\": \"epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery\",\n      \"clip\": [\n        \"78\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"81\": {\n    \"inputs\": {\n      \"text\": \"unclear, naked, background\",\n      \"clip\": [\n        \"78\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"82\": {\n    \"inputs\": {\n      \"width\": 1024,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"Empty Latent Image\"\n    }\n  },\n  \"83\": {\n    \"inputs\": {\n      \"samples\": [\n        \"79\",\n        0\n      ],\n      \"vae\": [\n        \"78\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"84\": {\n    \"inputs\": {\n      \"images\": [\n        \"83\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"89\": {\n    \"inputs\": {\n      \"strength\": 0.22,\n      \"start_percent\": 0,\n      \"end_percent\": 0.15,\n      \"positive\": [\n        \"60\",\n        1\n      ],\n      \"negative\": [\n        \"60\",\n        2\n      ],\n      \"control_net\": [\n        \"77\",\n        0\n      ],\n      \"image\": [\n        \"91\",\n        0\n      ]\n    },\n    \"class_type\": \"ControlNetApplyAdvanced\",\n    \"_meta\": {\n      \"title\": \"Apply ControlNet\"\n    }\n  },\n  \"91\": {\n    \"inputs\": {\n      \"resolution\": 960,\n      \"image\": [\n        \"83\",\n        0\n      ]\n    },\n    \"class_type\": \"Zoe-DepthMapPreprocessor\",\n    \"_meta\": {\n      \"title\": \"Zoe Depth Map\"\n    }\n  },\n  \"92\": {\n    \"inputs\": {\n      \"images\": [\n        \"91\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"94\": {\n    \"inputs\": {\n      \"image\": \"1_character_1.png\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Image\"\n    }\n  },\n  \"95\": {\n    \"inputs\": {\n      \"image1\": [\n        \"75\",\n        0\n      ],\n      \"image2\": [\n        \"98\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageBatch\",\n    \"_meta\": {\n      \"title\": \"Batch Images\"\n    }\n  },\n  \"98\": {\n    \"inputs\": {\n      \"image\": \"2_character_2.png\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Image\"\n    }\n  },\n  \"100\": {\n    \"inputs\": {\n      \"image\": \"Screenshot 2025-09-28 at 2.18.31 PM.png\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Image\"\n    }\n  },\n  \"101\": {\n    \"inputs\": {\n      \"image1\": [\n        \"95\",\n        0\n      ],\n      \"image2\": [\n        \"100\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageBatch\",\n    \"_meta\": {\n      \"title\": \"Batch Images\"\n    }\n  },\n  \"102\": {\n    \"inputs\": {\n      \"filename_prefix\": \"vae_preview\",\n      \"images\": [\n        \"83\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"Save VAE Preview\"\n    }\n  },\n  \"25\": {\n    \"inputs\": {\n      \"filename_prefix\": \"childbook_adventure\",\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"Save Image\"\n    }\n  }\n}\n"""
+
+
+def _base_childbook_workflow() -> dict:
+    return json.loads(_BASE_CHILDBOOK_WORKFLOW_JSON)
+
+
+DEFAULT_WORKFLOWS = [
+    {
+        "slug": "childbook_adventure_v2",
+        "name": "Childbook Adventure",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+    {
+        "slug": "childbook_friendship",
+        "name": "Childbook Friendship",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+    {
+        "slug": "childbook_fantasy",
+        "name": "Childbook Fantasy",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+    {
+        "slug": "childbook_bedtime",
+        "name": "Childbook Bedtime",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+    {
+        "slug": "childbook_educational",
+        "name": "Childbook Educational",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+    {
+        "slug": "childbook_family",
+        "name": "Childbook Family",
+        "type": "template",
+        "version": 1,
+        "content": _base_childbook_workflow(),
+    },
+]
+
+
+def ensure_default_workflows(session_factory):
+    from app.models import WorkflowDefinition  # local import to avoid circular
+
+    session = session_factory()
+    try:
+        existing = session.query(WorkflowDefinition).count()
+        if existing:
+            return
+
+        for wf in DEFAULT_WORKFLOWS:
+            definition = WorkflowDefinition(
+                slug=wf["slug"],
+                name=wf["name"],
+                type=wf["type"],
+                version=wf["version"],
+                content=wf["content"],
+                is_active=True,
+            )
+            session.add(definition)
+        session.commit()
+    finally:
+        session.close()

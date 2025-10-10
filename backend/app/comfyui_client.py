@@ -8,6 +8,7 @@ import platform
 from typing import Dict, Any, Optional
 from pathlib import Path
 import os
+from datetime import datetime
 
 class ComfyUIClient:
     def __init__(self, server_address: str = "127.0.0.1:8188"):
@@ -131,7 +132,13 @@ class ComfyUIClient:
 
         return workflow
 
-    def process_image_to_animation(self, input_image_paths: list, workflow_json: Dict[str, Any], custom_prompt: str = None) -> Dict:
+    def process_image_to_animation(
+        self,
+        input_image_paths: list,
+        workflow_json: Dict[str, Any],
+        custom_prompt: str | None = None,
+        control_prompt: str | None = None,
+    ) -> Dict:
         """
         Process image(s) through ComfyUI workflow
 
@@ -162,6 +169,7 @@ class ComfyUIClient:
             for i, image_path in enumerate(input_image_paths):
                 print(f"Uploading image {i+1}/{len(input_image_paths)}: {image_path}")
                 filename = self._upload_image(image_path)
+                print(f"[ComfyUI] Uploaded image stored as: {filename}")
                 image_filenames.append(filename)
 
             # Prepare workflow with dynamic adjustments based on number of images
@@ -169,9 +177,24 @@ class ComfyUIClient:
             workflow = copy.deepcopy(workflow_json)
             workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
 
+            # Debug log: surface the filenames wired into each LoadImage node
+            try:
+                load_nodes = [node_id for node_id in ["13", "94", "98", "100"] if node_id in workflow]
+                resolved_inputs = {
+                    node_id: workflow[node_id]["inputs"].get("image")
+                    for node_id in load_nodes
+                    if isinstance(workflow[node_id].get("inputs"), dict)
+                }
+                print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
+            except Exception as debug_error:
+                print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
+
             # Update workflow with custom prompt if provided
-            if custom_prompt:
-                workflow = self._update_prompt(workflow, custom_prompt)
+            if custom_prompt or control_prompt:
+                workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
+
+            # Log workflow snapshot before queueing
+            self._log_workflow_snapshot(workflow)
 
             # Queue the prompt
             prompt_id = self.queue_prompt(workflow)
@@ -179,25 +202,34 @@ class ComfyUIClient:
             # Wait for completion
             result = self.wait_for_completion(prompt_id)
 
+            vae_preview_path = self._download_intermediate_image(result.get("outputs"), ["102", "83", "84", "91", "15"])
+
             if result["status"] == "completed" and result["outputs"]:
                 # Download the result
                 output_path = self._download_result(result["outputs"])
                 return {
                     "status": "success",
                     "output_path": output_path,
-                    "prompt_id": prompt_id
+                    "prompt_id": prompt_id,
+                    "workflow": workflow,
+                    "vae_preview_path": vae_preview_path,
                 }
             else:
                 return {
                     "status": "failed",
                     "error": result.get("error", "Unknown error"),
-                    "prompt_id": prompt_id
+                    "prompt_id": prompt_id,
+                    "workflow": workflow,
+                    "vae_preview_path": vae_preview_path,
                 }
 
         except Exception as e:
             return {
                 "status": "failed",
-                "error": str(e)
+                "error": str(e),
+                "workflow": locals().get("workflow"),
+                "prompt_id": locals().get("prompt_id"),
+                "vae_preview_path": None,
             }
     
     def _upload_image(self, image_path: str) -> str:
@@ -208,9 +240,16 @@ class ComfyUIClient:
             files = {'image': f}
             response = requests.post(url, files=files, timeout=60)
             response.raise_for_status()
-            return response.json()['name']
+            data = response.json()
+            print(f"[ComfyUI] Upload response: {data}")
+            return data['name']
     
-    def _update_prompt(self, workflow: Dict[str, Any], custom_prompt: str) -> Dict[str, Any]:
+    def _update_prompt(
+        self,
+        workflow: Dict[str, Any],
+        custom_prompt: Optional[str],
+        control_prompt: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Update workflow JSON with custom prompt
 
@@ -223,33 +262,61 @@ class ComfyUIClient:
         """
         # Find the positive prompt CLIPTextEncode node and update it with custom prompt
         # First, try to find nodes with "children's book illustration" (old workflow)
-        updated = False
-        for node_id, node in workflow.items():
-            if (node.get("class_type") == "CLIPTextEncode" and
-                "text" in node.get("inputs", {}) and
-                "children's book illustration" in node["inputs"]["text"]):
-                print(f"Updating prompt from: {node['inputs']['text']}")
-                node["inputs"]["text"] = custom_prompt
-                print(f"Updated prompt to: {custom_prompt}")
-                updated = True
-                break
+        if custom_prompt is None:
+            return workflow
 
-        # If not found, update the main positive prompt nodes (nodes 8 and 10 in new workflow)
-        if not updated:
-            for node_id in ["8", "10", "39", "80"]:
-                if (node_id in workflow and
-                    workflow[node_id].get("class_type") == "CLIPTextEncode" and
-                    "text" in workflow[node_id].get("inputs", {})):
-                    print(f"Updating node {node_id} prompt from: {workflow[node_id]['inputs']['text']}")
-                    workflow[node_id]["inputs"]["text"] = custom_prompt
+        positive_nodes = ["39", "8", "10"]
+        control_nodes = ["80"]
+
+        for node_id in workflow:
+            node = workflow[node_id]
+            if node.get("class_type") == "CLIPTextEncode" and "text" in node.get("inputs", {}):
+                original = node["inputs"]["text"]
+                if node_id in positive_nodes:
+                    node["inputs"]["text"] = custom_prompt
+                    print(f"Updating node {node_id} prompt from: {original}" )
                     print(f"Updated node {node_id} prompt to: {custom_prompt}")
-                    updated = True
-
-            if not updated:
-                print("⚠️ Warning: No suitable CLIPTextEncode node found to update with custom prompt")
+                elif node_id in control_nodes:
+                    if control_prompt is None:
+                        continue
+                    node["inputs"]["text"] = control_prompt
+                    print(f"Updating node {node_id} control prompt from: {original}")
+                    print(f"Updated node {node_id} control prompt to: {control_prompt}")
 
         return workflow
-    
+
+    def _log_workflow_snapshot(self, workflow: Dict[str, Any]) -> None:
+        """Log key workflow inputs prior to queuing"""
+        try:
+            snapshot = {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "client_id": self.client_id,
+                "nodes": {}
+            }
+
+            for node_id, node in workflow.items():
+                class_type = node.get("class_type")
+                if class_type == "LoadImage":
+                    snapshot["nodes"][node_id] = {
+                        "class_type": class_type,
+                        "image": node.get("inputs", {}).get("image")
+                    }
+                elif class_type == "CLIPTextEncode":
+                    snapshot["nodes"][node_id] = {
+                        "class_type": class_type,
+                        "text": node.get("inputs", {}).get("text")
+                    }
+                elif class_type == "ApplyInstantID":
+                    snapshot["nodes"][node_id] = {
+                        "class_type": class_type,
+                        "image": node.get("inputs", {}).get("image"),
+                        "weight": node.get("inputs", {}).get("weight"),
+                    }
+
+            print(f"[ComfyUI] Workflow snapshot before queue: {json.dumps(snapshot, indent=2)}")
+        except Exception as snapshot_error:
+            print(f"[ComfyUI] Failed to log workflow snapshot: {snapshot_error}")
+
     def _download_result(self, outputs: Dict[str, Any]) -> str:
         """Download the result and save to local storage"""
         # Cross-platform path handling
@@ -295,7 +362,49 @@ class ComfyUIClient:
                         return str(output_path)
         
         raise Exception("No SaveImage or non-temp output images found in workflow result")
-    
+
+    def _download_intermediate_image(self, outputs: Optional[Dict[str, Any]], node_ids) -> Optional[str]:
+        """Download an intermediate image (e.g. VAE decode) for debugging/preview"""
+        if not outputs:
+            return None
+
+        if isinstance(node_ids, str):
+            node_ids = [node_ids]
+
+        for node_id in node_ids:
+            node_outputs = outputs.get(node_id)
+            if not node_outputs or "images" not in node_outputs:
+                continue
+
+            for image_info in node_outputs["images"]:
+                filename = image_info.get("filename")
+                if not filename:
+                    continue
+
+                subfolder = image_info.get("subfolder", "")
+                folder_type = image_info.get("type", "output")
+
+                try:
+                    image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+                except Exception as e:
+                    print(f"[ComfyUI] Failed to download intermediate image {filename}: {e}")
+                    continue
+
+                media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
+                output_dir = Path(media_root) / "intermediates"
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                output_path = output_dir / f"vae_preview_{int(time.time())}_{filename}"
+                try:
+                    with open(output_path, "wb") as f:
+                        f.write(image_data)
+                    return str(output_path)
+                except Exception as write_error:
+                    print(f"[ComfyUI] Failed to store intermediate image {filename}: {write_error}")
+                    continue
+
+        return None
+
     def _get_default_media_root(self) -> str:
         """Get default media root based on platform"""
         system = platform.system().lower()

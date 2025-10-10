@@ -1,0 +1,400 @@
+23:48:15 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+00:03:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+00:03:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+00:17:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+00:17:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+00:32:31 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+00:32:31 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+00:47:16 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+00:47:16 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+01:02:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+01:02:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+01:16:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+01:16:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+01:31:31 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+01:31:31 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+01:46:16 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+01:46:16 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+02:01:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+02:01:01 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+02:15:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+02:15:46 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+02:30:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+02:30:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+02:45:17 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+02:45:17 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:00:02 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+03:00:02 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:14:47 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+03:14:47 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:29:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+03:29:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:44:17 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+03:44:17 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:59:02 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+03:59:02 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+04:13:47 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+04:13:47 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+04:28:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+04:28:32 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+04:43:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+04:43:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+04:58:03 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+04:58:03 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+05:12:48 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+05:12:48 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+05:27:33 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+05:27:33 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+05:42:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+05:42:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+05:57:03 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+05:57:03 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+06:11:48 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+06:11:48 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+06:26:33 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+06:26:33 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+06:41:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+06:41:18 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+06:56:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+06:56:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+07:10:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+07:10:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+07:25:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+07:25:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+07:40:19 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+07:40:19 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+07:55:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+07:55:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+08:09:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+08:09:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+08:24:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+08:24:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+08:39:19 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+08:39:19 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+08:54:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+08:54:04 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+09:08:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+09:08:49 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+09:23:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+09:23:34 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+09:38:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+09:38:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+09:53:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+09:53:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+10:07:50 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+10:07:50 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+10:22:35 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+10:22:35 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+10:37:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+10:37:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+10:52:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+10:52:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+11:06:50 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+11:06:50 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+11:21:35 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+11:21:35 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+11:36:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+11:36:20 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+11:51:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+11:51:05 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+12:05:51 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+12:05:51 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+12:20:36 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+12:20:36 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+12:35:21 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: jobs
+12:35:21 Worker 9d72f81146714c37a1f7b6905fd917d4: cleaning registries for queue: books
+03:43:06 Worker 2234a4d6e847436593301cd29e9b4908: started with PID 1, version 2.5.0
+03:43:06 Worker 2234a4d6e847436593301cd29e9b4908: subscribing to channel rq:pubsub:2234a4d6e847436593301cd29e9b4908
+03:43:06 *** Listening on jobs, books...
+03:43:06 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+03:43:06 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+03:57:51 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+03:57:51 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+04:12:36 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+04:12:36 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+04:27:22 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+04:27:22 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+04:42:07 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+04:42:07 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+04:56:52 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+04:56:52 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+05:02:16 books: app.worker.book_processor.create_childbook(13) (04bbb1c1-fc54-4e5f-91e2-f14891194d1d)
+Starting book creation for book 13: 'Train3'
+Stage 1: Generating story...
+Warning: Ollama not available, using fallback story generation
+Story generated with 1 pages
+Stage 2: Generating images...
+Generating image for page 1...
+🔍 Debug ComfyUI workflow for page 1:
+   Theme: adventure
+   Workflow path: /app/workflows/childbook_adventure_v2.json
+   Path exists: True
+   Loading workflow from: /app/workflows/childbook_adventure_v2.json
+   Workflow loaded successfully with 29 nodes
+Using 3 reference image(s) for character consistency
+Starting ComfyUI processing for page 1...
+Using enhanced prompt: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Processing 3 image(s) with ComfyUI
+Uploading image 1/3: /data/media/book_inputs/0_character_0.png
+Uploading image 2/3: /data/media/book_inputs/1_character_1.png
+Uploading image 3/3: /data/media/book_inputs/2_character_2.png
+Updating prompt from: Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery
+Updated prompt to: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Waiting for ComfyUI completion (prompt_id: 72e24ed2-9a6e-4e05-b8aa-e7fd8bc4531d)
+✅ ComfyUI processing completed for 72e24ed2-9a6e-4e05-b8aa-e7fd8bc4531d
+ComfyUI result for page 1: {'status': 'failed', 'error': 'No SaveImage or non-temp output images found in workflow result'}
+ComfyUI failed for page 1: ComfyUI processing failed: No SaveImage or non-temp output images found in workflow result
+Stage 3: Creating PDF...
+Stage 4: Finalizing...
+✅ Book creation completed successfully for 'Train3'
+PDF saved to: /data/media/books/book_13_Train3.pdf
+05:05:48 Successfully completed app.worker.book_processor.create_childbook(13) job in 0:03:32.111039s on worker 2234a4d6e847436593301cd29e9b4908
+05:05:48 books: Job OK (04bbb1c1-fc54-4e5f-91e2-f14891194d1d)
+05:05:48 Result is kept for 500 seconds
+05:07:53 books: app.worker.book_processor.create_childbook(13) (dcd0e6f5-cd6a-4c87-abad-12d241539f52)
+Starting book creation for book 13: 'Train3'
+Stage 1: Generating story...
+Warning: Ollama not available, using fallback story generation
+Story generated with 1 pages
+Stage 2: Generating images...
+Generating image for page 1...
+🔍 Debug ComfyUI workflow for page 1:
+   Theme: adventure
+   Workflow path: /app/workflows/childbook_adventure_v2.json
+   Path exists: True
+   Loading workflow from: /app/workflows/childbook_adventure_v2.json
+   Workflow loaded successfully with 29 nodes
+Using 3 reference image(s) for character consistency
+Starting ComfyUI processing for page 1...
+Using enhanced prompt: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Processing 3 image(s) with ComfyUI
+Uploading image 1/3: /data/media/book_inputs/0_character_0.png
+Uploading image 2/3: /data/media/book_inputs/1_character_1.png
+Uploading image 3/3: /data/media/book_inputs/2_character_2.png
+Updating prompt from: Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery
+Updated prompt to: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Waiting for ComfyUI completion (prompt_id: b2f5f303-6867-4c66-b9da-df28d486fd7a)
+✅ ComfyUI processing completed for b2f5f303-6867-4c66-b9da-df28d486fd7a
+ComfyUI result for page 1: {'status': 'failed', 'error': 'No SaveImage or non-temp output images found in workflow result'}
+ComfyUI failed for page 1: ComfyUI processing failed: No SaveImage or non-temp output images found in workflow result
+Stage 3: Creating PDF...
+Stage 4: Finalizing...
+✅ Book creation completed successfully for 'Train3'
+PDF saved to: /data/media/books/book_13_Train3.pdf
+05:07:55 Successfully completed app.worker.book_processor.create_childbook(13) job in 0:00:02.558665s on worker 2234a4d6e847436593301cd29e9b4908
+05:07:55 books: Job OK (dcd0e6f5-cd6a-4c87-abad-12d241539f52)
+05:07:55 Result is kept for 500 seconds
+05:07:55 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+05:07:55 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+05:22:40 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+05:22:40 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+05:37:25 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+05:37:25 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+05:52:10 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+05:52:10 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+06:06:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+06:06:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+06:21:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+06:21:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+06:36:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+06:36:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+06:51:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+06:51:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+07:05:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+07:05:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+07:20:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+07:20:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+07:35:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+07:35:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+07:50:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+07:50:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+08:04:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+08:04:56 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+08:19:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+08:19:41 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+08:34:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+08:34:26 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+08:49:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+08:49:11 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+09:03:57 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+09:03:57 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+09:18:42 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+09:18:42 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+09:21:13 books: app.worker.book_processor.create_childbook(13) (e4f6dcf2-7858-4519-b331-61b1ed0b15a1)
+Starting book creation for book 13: 'Train3'
+Stage 1: Generating story...
+Warning: Ollama not available, using fallback story generation
+Story generated with 1 pages
+Stage 2: Generating images...
+Generating image for page 1...
+🔍 Debug ComfyUI workflow for page 1:
+   Theme: adventure
+   Workflow path: /app/workflows/childbook_adventure_v2.json
+   Path exists: True
+   Loading workflow from: /app/workflows/childbook_adventure_v2.json
+   Workflow loaded successfully with 30 nodes
+Using 3 reference image(s) for character consistency
+Starting ComfyUI processing for page 1...
+Using enhanced prompt: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Processing 3 image(s) with ComfyUI
+Uploading image 1/3: /data/media/book_inputs/0_character_0.png
+Uploading image 2/3: /data/media/book_inputs/1_character_1.png
+Uploading image 3/3: /data/media/book_inputs/2_character_2.png
+Updating prompt from: Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery
+Updated prompt to: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute boy playing in the forest, Page 1 of children's book, professional children's book art, published quality, digital painting
+Waiting for ComfyUI completion (prompt_id: a775d1bc-5fcd-4dac-9ce8-211a13a029d9)
+✅ ComfyUI processing completed for a775d1bc-5fcd-4dac-9ce8-211a13a029d9
+Found SaveImage output from node 25: childbook_adventure_00001_.png
+ComfyUI result for page 1: {'status': 'success', 'output_path': '/data/media/outputs/result_1759829092_childbook_adventure_00001_.png', 'prompt_id': 'a775d1bc-5fcd-4dac-9ce8-211a13a029d9'}
+✅ Image generated for page 1
+Stage 3: Creating PDF...
+Stage 4: Finalizing...
+✅ Book creation completed successfully for 'Train3'
+PDF saved to: /data/media/books/book_13_Train3.pdf
+09:24:52 Successfully completed app.worker.book_processor.create_childbook(13) job in 0:03:38.960390s on worker 2234a4d6e847436593301cd29e9b4908
+09:24:52 books: Job OK (e4f6dcf2-7858-4519-b331-61b1ed0b15a1)
+09:24:52 Result is kept for 500 seconds
+09:39:38 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+09:39:38 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+09:54:23 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+09:54:23 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+10:09:08 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+10:09:08 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+10:23:53 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+10:23:53 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+10:38:38 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+10:38:38 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+10:53:23 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+10:53:23 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+11:08:08 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+11:08:08 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+11:22:53 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+11:22:53 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+11:43:16 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+11:43:16 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+11:58:01 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+11:58:01 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+12:12:46 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+12:12:47 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+12:27:32 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+12:27:32 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+12:42:17 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+12:42:17 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+12:57:02 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: jobs
+12:57:02 Worker 2234a4d6e847436593301cd29e9b4908: cleaning registries for queue: books
+13:01:16 Worker 2234a4d6e847436593301cd29e9b4908 [PID 1]: warm shut down requested
+13:01:16 Worker 2234a4d6e847436593301cd29e9b4908: unsubscribing from channel rq:pubsub:2234a4d6e847436593301cd29e9b4908
+13:01:17 Worker 31fb8872b87045cca012ee3a572ef7e7: started with PID 1, version 2.5.0
+13:01:17 Worker 31fb8872b87045cca012ee3a572ef7e7: subscribing to channel rq:pubsub:31fb8872b87045cca012ee3a572ef7e7
+13:01:17 *** Listening on jobs, books...
+13:01:17 Worker 31fb8872b87045cca012ee3a572ef7e7: cleaning registries for queue: jobs
+13:01:17 Worker 31fb8872b87045cca012ee3a572ef7e7: cleaning registries for queue: books
+13:01:23 Worker 31fb8872b87045cca012ee3a572ef7e7 [PID 1]: warm shut down requested
+13:01:23 Worker 31fb8872b87045cca012ee3a572ef7e7: unsubscribing from channel rq:pubsub:31fb8872b87045cca012ee3a572ef7e7
+13:01:24 Worker 14526ac3bc5d41389c46604b0ca0a59d: started with PID 1, version 2.5.0
+13:01:24 Worker 14526ac3bc5d41389c46604b0ca0a59d: subscribing to channel rq:pubsub:14526ac3bc5d41389c46604b0ca0a59d
+13:01:24 *** Listening on jobs, books...
+13:01:24 Worker 14526ac3bc5d41389c46604b0ca0a59d: cleaning registries for queue: jobs
+13:01:24 Worker 14526ac3bc5d41389c46604b0ca0a59d: cleaning registries for queue: books
+13:08:52 books: app.worker.book_processor.create_childbook(14) (1b96abee-8d0f-4265-957b-39b74a35cc14)
+Starting book creation for book 14: 'NewBook'
+Stage 1: Generating story...
+Warning: Ollama not available, using fallback story generation
+Story generated with 1 pages
+Stage 2: Generating images...
+Generating image for page 1...
+🔍 Debug ComfyUI workflow for page 1:
+   Theme: adventure
+   Workflow path: /app/workflows/childbook_adventure_v2.json
+   Path exists: True
+   Loading workflow from: /app/workflows/childbook_adventure_v2.json
+   Workflow loaded successfully with 30 nodes
+Using 3 reference image(s) for character consistency
+Starting ComfyUI processing for page 1...
+Using enhanced prompt: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute, Page 1 of children's book, professional children's book art, published quality, digital painting
+Processing 3 image(s) with ComfyUI
+Uploading image 1/3: /data/media/book_inputs/0_character_0.png
+Uploading image 2/3: /data/media/book_inputs/1_character_1.png
+Uploading image 3/3: /data/media/book_inputs/2_character_2.png
+[ComfyUI] Resolved LoadImage inputs: {'13': '0_character_0.png', '94': '1_character_1.png', '98': '2_character_2.png'}
+Updating prompt from: Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery
+Updated prompt to: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, Cute, Page 1 of children's book, professional children's book art, published quality, digital painting
+Waiting for ComfyUI completion (prompt_id: dc2f0137-e596-4690-a9d5-2d19c03d59e1)
+✅ ComfyUI processing completed for dc2f0137-e596-4690-a9d5-2d19c03d59e1
+Found SaveImage output from node 25: childbook_adventure_00001_.png
+ComfyUI result for page 1: {'status': 'success', 'output_path': '/data/media/outputs/result_1759842692_childbook_adventure_00001_.png', 'prompt_id': 'dc2f0137-e596-4690-a9d5-2d19c03d59e1'}
+✅ Image generated for page 1
+Stage 3: Creating PDF...
+Stage 4: Finalizing...
+✅ Book creation completed successfully for 'NewBook'
+PDF saved to: /data/media/books/book_14_NewBook.pdf
+13:11:32 Successfully completed app.worker.book_processor.create_childbook(14) job in 0:02:40.133794s on worker 14526ac3bc5d41389c46604b0ca0a59d
+13:11:32 books: Job OK (1b96abee-8d0f-4265-957b-39b74a35cc14)
+13:11:32 Result is kept for 500 seconds
+13:11:32 Worker 14526ac3bc5d41389c46604b0ca0a59d: cleaning registries for queue: jobs
+13:11:32 Worker 14526ac3bc5d41389c46604b0ca0a59d: cleaning registries for queue: books
+13:14:23 Worker 14526ac3bc5d41389c46604b0ca0a59d [PID 1]: warm shut down requested
+13:14:23 Worker 14526ac3bc5d41389c46604b0ca0a59d: unsubscribing from channel rq:pubsub:14526ac3bc5d41389c46604b0ca0a59d
+13:14:24 Worker f787cc0d9cc84e0f857c51bb69e4a6ed: started with PID 1, version 2.5.0
+13:14:24 Worker f787cc0d9cc84e0f857c51bb69e4a6ed: subscribing to channel rq:pubsub:f787cc0d9cc84e0f857c51bb69e4a6ed
+13:14:24 *** Listening on jobs, books...
+13:14:24 Worker f787cc0d9cc84e0f857c51bb69e4a6ed: cleaning registries for queue: jobs
+13:14:24 Worker f787cc0d9cc84e0f857c51bb69e4a6ed: cleaning registries for queue: books
+13:14:45 Worker f787cc0d9cc84e0f857c51bb69e4a6ed [PID 1]: warm shut down requested
+13:14:45 Worker f787cc0d9cc84e0f857c51bb69e4a6ed: unsubscribing from channel rq:pubsub:f787cc0d9cc84e0f857c51bb69e4a6ed
+13:14:46 Worker 101c0fa101a54fcc8f348ad1dd7a7630: started with PID 1, version 2.5.0
+13:14:46 Worker 101c0fa101a54fcc8f348ad1dd7a7630: subscribing to channel rq:pubsub:101c0fa101a54fcc8f348ad1dd7a7630
+13:14:46 *** Listening on jobs, books...
+13:14:46 Worker 101c0fa101a54fcc8f348ad1dd7a7630: cleaning registries for queue: jobs
+13:14:46 Worker 101c0fa101a54fcc8f348ad1dd7a7630: cleaning registries for queue: books
+13:27:18 books: app.worker.book_processor.create_childbook(16) (208b6320-10f5-4ed4-932c-97d3b0bc1aa8)
+Starting book creation for book 16: 'test1'
+Stage 1: Generating story...
+Warning: Ollama not available, using fallback story generation
+Story generated with 1 pages
+Stage 2: Generating images...
+Generating image for page 1...
+🔍 Debug ComfyUI workflow for page 1:
+   Theme: adventure
+   Workflow path: /app/workflows/childbook_adventure_v2.json
+   Path exists: True
+   Loading workflow from: /app/workflows/childbook_adventure_v2.json
+   Workflow loaded successfully with 30 nodes
+Using 3 reference image(s) for character consistency
+Starting ComfyUI processing for page 1...
+Using enhanced prompt: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, A child wearing a spacesuit floating, with nine planets as background, Page 1 of children's book, professional children's book art, published quality, digital painting
+Processing 3 image(s) with ComfyUI
+Uploading image 1/3: /data/media/book_inputs/0_character_0.png
+[ComfyUI] Upload response: {'name': '0_character_0.png', 'subfolder': '', 'type': 'input'}
+[ComfyUI] Uploaded image stored as: 0_character_0.png
+Uploading image 2/3: /data/media/book_inputs/1_character_1.png
+[ComfyUI] Upload response: {'name': '1_character_1.png', 'subfolder': '', 'type': 'input'}
+[ComfyUI] Uploaded image stored as: 1_character_1.png
+Uploading image 3/3: /data/media/book_inputs/2_character_2.png
+[ComfyUI] Upload response: {'name': '2_character_2.png', 'subfolder': '', 'type': 'input'}
+[ComfyUI] Uploaded image stored as: 2_character_2.png
+[ComfyUI] Resolved LoadImage inputs: {'13': '0_character_0.png', '94': '1_character_1.png', '98': '2_character_2.png'}
+Updating prompt from: Genrih Valk illustration, children's book illustration, watercolor style, soft pastel colors, whimsical art, storybook character, friendly cartoon style, hand-drawn illustration, warm lighting, child-friendly art style, epic adventure, heroic journey, quest scene, brave explorer, colorful landscapes, exciting discovery
+Updated prompt to: children's book illustration, colorful, friendly, safe, wholesome, simple shapes, bright primary colors, large friendly characters, cartoonish style, exciting landscapes, journey elements, exploration, discovery, A friendly character in a magical setting, A child wearing a spacesuit floating, with nine planets as background, Page 1 of children's book, professional children's book art, published quality, digital painting
+Waiting for ComfyUI completion (prompt_id: a5d967a8-979c-44f3-9c91-d68fcbfb46ef)
+✅ ComfyUI processing completed for a5d967a8-979c-44f3-9c91-d68fcbfb46ef
+Found SaveImage output from node 25: childbook_adventure_00001_.png
+ComfyUI result for page 1: {'status': 'success', 'output_path': '/data/media/outputs/result_1759843821_childbook_adventure_00001_.png', 'prompt_id': 'a5d967a8-979c-44f3-9c91-d68fcbfb46ef'}
+✅ Image generated for page 1
+Stage 3: Creating PDF...
+Stage 4: Finalizing...
+✅ Book creation completed successfully for 'test1'
+PDF saved to: /data/media/books/book_16_test1.pdf
+13:30:21 Successfully completed app.worker.book_processor.create_childbook(16) job in 0:03:03.688118s on worker 101c0fa101a54fcc8f348ad1dd7a7630
+13:30:21 books: Job OK (208b6320-10f5-4ed4-932c-97d3b0bc1aa8)
+13:30:21 Result is kept for 500 seconds
+13:30:21 Worker 101c0fa101a54fcc8f348ad1dd7a7630: cleaning registries for queue: jobs
+13:30:21 Worker 101c0fa101a54fcc8f348ad1dd7a7630: cleaning registries for queue: books
+13:33:58 Worker 101c0fa101a54fcc8f348ad1dd7a7630 [PID 1]: warm shut down requested
+13:33:58 Worker 101c0fa101a54fcc8f348ad1dd7a7630: unsubscribing from channel rq:pubsub:101c0fa101a54fcc8f348ad1dd7a7630
+13:33:58 Worker 5d559abed6d0419c97e92a7d6e7e3c32: started with PID 1, version 2.5.0
+13:33:58 Worker 5d559abed6d0419c97e92a7d6e7e3c32: subscribing to channel rq:pubsub:5d559abed6d0419c97e92a7d6e7e3c32
+13:33:58 *** Listening on jobs, books...
+13:33:58 Worker 5d559abed6d0419c97e92a7d6e7e3c32: cleaning registries for queue: jobs
+13:33:58 Worker 5d559abed6d0419c97e92a7d6e7e3c32: cleaning registries for queue: books
+13:35:53 books: app.worker.book_processor.create_childbook(17) (ed764d4b-0e03-411c-8ffb-6861e2286b4d)

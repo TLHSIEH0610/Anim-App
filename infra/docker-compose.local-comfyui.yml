@@ -12,7 +12,6 @@ services:
     volumes:
       - ../backend:/app:delegated
       - media:/data/media
-      - ../workflows:/app/workflows
     ports:
       - "8000:8000"
     depends_on:
@@ -34,7 +33,6 @@ services:
     volumes:
       - ../backend:/app:delegated
       - media:/data/media
-      - ../workflows:/app/workflows
     depends_on:
       - redis
       - db
@@ -64,6 +62,21 @@ services:
       - redisdata:/data
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+  admin-portal:
+    build:
+      context: ../admin-portal
+      dockerfile: Dockerfile
+    container_name: animapp-admin
+    env_file:
+      - .env
+    volumes:
+      - ../admin-portal:/app:delegated
+    ports:
+      - "8090:8080"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:

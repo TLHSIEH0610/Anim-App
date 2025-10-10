@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Edit Workflow</h2>
+
+<p><strong>Slug:</strong> {{ workflow.slug }}</p>
+<p><strong>Current Version:</strong> {{ workflow.version }}</p>
+
+<form method="post" action="/workflows/{{ workflow.id }}">
+  <input type="hidden" name="slug" value="{{ workflow.slug }}">
+  <label for="name">Name</label>
+  <input id="name" name="name" value="{{ workflow.name }}" required>
+
+  <label for="type">Type</label>
+  <input id="type" name="type" value="{{ workflow.type }}" required>
+
+  <label for="version">Version</label>
+  <input id="version" name="version" type="number" value="{{ workflow.version }}" min="1" required>
+
+  <label for="is_active">Active</label>
+  <select id="is_active" name="is_active">
+    <option value="true" {% if workflow.is_active %}selected{% endif %}>True</option>
+    <option value="false" {% if not workflow.is_active %}selected{% endif %}>False</option>
+  </select>
+
+  <label for="content">Workflow JSON</label>
+  <textarea id="content" name="content" style="min-height:320px;">{{ workflow.content | tojson(indent=2) }}</textarea>
+
+  <button type="submit" class="button button-primary">Save</button>
+</form>
+
+<a href="/workflows" style="margin-top: 2rem; display: inline-block;">Back to workflows</a>
+{% endblock %}

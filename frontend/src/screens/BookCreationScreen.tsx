@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,29 +10,42 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
-import { Picker } from '@react-native-picker/picker';
+import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
-import { createBook } from "../api/books";
+import { createBook, BookCreationData } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 
-interface BookForm {
-  title: string;
-  theme: string;
-  targetAge: string;
-  pageCount: number;
-  characterDescription: string;
-  positivePrompt: string;
-  negativePrompt: string;
-  images: string[];  // Changed from single image to array (1-4 images)
-}
-
-const THEMES = [
-  { value: "adventure", label: "🗺️ Adventure" },
-  { value: "friendship", label: "👫 Friendship" }, 
-  { value: "learning", label: "📚 Learning" },
-  { value: "bedtime", label: "🌙 Bedtime" },
-  { value: "fantasy", label: "✨ Fantasy" },
-  { value: "family", label: "👨‍👩‍👧‍👦 Family" },
+const STORY_TEMPLATES = [
+  {
+    key: "space_explorer",
+    label: "🚀 Space Explorer",
+    description: "Cosmic adventure with friendly planets and zero-gravity playtime.",
+    defaultAge: "6-8",
+  },
+  {
+    key: "forest_friends",
+    label: "🌲 Forest Friends",
+    description: "Gentle woodland kindness with cuddly animal companions.",
+    defaultAge: "3-5",
+  },
+  {
+    key: "magic_school",
+    label: "✨ Magic School Day",
+    description: "A whimsical day at a floating academy full of sparkly lessons.",
+    defaultAge: "6-8",
+  },
+  {
+    key: "pirate_adventure",
+    label: "🏴‍☠️ Pirate Treasure",
+    description: "Brave voyages, clever riddles, and sharing treasure with new friends.",
+    defaultAge: "6-8",
+  },
+  {
+    key: "bedtime_lullaby",
+    label: "🌙 Bedtime Lullaby",
+    description: "A dreamy glide toward sleep with moonlight and lullabies.",
+    defaultAge: "3-5",
+  },
 ];
 
 const AGE_GROUPS = [
@@ -41,66 +54,103 @@ const AGE_GROUPS = [
   { value: "9-12", label: "9-12 years (Elementary)" },
 ];
 
-const PAGE_COUNTS = [1, 4, 6, 8, 10, 12, 16];
+const PAGE_COUNTS = [1, 4, 8];
+
+const GENDER_OPTIONS: Array<{ value: "neutral" | "male" | "female"; label: string }> = [
+  { value: "neutral", label: "Gender neutral" },
+  { value: "female", label: "Girl" },
+  { value: "male", label: "Boy" },
+];
+
+interface TemplateInput {
+  name: string;
+  gender: "neutral" | "male" | "female";
+}
+
+interface BookForm {
+  title: string;
+  targetAge: string;
+  pageCount: number;
+  images: string[];
+  templateKey: string;
+  templateInput: TemplateInput;
+}
+
+const steps = ["Upload Images", "Story Setup", "Review"];
 
 export default function BookCreationScreen({ navigation }) {
   const { token } = useAuth();
   const [form, setForm] = useState<BookForm>({
     title: "",
-    theme: "adventure",
-    targetAge: "6-8",
-    pageCount: 8,
-    characterDescription: "",
-    positivePrompt: "",
-    negativePrompt: "",
-    images: [],  // Changed from single image to array
+    targetAge: STORY_TEMPLATES[0].defaultAge,
+    pageCount: 4,
+    images: [],
+    templateKey: STORY_TEMPLATES[0].key,
+    templateInput: {
+      name: "",
+      gender: "neutral",
+    },
   });
-  
+
   const [isCreating, setIsCreating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
-  const steps = [
-    "Upload Image",
-    "Book Details", 
-    "Story Elements",
-    "Review & Create"
-  ];
+  const selectedTemplate = useMemo(
+    () => STORY_TEMPLATES.find((tpl) => tpl.key === form.templateKey) || STORY_TEMPLATES[0],
+    [form.templateKey]
+  );
 
-  const updateForm = (field: keyof BookForm, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      targetAge: selectedTemplate.defaultAge,
+    }));
+  }, [selectedTemplate.defaultAge]);
+
+  const updateForm = <K extends keyof BookForm>(field: K, value: BookForm[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateTemplateInput = (field: keyof TemplateInput, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      templateInput: {
+        ...prev.templateInput,
+        [field]: value,
+      },
+    }));
   };
 
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,  // Disable editing for multiple selection
-        quality: 0.8,
+        allowsEditing: false,
+        quality: 0.9,
         allowsMultipleSelection: true,
-        selectionLimit: 4,  // Max 4 images
+        selectionLimit: 4,
       });
 
       if (!result.canceled) {
         const selectedAssets = result.assets;
-
-        // Validate total number
         if (selectedAssets.length > 4) {
           Alert.alert("Too Many Images", "You can select up to 4 images maximum");
           return;
         }
 
-        // Validate file sizes (10MB limit per file)
         for (const asset of selectedAssets) {
           if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-            Alert.alert("File Too Large", `${asset.fileName || 'An image'} is larger than 10MB. Please select smaller images.`);
+            Alert.alert(
+              "File Too Large",
+              `${asset.fileName || "An image"} is larger than 10MB. Please select smaller images.`
+            );
             return;
           }
         }
 
-        const imageUris = selectedAssets.map(asset => asset.uri);
-        updateForm('images', imageUris);
+        const imageUris = selectedAssets.map((asset) => asset.uri);
+        updateForm("images", imageUris);
 
-        // Auto-advance to next step
         if (currentStep === 0) {
           setCurrentStep(1);
         }
@@ -112,11 +162,11 @@ export default function BookCreationScreen({ navigation }) {
 
   const removeImage = (index: number) => {
     const newImages = form.images.filter((_, i) => i !== index);
-    updateForm('images', newImages);
+    updateForm("images", newImages);
   };
 
   const createChildBook = async () => {
-    if (!form.images || form.images.length === 0) {
+    if (!form.images.length) {
       Alert.alert("Missing Images", "Please select at least 1 image");
       return;
     }
@@ -126,100 +176,78 @@ export default function BookCreationScreen({ navigation }) {
       return;
     }
 
-    if (!form.characterDescription.trim()) {
-      Alert.alert("Missing Character", "Please describe the main character");
-      return;
-    }
+    const payload: BookCreationData = {
+      files: form.images,
+      title: form.title.trim(),
+      page_count: form.pageCount,
+      story_source: "template",
+      template_key: form.templateKey,
+      target_age: form.targetAge,
+      template_params: {
+        name: form.templateInput.name.trim() || undefined,
+        gender: form.templateInput.gender,
+      },
+    };
 
     setIsCreating(true);
 
     try {
-      const response = await createBook(token, {
-        files: form.images,  // Changed to send multiple files
-        title: form.title.trim(),
-        theme: form.theme,
-        target_age: form.targetAge,
-        page_count: form.pageCount,
-        character_description: form.characterDescription.trim(),
-        positive_prompt: form.positivePrompt.trim(),
-        negative_prompt: form.negativePrompt.trim(),
-      });
-
+      const response = await createBook(token, payload);
       Alert.alert(
         "Book Creation Started! 📚",
         `Your book "${form.title}" is being created. This may take several minutes.`,
         [
           {
-            text: "View Progress", 
-            onPress: () => navigation.navigate('BookStatus', { bookId: response.id })
-          }
+            text: "View Progress",
+            onPress: () => navigation.navigate("BookStatus", { bookId: response.id }),
+          },
         ]
       );
-      
     } catch (error: any) {
       console.error("Book creation error:", error);
-      
       let errorMessage = "Failed to create book. Please try again.";
       if (error.response?.status === 402) {
         errorMessage = "Insufficient credits. You need 3 credits to create a book after your first free book.";
       } else if (error.response?.status === 400) {
         errorMessage = error.response.data?.detail || "Invalid input. Please check your form.";
       }
-      
       Alert.alert("Creation Failed", errorMessage);
     } finally {
       setIsCreating(false);
     }
   };
 
-  const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
-      {steps.map((step, index) => (
-        <View key={index} style={styles.stepContainer}>
-          <View style={[
-            styles.stepCircle,
-            index <= currentStep && styles.stepCircleActive,
-            index < currentStep && styles.stepCircleCompleted
-          ]}>
-            <Text style={[
-              styles.stepNumber,
-              index <= currentStep && styles.stepNumberActive
-            ]}>
-              {index < currentStep ? "✓" : index + 1}
-            </Text>
-          </View>
-          <Text style={[
-            styles.stepLabel,
-            index <= currentStep && styles.stepLabelActive
-          ]}>
-            {step}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
+  const canProceedToNext = () => {
+    switch (currentStep) {
+      case 0:
+        return form.images.length > 0;
+      case 1:
+        return !!form.title.trim();
+      case 2:
+        return true;
+      default:
+        return false;
+    }
+  };
 
   const renderStep0 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>📷 Upload Character Images</Text>
       <Text style={styles.stepDescription}>
-        Select 1-4 images of your character for better consistency throughout the book
+        Select 1-4 images of your character for better consistency throughout the book.
       </Text>
 
       <View style={styles.imageCountBadge}>
         <Text style={styles.imageCountText}>{form.images.length}/4 images selected</Text>
       </View>
 
-      {form.images.length > 0 ? (
+      {form.images.length ? (
         <View>
           <View style={styles.imageGallery}>
             {form.images.map((uri, index) => (
               <View key={index} style={styles.imageWrapper}>
                 <Image source={{ uri }} style={styles.galleryImage} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => removeImage(index)}
-                >
+                <TouchableOpacity style={styles.removeImageButton} onPress={() => removeImage(index)}>
                   <Text style={styles.removeImageText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -245,29 +273,57 @@ export default function BookCreationScreen({ navigation }) {
 
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>📖 Book Details</Text>
-      
+      <Text style={styles.stepTitle}>📖 Story Setup</Text>
+
       <View style={styles.formGroup}>
         <Text style={styles.label}>Book Title *</Text>
         <TextInput
           style={styles.textInput}
           placeholder="Enter your book title..."
           value={form.title}
-          onChangeText={(text) => updateForm('title', text)}
+          onChangeText={(text) => updateForm("title", text)}
           maxLength={100}
         />
       </View>
 
+      <Text style={styles.templateIntro}>Select a ready-made story to customize quickly.</Text>
+      <View style={styles.templateList}>
+        {STORY_TEMPLATES.map((template) => (
+          <TouchableOpacity
+            key={template.key}
+            style={[
+              styles.templateCard,
+              form.templateKey === template.key && styles.templateCardActive,
+            ]}
+            onPress={() => updateForm("templateKey", template.key)}
+          >
+            <Text style={styles.templateTitle}>{template.label}</Text>
+            <Text style={styles.templateDescription}>{template.description}</Text>
+            <Text style={styles.templateMeta}>Suggested Age: {template.defaultAge}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Story Theme</Text>
+        <Text style={styles.label}>Lead Character Name (optional)</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Name to personalize the story"
+          value={form.templateInput.name}
+          onChangeText={(text) => updateTemplateInput("name", text)}
+        />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Character Pronouns</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={form.theme}
-            onValueChange={(value) => updateForm('theme', value)}
+            selectedValue={form.templateInput.gender}
+            onValueChange={(value) => updateTemplateInput("gender", value)}
             style={styles.picker}
           >
-            {THEMES.map((theme) => (
-              <Picker.Item key={theme.value} label={theme.label} value={theme.value} />
+            {GENDER_OPTIONS.map((option) => (
+              <Picker.Item key={option.value} label={option.label} value={option.value} />
             ))}
           </Picker>
         </View>
@@ -278,7 +334,7 @@ export default function BookCreationScreen({ navigation }) {
         <View style={styles.pickerContainer}>
           <Picker
             selectedValue={form.targetAge}
-            onValueChange={(value) => updateForm('targetAge', value)}
+            onValueChange={(value) => updateForm("targetAge", value)}
             style={styles.picker}
           >
             {AGE_GROUPS.map((age) => (
@@ -296,14 +352,16 @@ export default function BookCreationScreen({ navigation }) {
               key={count}
               style={[
                 styles.pageCountButton,
-                form.pageCount === count && styles.pageCountButtonActive
+                form.pageCount === count && styles.pageCountButtonActive,
               ]}
-              onPress={() => updateForm('pageCount', count)}
+              onPress={() => updateForm("pageCount", count)}
             >
-              <Text style={[
-                styles.pageCountText,
-                form.pageCount === count && styles.pageCountTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.pageCountText,
+                  form.pageCount === count && styles.pageCountTextActive,
+                ]}
+              >
                 {count}
               </Text>
             </TouchableOpacity>
@@ -314,54 +372,6 @@ export default function BookCreationScreen({ navigation }) {
   );
 
   const renderStep2 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>✨ Story Elements</Text>
-      
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Character Description *</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Describe the main character from your image (personality, appearance, etc.)..."
-          value={form.characterDescription}
-          onChangeText={(text) => updateForm('characterDescription', text)}
-          multiline
-          numberOfLines={3}
-          maxLength={200}
-        />
-        <Text style={styles.charCount}>{form.characterDescription.length}/200</Text>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Story Elements (Optional)</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="What elements would you like in your story? (magical forest, friendly animals, rainbow, etc.)"
-          value={form.positivePrompt}
-          onChangeText={(text) => updateForm('positivePrompt', text)}
-          multiline
-          numberOfLines={2}
-          maxLength={150}
-        />
-        <Text style={styles.charCount}>{form.positivePrompt.length}/150</Text>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Things to Avoid (Optional)</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="What should NOT be in your story? (scary animals, dark places, etc.)"
-          value={form.negativePrompt}
-          onChangeText={(text) => updateForm('negativePrompt', text)}
-          multiline
-          numberOfLines={2}
-          maxLength={150}
-        />
-        <Text style={styles.charCount}>{form.negativePrompt.length}/150</Text>
-      </View>
-    </View>
-  );
-
-  const renderStep3 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>📋 Review & Create</Text>
 
@@ -375,11 +385,13 @@ export default function BookCreationScreen({ navigation }) {
 
       <View style={styles.reviewDetails}>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
-        <Text style={styles.reviewDetail}>Theme: {THEMES.find(t => t.value === form.theme)?.label}</Text>
+        <Text style={styles.reviewDetail}>Template: {selectedTemplate.label}</Text>
         <Text style={styles.reviewDetail}>Age: {form.targetAge} years</Text>
         <Text style={styles.reviewDetail}>Pages: {form.pageCount}</Text>
         <Text style={styles.reviewDetail}>Images: {form.images.length} reference image(s)</Text>
-        <Text style={styles.reviewDetail}>Character: {form.characterDescription.substring(0, 50)}...</Text>
+        {form.templateInput.name.trim() ? (
+          <Text style={styles.reviewDetail}>Lead Character: {form.templateInput.name.trim()}</Text>
+        ) : null}
       </View>
 
       <View style={styles.costInfo}>
@@ -389,7 +401,7 @@ export default function BookCreationScreen({ navigation }) {
         <Text style={styles.costDetail}>• Creation time: 5-15 minutes</Text>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.createButton, isCreating && styles.createButtonDisabled]}
         onPress={createChildBook}
         disabled={isCreating}
@@ -405,21 +417,14 @@ export default function BookCreationScreen({ navigation }) {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: return renderStep0();
-      case 1: return renderStep1();
-      case 2: return renderStep2();
-      case 3: return renderStep3();
-      default: return renderStep0();
-    }
-  };
-
-  const canProceedToNext = () => {
-    switch (currentStep) {
-      case 0: return form.images.length > 0;  // At least 1 image required
-      case 1: return !!form.title.trim();
-      case 2: return !!form.characterDescription.trim();
-      case 3: return true;
-      default: return false;
+      case 0:
+        return renderStep0();
+      case 1:
+        return renderStep1();
+      case 2:
+        return renderStep2();
+      default:
+        return renderStep0();
     }
   };
 
@@ -427,34 +432,61 @@ export default function BookCreationScreen({ navigation }) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Create Children's Book</Text>
-        <Text style={styles.subtitle}>Turn your photo into a magical story!</Text>
+        <Text style={styles.subtitle}>Pick a story template and bring it to life with your photos.</Text>
       </View>
 
-      {renderStepIndicator()}
+      <View style={styles.stepIndicator}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepContainer}>
+            <View
+              style={[
+                styles.stepCircle,
+                index <= currentStep && styles.stepCircleActive,
+                index < currentStep && styles.stepCircleCompleted,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.stepNumber,
+                  index <= currentStep && styles.stepNumberActive,
+                ]}
+              >
+                {index < currentStep ? "✓" : index + 1}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.stepLabel,
+                index <= currentStep && styles.stepLabelActive,
+              ]}
+            >
+              {step}
+            </Text>
+          </View>
+        ))}
+      </View>
+
       {renderStepContent()}
 
-      {currentStep < 3 && (
+      {currentStep < steps.length - 1 && (
         <View style={styles.navigation}>
           {currentStep > 0 && (
-            <TouchableOpacity 
-              style={styles.navButton} 
-              onPress={() => setCurrentStep(currentStep - 1)}
-            >
+            <TouchableOpacity style={styles.navButton} onPress={() => setCurrentStep(currentStep - 1)}>
               <Text style={styles.navButtonText}>← Back</Text>
             </TouchableOpacity>
           )}
-          
-          {currentStep < 3 && (
-            <TouchableOpacity 
-              style={[styles.navButton, styles.navButtonPrimary, !canProceedToNext() && styles.navButtonDisabled]}
-              onPress={() => setCurrentStep(currentStep + 1)}
-              disabled={!canProceedToNext()}
-            >
-              <Text style={[styles.navButtonText, styles.navButtonTextPrimary]}>
-                Next →
-              </Text>
-            </TouchableOpacity>
-          )}
+
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              styles.navButtonPrimary,
+              !canProceedToNext() && styles.navButtonDisabled,
+            ]}
+            onPress={() => setCurrentStep(currentStep + 1)}
+            disabled={!canProceedToNext()}
+          >
+            <Text style={[styles.navButtonText, styles.navButtonTextPrimary]}>Next →</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -464,343 +496,331 @@ export default function BookCreationScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9ff',
+    backgroundColor: "#f8f9ff",
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e7ff',
+    borderBottomColor: "#e0e7ff",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1e40af',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#1e40af",
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: "#6b7280",
+    textAlign: "center",
     marginTop: 5,
   },
   stepIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     marginBottom: 10,
   },
   stepContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   stepCircle: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#e5e7eb',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#e5e7eb",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 5,
   },
   stepCircleActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
   },
   stepCircleCompleted: {
-    backgroundColor: '#10b981',
+    backgroundColor: "#10b981",
   },
   stepNumber: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#9ca3af',
+    fontWeight: "bold",
+    color: "#9ca3af",
   },
   stepNumberActive: {
-    color: 'white',
+    color: "white",
   },
   stepLabel: {
-    fontSize: 10,
-    textAlign: 'center',
-    color: '#9ca3af',
+    fontSize: 12,
+    color: "#9ca3af",
+    textAlign: "center",
   },
   stepLabelActive: {
-    color: '#1f2937',
-    fontWeight: '600',
+    color: "#1e3a8a",
   },
   stepContent: {
     padding: 20,
-    backgroundColor: 'white',
-    margin: 10,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   stepTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 10,
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 16,
   },
   stepDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 20,
+    fontSize: 15,
+    color: "#4b5563",
+    marginBottom: 18,
+    lineHeight: 22,
+  },
+  imageCountBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#e0f2fe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  imageCountText: {
+    color: "#0369a1",
+    fontWeight: "600",
   },
   uploadButton: {
-    backgroundColor: '#3b82f6',
-    padding: 20,
+    backgroundColor: "#3b82f6",
+    paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 20,
+    alignItems: "center",
   },
   uploadButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  imageContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  selectedImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  changeImageButton: {
-    backgroundColor: '#6b7280',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  changeImageText: {
-    color: 'white',
+  helpText: {
+    marginTop: 12,
+    color: "#6b7280",
     fontSize: 14,
+    lineHeight: 20,
+  },
+  imageGallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 12,
+  },
+  imageWrapper: {
+    position: "relative",
+  },
+  galleryImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeImageText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  addMoreButton: {
+    backgroundColor: "#e0e7ff",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  addMoreText: {
+    color: "#4338ca",
+    fontWeight: "600",
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 6,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: 'white',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: 'white',
-    minHeight: 80,
-    textAlignVertical: 'top',
+    backgroundColor: "white",
+    fontSize: 15,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    backgroundColor: 'white',
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "white",
   },
   picker: {
-    height: 50,
+    height: 44,
   },
   pageCountContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   pageCountButton: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: 'white',
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
   },
   pageCountButtonActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: "#dbeafe",
+    borderColor: "#2563eb",
   },
   pageCountText: {
-    fontSize: 14,
-    color: '#6b7280',
+    color: "#4b5563",
+    fontWeight: "600",
   },
   pageCountTextActive: {
-    color: 'white',
-    fontWeight: '600',
+    color: "#1d4ed8",
   },
-  charCount: {
+  templateIntro: {
+    fontSize: 14,
+    color: "#4b5563",
+    marginBottom: 12,
+  },
+  templateList: {
+    marginBottom: 4,
+  },
+  templateCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    backgroundColor: "#f8fafc",
+    marginBottom: 12,
+  },
+  templateCardActive: {
+    borderColor: "#2563eb",
+    backgroundColor: "#eff6ff",
+  },
+  templateTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 6,
+  },
+  templateDescription: {
+    fontSize: 14,
+    color: "#4b5563",
+    marginBottom: 6,
+    lineHeight: 21,
+  },
+  templateMeta: {
     fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'right',
-    marginTop: 4,
+    color: "#1d4ed8",
+    fontWeight: "600",
   },
-  reviewContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
+  reviewImageGallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
   },
   reviewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 15,
+    width: 90,
+    height: 90,
+    borderRadius: 12,
   },
   reviewDetails: {
-    flex: 1,
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
   },
   reviewTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 5,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
   },
   reviewDetail: {
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 2,
+    color: "#4b5563",
+    marginBottom: 4,
   },
   costInfo: {
-    backgroundColor: '#fef3c7',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: "#e0f2fe",
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#bae6fd",
   },
   costTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#92400e',
-    marginBottom: 5,
+    fontWeight: "600",
+    color: "#0c4a6e",
+    marginBottom: 6,
   },
   costDetail: {
+    color: "#075985",
     fontSize: 14,
-    color: '#92400e',
-    marginBottom: 2,
   },
   createButton: {
-    backgroundColor: '#10b981',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
+    backgroundColor: "#2563eb",
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginBottom: 30,
   },
   createButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    opacity: 0.6,
   },
   createButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "600",
   },
   navigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   navButton: {
-    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: 'white',
+    borderColor: "#d1d5db",
+    backgroundColor: "white",
   },
   navButtonPrimary: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: "#1d4ed8",
+    borderColor: "#1d4ed8",
   },
   navButtonDisabled: {
-    backgroundColor: '#f3f4f6',
-    borderColor: '#e5e7eb',
+    opacity: 0.4,
   },
   navButtonText: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: "600",
+    color: "#4b5563",
   },
   navButtonTextPrimary: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  helpText: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  imageCountBadge: {
-    backgroundColor: '#e0e7ff',
-    padding: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  imageCountText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  imageGallery: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 15,
-  },
-  imageWrapper: {
-    position: 'relative',
-    width: '48%',
-  },
-  galleryImage: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  removeImageText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  addMoreButton: {
-    backgroundColor: '#f3f4f6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderStyle: 'dashed',
-  },
-  addMoreText: {
-    color: '#6b7280',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewImageGallery: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 15,
+    color: "white",
   },
 });
+

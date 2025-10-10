@@ -2,7 +2,7 @@ import os
 import json
 import base64
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
-from typing import List
+from typing import List, Optional
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.auth import current_user
@@ -11,6 +11,7 @@ from app.models import Book, BookPage, User
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
 from app.storage import save_upload
 from app.utility import user_free_remaining
+from app.story_templates import get_template
 from rq import Queue
 import redis
 
@@ -25,8 +26,10 @@ q = Queue("books", connection=_redis)
 async def create_book(
     files: List[UploadFile] = File(...),
     title: str = Form(...),
-    theme: str = Form(...),
-    target_age: str = Form(...),
+    story_source: str = Form("custom"),
+    template_key: Optional[str] = Form(None),
+    template_params: Optional[str] = Form(None),
+    target_age: Optional[str] = Form(None),
     page_count: int = Form(8),
     character_description: str = Form(""),
     positive_prompt: str = Form(""),
@@ -60,37 +63,76 @@ async def create_book(
     if not title.strip():
         raise HTTPException(400, "Title is required")
 
-    if theme not in ["adventure", "friendship", "learning", "bedtime", "fantasy", "family"]:
-        raise HTTPException(400, "Invalid theme. Choose from: adventure, friendship, learning, bedtime, fantasy, family")
+    story_source = story_source.strip().lower()
+    if story_source not in {"custom", "template"}:
+        raise HTTPException(400, "story_source must be 'custom' or 'template'")
 
-    if target_age not in ["3-5", "6-8", "9-12"]:
-        raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
+    template = None
+    template_params_dict = None
+    if template_params:
+        try:
+            template_params_dict = json.loads(template_params)
+        except json.JSONDecodeError:
+            raise HTTPException(400, "template_params must be valid JSON")
+    if template_params_dict is None:
+        template_params_dict = {}
 
-    if page_count not in [1, 4, 6, 8, 10, 12, 16]:
+    allowed_pages = [1, 4, 6, 8, 10, 12, 16]
+
+    if page_count not in allowed_pages:
         raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
 
-    try:
-        # Save all uploaded images
-        saved_paths = []
-        for i, file in enumerate(files):
-            saved_path = save_upload(file.file, subdir="book_inputs", filename=f"{i}_{file.filename}")
-            saved_paths.append(saved_path)
+    if story_source == "template":
+        if not template_key:
+            raise HTTPException(400, "Template selection required")
+        template = get_template(template_key)
+        if not template:
+            raise HTTPException(400, "Unknown template key")
+        if not target_age:
+            target_age = template.default_age
+    else:
+        if target_age not in ["3-5", "6-8", "9-12"]:
+            raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
 
-        # Create book record
+    try:
+        # Create book record placeholder so we have an ID for file naming
+        character_desc_value = character_description.strip()
+        if story_source == "template" and not character_desc_value:
+            if template_params_dict and template_params_dict.get("name"):
+                character_desc_value = template_params_dict["name"].strip()
+
+        theme_value = template_key if story_source == "template" else "custom"
+
         book = Book(
             user_id=user.id,
             title=title.strip(),
-            theme=theme,
+            theme=theme_value,
             target_age=target_age,
             page_count=page_count,
-            character_description=character_description.strip(),
-            positive_prompt=positive_prompt.strip(),
-            negative_prompt=negative_prompt.strip(),
-            original_image_paths=json.dumps(saved_paths),  # Store as JSON array
+            character_description=character_desc_value,
+            positive_prompt=positive_prompt.strip() if story_source == "custom" else "",
+            negative_prompt=negative_prompt.strip() if story_source == "custom" else "",
+            original_image_paths=json.dumps([]),
+            story_source=story_source,
+            template_key=template_key,
+            template_params=template_params_dict,
             status="creating"
         )
-        
+
         db.add(book)
+        db.flush()
+
+        # Save all uploaded images with organized names
+        saved_paths = []
+        for i, file in enumerate(files):
+            original_ext = (file.filename or "").split(".")[-1]
+            ext = f".{original_ext.lower()}" if original_ext else ""
+            target_name = f"{book.id}_character_main_{i}"
+            saved_path = save_upload(file.file, subdir="book_inputs", filename=f"{target_name}{ext}")
+            saved_paths.append(saved_path)
+
+        book.original_image_paths = json.dumps(saved_paths)
+
         db.commit()
         db.refresh(book)
         

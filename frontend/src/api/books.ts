@@ -1,19 +1,29 @@
 import { api } from "./client";
 
+export interface TemplateParams {
+  name?: string;
+  gender?: "male" | "female" | "neutral";
+}
+
 export interface BookCreationData {
-  files: string[];  // Changed to support 1-4 image files
+  files: string[];
   title: string;
-  theme: string;
-  target_age: string;
+  target_age?: string;
   page_count: number;
-  character_description: string;
-  positive_prompt: string;
-  negative_prompt: string;
+  character_description?: string;
+  positive_prompt?: string;
+  negative_prompt?: string;
+  story_source: "custom" | "template";
+  template_key?: string;
+  template_params?: TemplateParams;
 }
 
 export interface Book {
   id: number;
   title: string;
+  story_source?: string;
+  template_key?: string;
+  template_params?: TemplateParams;
   theme?: string;
   target_age?: string;
   page_count: number;
@@ -74,12 +84,27 @@ export async function createBook(token: string, data: BookCreationData): Promise
 
     // Add form fields
     formData.append("title", data.title);
-    formData.append("theme", data.theme);
-    formData.append("target_age", data.target_age);
+    if (data.target_age) {
+      formData.append("target_age", data.target_age);
+    }
     formData.append("page_count", data.page_count.toString());
-    formData.append("character_description", data.character_description);
-    formData.append("positive_prompt", data.positive_prompt);
-    formData.append("negative_prompt", data.negative_prompt);
+    if (data.character_description) {
+      formData.append("character_description", data.character_description);
+    }
+    if (data.positive_prompt) {
+      formData.append("positive_prompt", data.positive_prompt);
+    }
+    if (data.negative_prompt) {
+      formData.append("negative_prompt", data.negative_prompt);
+    }
+
+    formData.append("story_source", data.story_source);
+    if (data.template_key) {
+      formData.append("template_key", data.template_key);
+    }
+    if (data.template_params) {
+      formData.append("template_params", JSON.stringify(data.template_params));
+    }
 
     const response = await api.post("/books/create", formData, {
       headers: {

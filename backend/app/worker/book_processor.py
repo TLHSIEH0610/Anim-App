@@ -2,11 +2,14 @@ import os
 import json
 import time
 import platform
+import secrets
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import Book, BookPage
+from app.models import Book, BookPage, BookWorkflowSnapshot, WorkflowDefinition
 from app.comfyui_client import ComfyUIClient
 from app.story_generator import OllamaStoryGenerator, enhance_childbook_prompt
 from reportlab.lib.pagesizes import A4, letter
@@ -17,6 +20,28 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from PIL import Image as PILImage
 import textwrap
+from typing import Dict, Optional, Any
+
+from app.story_templates import get_template, StoryTemplate
+from app.storage import move_to
+
+BASE_INSTANT_PROMPT = (
+    "Genrih Valk illustration, children's book illustration, watercolor style, "
+    "soft pastel colors, whimsical art, storybook character, friendly cartoon style, "
+    "hand-drawn illustration, warm lighting, child-friendly art style"
+)
+
+AGE_DESCRIPTORS = {
+    "3-5": "preschool-aged",
+    "6-8": "elementary-aged",
+    "9-12": "preteen",
+}
+
+GENDER_WORDS = {
+    "male": "boy",
+    "female": "girl",
+    "neutral": "child",
+}
 
 # Use database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://animapp:password@db:5432/animapp")
@@ -26,6 +51,136 @@ _Session = sessionmaker(bind=_engine)
 # Configuration
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
 OLLAMA_SERVER = os.getenv("OLLAMA_SERVER", "http://localhost:11434")
+
+
+def _normalized_template_params(book: Book) -> Dict[str, str]:
+    params = book.template_params or {}
+    if not isinstance(params, dict):
+        return {}
+    return params
+
+
+def _build_pronouns(gender: str | None) -> Dict[str, str]:
+    mapping = {
+        "male": {"they": "he", "them": "him", "their": "his", "theirs": "his"},
+        "female": {"they": "she", "them": "her", "their": "her", "theirs": "hers"},
+        "neutral": {"they": "they", "them": "them", "their": "their", "theirs": "theirs"},
+    }
+    base = mapping.get((gender or "neutral").lower(), mapping["neutral"])
+    return {
+        **base,
+        "They": base["they"].capitalize(),
+        "Them": base["them"].capitalize(),
+        "Their": base["their"].capitalize(),
+        "Theirs": base["theirs"].capitalize(),
+    }
+
+
+def _format_template_text(text: str, replacements: Dict[str, str]) -> str:
+    for key, value in replacements.items():
+        text = text.replace(f"{{{key}}}", value)
+    return text
+
+
+def _age_descriptor(age: Optional[str]) -> str:
+    return AGE_DESCRIPTORS.get((age or "").strip(), "young")
+
+
+def _gender_word(gender: Optional[str]) -> str:
+    return GENDER_WORDS.get((gender or "neutral").lower(), "child")
+
+
+def _build_prompt_description(description: str, age: Optional[str], gender: Optional[str]) -> str:
+    age_adj = _age_descriptor(age)
+    gender_word = _gender_word(gender)
+    desc = (description or "").strip()
+    if not desc:
+        return f"a {age_adj} {gender_word}"
+
+    lowered = desc.lower()
+    connectors = (
+        "in ", "inside", "with", "while", "standing", "sitting", "floating", "kneeling",
+        "seated", "holding", "playing", "running", "walking", "exploring", "sharing",
+    )
+
+    if lowered.startswith(("a ", "an ", "the ")):
+        return f"a {age_adj} {gender_word} {desc}"
+    if any(lowered.startswith(conn) for conn in connectors):
+        return f"a {age_adj} {gender_word} {desc}"
+    return f"a {age_adj} {gender_word} {desc}"
+
+
+def _build_template_story(book: Book, template: StoryTemplate) -> tuple[Dict[str, Any], Dict[int, Dict[str, str]]]:
+    params = _normalized_template_params(book)
+    name = params.get("name") or (book.character_description or "The hero")
+    name = name.strip() or "The hero"
+    gender = params.get("gender", "neutral")
+    pronouns = _build_pronouns(gender)
+
+    replacements = {
+        "Name": name,
+        "name": name.lower(),
+        "they": pronouns["they"],
+        "them": pronouns["them"],
+        "their": pronouns["their"],
+        "theirs": pronouns["theirs"],
+        "They": pronouns["They"],
+        "Them": pronouns["Them"],
+        "Their": pronouns["Their"],
+        "Theirs": pronouns["Theirs"],
+    }
+
+    pages = []
+    prompt_overrides: Dict[int, Dict[str, str]] = {}
+    outline = template.story_outline
+    if not outline:
+        raise ValueError(f"Template '{template.key}' has no outline")
+
+    for index in range(book.page_count):
+        entry = outline[index % len(outline)]
+        page_number = index + 1
+        text = _format_template_text(entry["text"], replacements)
+        image = _format_template_text(entry["image"], replacements)
+        pose = _format_template_text(entry["pose"], replacements)
+
+        prompt_subject = _build_prompt_description(image, book.target_age, gender)
+        positive_prompt = f"{BASE_INSTANT_PROMPT}, {prompt_subject}"
+        control_prompt = pose.strip() or prompt_subject
+
+        pages.append(
+            {
+                "page": page_number,
+                "text": text,
+                "image_description": image,
+            }
+        )
+        prompt_overrides[page_number] = {
+            "positive": positive_prompt,
+            "control": control_prompt,
+        }
+
+    story_data = {
+        "title": book.title,
+        "pages": pages,
+        "age_group": book.target_age or template.default_age,
+        "theme": template.display_name,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generator": "template",
+        "model": template.key,
+    }
+
+    return story_data, prompt_overrides
+
+
+def _randomize_k_sampler_seeds(workflow: Dict[str, Any]) -> None:
+    """Assign fresh 64-bit seeds to every KSampler node for variability."""
+    rng = secrets.SystemRandom()
+    for node in workflow.values():
+        if node.get("class_type") == "KSampler":
+            inputs = node.get("inputs", {})
+            if "seed" in inputs:
+                inputs["seed"] = rng.getrandbits(64)
+
 
 def get_media_root() -> Path:
     """Get media root directory based on platform"""
@@ -230,36 +385,48 @@ def create_childbook(book_id: int):
     print(f"Starting book creation for book {book_id}: '{book.title}'")
     
     try:
-        # Initialize generators
-        story_generator = OllamaStoryGenerator(OLLAMA_SERVER)
         comfyui_client = ComfyUIClient(COMFYUI_SERVER)
         book_composer = BookComposer()
-        
+        template_prompt_overrides: Dict[int, Dict[str, str]] = {}
+        template_obj: Optional[StoryTemplate] = None
+        story_generator: Optional[OllamaStoryGenerator] = None
+        is_template = (book.story_source or "custom") == "template"
+        if is_template:
+            template_obj = get_template(book.template_key or "")
+            if not template_obj:
+                raise Exception("Template not found or not configured")
+            if not book.target_age:
+                book.target_age = template_obj.default_age
+            story_data, template_prompt_overrides = _build_template_story(book, template_obj)
+        else:
+            story_generator = OllamaStoryGenerator(OLLAMA_SERVER)
+
         # Stage 1: Generate story text
         print("Stage 1: Generating story...")
         book.status = "generating_story"
         book.progress_percentage = 10.0
         session.commit()
-        
-        # Check if Ollama is available
-        if not story_generator.check_model_availability():
-            print("Warning: Ollama not available, using fallback story generation")
-            story_data = story_generator.generate_fallback_story(
-                book.title, 
-                book.character_description,
-                book.page_count
-            )
-        else:
-            story_data = story_generator.generate_story(
-                title=book.title,
-                theme=book.theme,
-                age_group=book.target_age,
-                page_count=book.page_count,
-                character_description=book.character_description,
-                positive_prompt=book.positive_prompt,
-                negative_prompt=book.negative_prompt
-            )
-        
+
+        if not is_template:
+            assert story_generator is not None
+            if not story_generator.check_model_availability():
+                print("Warning: Ollama not available, using fallback story generation")
+                story_data = story_generator.generate_fallback_story(
+                    book.title,
+                    book.character_description,
+                    book.page_count
+                )
+            else:
+                story_data = story_generator.generate_story(
+                    title=book.title,
+                    theme=book.theme,
+                    age_group=book.target_age,
+                    page_count=book.page_count,
+                    character_description=book.character_description,
+                    positive_prompt=book.positive_prompt,
+                    negative_prompt=book.negative_prompt
+                )
+
         # Save story data
         book.story_data = json.dumps(story_data)
         book.story_generated_at = datetime.now(timezone.utc)
@@ -288,6 +455,9 @@ def create_childbook(book_id: int):
         session.commit()
         
         # Generate images for each page
+        session.query(BookWorkflowSnapshot).filter_by(book_id=book.id).delete()
+        session.commit()
+
         pages = session.query(BookPage).filter_by(book_id=book.id).order_by(BookPage.page_number).all()
         total_pages = len(pages)
         
@@ -298,61 +468,102 @@ def create_childbook(book_id: int):
                 page.image_started_at = datetime.now(timezone.utc)
                 session.commit()
                 
-                # Create enhanced prompt for children's book illustration
-                enhanced_prompts = enhance_childbook_prompt(
-                    page.image_description,
-                    book.theme,
-                    book.target_age,
-                    f"Page {page.page_number} of children's book"
-                )
-                
-                page.enhanced_prompt = enhanced_prompts['positive']
+                control_prompt: Optional[str] = None
+                prompt_override = template_prompt_overrides.get(page.page_number)
+                if prompt_override:
+                    positive_prompt = prompt_override["positive"]
+                    control_prompt = prompt_override["control"]
+                    page.enhanced_prompt = positive_prompt
+                else:
+                    enhanced_prompts = enhance_childbook_prompt(
+                        page.image_description,
+                        book.theme or "custom",
+                        book.target_age or "6-8",
+                        f"Page {page.page_number} of children's book",
+                        character_description=book.character_description,
+                    )
+                        
+                    positive_prompt = enhanced_prompts["positive"]
+                    control_prompt = positive_prompt
+                    page.enhanced_prompt = positive_prompt
                 session.commit()
                 
                 # Try to generate image with ComfyUI
                 try:
                     # Load appropriate workflow
-                    workflow_path = get_childbook_workflow_path(book.theme)
+                    workflow, workflow_version, workflow_slug = get_childbook_workflow(book.theme)
                     print(f"🔍 Debug ComfyUI workflow for page {page.page_number}:")
                     print(f"   Theme: {book.theme}")
-                    print(f"   Workflow path: {workflow_path}")
-                    print(f"   Path exists: {workflow_path and os.path.exists(workflow_path)}")
-                    
-                    if workflow_path and os.path.exists(workflow_path):
-                        print(f"   Loading workflow from: {workflow_path}")
-                        with open(workflow_path, 'r') as f:
-                            workflow = json.load(f)
-                        print(f"   Workflow loaded successfully with {len(workflow)} nodes")
-                        
-                        # Parse image paths from JSON
+                    print(f"   Workflow slug: {workflow_slug}")
+                    print(f"   Workflow version: {workflow_version}")
+                    print(f"   Workflow loaded successfully with {len(workflow)} nodes")
+
+                    try:
+                        image_paths = json.loads(book.original_image_paths) if book.original_image_paths else []
+                    except:
+                        image_paths = [book.original_image_paths] if book.original_image_paths else []
+
+                    print(f"Using {len(image_paths)} reference image(s) for character consistency")
+
+                    # Generate image with ComfyUI
+                    print(f"Starting ComfyUI processing for page {page.page_number}...")
+                    print(f"Using enhanced prompt: {page.enhanced_prompt}")
+
+                    _randomize_k_sampler_seeds(workflow)
+
+                    result = comfyui_client.process_image_to_animation(
+                        image_paths,
+                        copy.deepcopy(workflow),
+                        page.enhanced_prompt,
+                        control_prompt
+                    )
+
+                    workflow_payload = result.get("workflow")
+                    vae_preview_path = result.get("vae_preview_path")
+
+                    # Reorganize image storage
+                    if result.get("status") == "success" and result.get("output_path"):
+                        final_output_path = Path(result["output_path"])
+                        target_dir = Path(get_media_root()) / "outputs"
+                        new_name = f"{book.id}_page_{page.page_number}"
+                        new_output_path = move_to(str(final_output_path), str(target_dir), new_name)
+                        result["output_path"] = new_output_path
+                        page.image_path = new_output_path
+
+                    if vae_preview_path:
+                        target_dir = Path(get_media_root()) / "intermediates"
+                        new_name = f"{book.id}_controlnet_{page.page_number}"
+                        new_vae_path = move_to(vae_preview_path, str(target_dir), new_name)
+                        vae_preview_path = new_vae_path
+                        result["vae_preview_path"] = new_vae_path
+
+                    if workflow_payload is not None:
                         try:
-                            image_paths = json.loads(book.original_image_paths) if book.original_image_paths else []
-                        except:
-                            # Fallback for backward compatibility (if it's still a single string path)
-                            image_paths = [book.original_image_paths] if book.original_image_paths else []
+                            serialized_workflow = json.loads(json.dumps(workflow_payload))
+                        except TypeError:
+                            serialized_workflow = workflow_payload
 
-                        print(f"Using {len(image_paths)} reference image(s) for character consistency")
-
-                        # Generate image with ComfyUI
-                        print(f"Starting ComfyUI processing for page {page.page_number}...")
-                        print(f"Using enhanced prompt: {page.enhanced_prompt}")
-                        result = comfyui_client.process_image_to_animation(
-                            image_paths,
-                            workflow,
-                            page.enhanced_prompt
+                        snapshot = BookWorkflowSnapshot(
+                            book_id=book.id,
+                            page_number=page.page_number,
+                            prompt_id=result.get("prompt_id"),
+                            workflow_json=serialized_workflow,
+                            vae_image_path=vae_preview_path,
+                            workflow_version=workflow_version,
+                            workflow_slug=workflow_slug,
                         )
-                        print(f"ComfyUI result for page {page.page_number}: {result}")
-                        
-                        if result["status"] == "success":
-                            page.image_path = result["output_path"]
-                            page.image_status = "completed"
-                            print(f"✅ Image generated for page {page.page_number}")
-                        else:
-                            raise Exception(f"ComfyUI processing failed: {result.get('error', 'Unknown error')}")
+                        session.add(snapshot)
+                        session.commit()
+                    print(f"ComfyUI result for page {page.page_number}: {result}")
+                    
+                    if result["status"] == "success":
+                        page.image_status = "completed"
+                        print(f"✅ Image generated for page {page.page_number}")
                     else:
-                        raise Exception("Workflow file not found")
+                        raise Exception(f"ComfyUI processing failed: {result.get('error', 'Unknown error')}")
                         
                 except Exception as comfy_error:
+                    session.rollback()
                     print(f"ComfyUI failed for page {page.page_number}: {comfy_error}")
                     # Use mock/placeholder image
                     page.image_path = create_placeholder_image(page.page_number, book.title)
@@ -368,6 +579,7 @@ def create_childbook(book_id: int):
                 session.commit()
                 
             except Exception as page_error:
+                session.rollback()
                 print(f"Failed to process page {page.page_number}: {page_error}")
                 page.image_status = "failed"
                 page.image_error = str(page_error)
@@ -442,28 +654,89 @@ def create_childbook(book_id: int):
     finally:
         session.close()
 
-def get_childbook_workflow_path(theme: str) -> str:
-    """Get the appropriate ComfyUI workflow path for the book theme"""
-    workflows_dir = Path("/app/workflows")
-    
-    # Map themes to workflow files
-    theme_workflows = {
-        "adventure": "childbook_adventure_v2.json",
-        "friendship": "childbook_friendship.json", 
-        "learning": "childbook_educational.json",
-        "bedtime": "childbook_bedtime.json",
-        "fantasy": "childbook_fantasy.json",
-        "family": "childbook_family.json"
-    }
-    
-    workflow_file = theme_workflows.get(theme, "Anmi-App.json")  # Fallback to existing workflow
-    workflow_path = workflows_dir / workflow_file
-    
-    # If theme-specific workflow doesn't exist, use the default
-    if not workflow_path.exists():
-        workflow_path = workflows_dir / "Anmi-App.json"
-    
-    return str(workflow_path) if workflow_path.exists() else None
+THEME_WORKFLOW_SLUGS = {
+    "adventure": "childbook_adventure_v2",
+    "friendship": "childbook_friendship",
+    "learning": "childbook_educational",
+    "bedtime": "childbook_bedtime",
+    "fantasy": "childbook_fantasy",
+    "family": "childbook_family",
+    "custom": "childbook_adventure_v2",
+    "space_explorer": "childbook_adventure_v2",
+    "forest_friends": "childbook_friendship",
+    "magic_school": "childbook_fantasy",
+    "pirate_adventure": "childbook_adventure_v2",
+    "bedtime_lullaby": "childbook_bedtime",
+}
+
+
+def get_childbook_workflow(theme: str) -> tuple[Dict[str, Any], int, str]:
+    slug = THEME_WORKFLOW_SLUGS.get(theme, "childbook_adventure_v2")
+    session = _Session()
+    try:
+        definition = (
+            session.query(WorkflowDefinition)
+            .filter(WorkflowDefinition.slug == slug, WorkflowDefinition.is_active.is_(True))
+            .order_by(WorkflowDefinition.version.desc())
+            .first()
+        )
+        if not definition:
+            raise Exception(f"Workflow definition not found for slug '{slug}'")
+        content = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+        return copy.deepcopy(content), definition.version, definition.slug
+    finally:
+        session.close()
+
+
+def _reset_book_state(book: Book):
+    book.status = "creating"
+    book.progress_percentage = 0.0
+    book.error_message = None
+    book.story_data = None
+    book.story_generated_at = None
+    book.images_completed_at = None
+    book.pdf_generated_at = None
+    book.completed_at = None
+    book.pdf_path = None
+
+
+def admin_regenerate_book(book_id: int, new_prompt: Optional[str] = None):
+    """Reset book assets and trigger a fresh generation"""
+    session = _Session()
+    try:
+        book = session.query(Book).get(book_id)
+        if not book:
+            print(f"Admin regenerate: book {book_id} not found")
+            return
+
+        if new_prompt is not None:
+            book.positive_prompt = new_prompt.strip()
+
+        pages = session.query(BookPage).filter(BookPage.book_id == book.id).all()
+        for page in pages:
+            if page.image_path and os.path.exists(page.image_path):
+                try:
+                    os.remove(page.image_path)
+                except FileNotFoundError:
+                    pass
+
+        if book.pdf_path and os.path.exists(book.pdf_path):
+            try:
+                os.remove(book.pdf_path)
+            except FileNotFoundError:
+                pass
+
+        session.query(BookPage).filter(BookPage.book_id == book.id).delete()
+
+        _reset_book_state(book)
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        raise exc
+    finally:
+        session.close()
+
+    create_childbook(book_id)
 
 def create_placeholder_image(page_number: int, book_title: str) -> str:
     """Create a placeholder image when ComfyUI is not available"""

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Admin Login</h2>
+<form method="post" action="/login">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" required placeholder="admin@example.com">
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" required>
+
+    <button type="submit">Sign In</button>
+</form>
+
+{% if request.query_params.get('error') %}
+<div style="padding: 0.75rem; background: #fde8e8; border: 1px solid #f05252; border-radius: 6px; margin-top: 1rem;">
+    Invalid credentials. Please try again.
+</div>
+{% endif %}
+{% endblock %}

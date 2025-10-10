@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Images for Book {{ book_id }}</h2>
+
+<h3>Original Uploads</h3>
+<div class="image-grid">
+    {% for image in original_images %}
+    <div class="card">
+        <p><strong>Path:</strong><br><code>{{ image.path }}</code></p>
+        {% if image.data_uri %}
+        <img src="{{ image.data_uri }}" alt="Original image" style="max-width:100%; border-radius:4px;">
+        {% elif image.path %}
+        <img src="/files-proxy?path={{ image.path | urlencode }}" alt="Original image" style="max-width:100%; border-radius:4px;">
+        {% else %}
+        <p><em>File unavailable</em></p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<h3 style="margin-top:2rem;">Generated Pages</h3>
+<div class="image-grid">
+    {% for page in page_images %}
+    <div class="card">
+        <p><strong>Page {{ page.page_number }}</strong></p>
+        <p>Status: {{ page.status }}</p>
+        <p><code>{{ page.path }}</code></p>
+        {% if page.data_uri %}
+        <img src="{{ page.data_uri }}" alt="Page image" style="max-width:100%; border-radius:4px;">
+        {% elif page.path %}
+        <img src="/files-proxy?path={{ page.path | urlencode }}" alt="Page image" style="max-width:100%; border-radius:4px;">
+        {% else %}
+        <p><em>File unavailable</em></p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% if control_images %}
+<h3 style="margin-top:2rem;">ControlNet Inputs</h3>
+<div class="image-grid">
+    {% for item in control_images %}
+    <div class="card">
+        <p><strong>Page {{ item.page_number }}</strong></p>
+        <p><code>{{ item.path }}</code></p>
+        {% if item.data_uri %}
+        <img src="{{ item.data_uri }}" alt="Control image" style="max-width:100%; border-radius:4px;">
+        {% elif item.path %}
+        <img src="/files-proxy?path={{ item.path | urlencode }}" alt="Control image" style="max-width:100%; border-radius:4px;">
+        {% else %}
+        <p><em>File unavailable</em></p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<a href="/dashboard" style="margin-top:2rem; display:inline-block;">Back to dashboard</a>
+{% endblock %}

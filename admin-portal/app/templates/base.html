@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or 'AnimApp Admin' }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
+    <style>
+        body { margin: 2rem; }
+        nav { display: flex; gap: 1rem; align-items: center; margin-bottom: 2rem; }
+        pre { background: #1f2933; color: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; }
+        .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 1rem; background: #fff; }
+        .actions form { display: inline-block; margin-right: 0.5rem; }
+        textarea { width: 100%; min-height: 120px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <strong>AnimApp Admin Portal</strong>
+        {% if admin_email %}
+            <span>| Logged in as {{ admin_email }}</span>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/users">Users</a>
+            <a href="/workflows">Workflows</a>
+            <a href="/logout">Logout</a>
+        {% endif %}
+    </nav>
+
+    {% if message %}
+        <div style="padding: 0.75rem; background: #def7ec; border: 1px solid #31c48d; border-radius: 6px; margin-bottom: 1rem;">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    {% if error %}
+        <div style="padding: 0.75rem; background: #fde8e8; border: 1px solid #f05252; border-radius: 6px; margin-bottom: 1rem;">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</body>
+</html>

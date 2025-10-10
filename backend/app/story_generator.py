@@ -242,7 +242,13 @@ Make the image descriptions vivid and detailed so an artist can create beautiful
 
 
 # Utility function to enhance prompts for children's book images
-def enhance_childbook_prompt(user_prompt: str, story_theme: str, age_group: str, page_context: str = "") -> Dict[str, str]:
+def enhance_childbook_prompt(
+    user_prompt: str,
+    story_theme: str,
+    age_group: str,
+    page_context: str = "",
+    character_description: str = "",
+) -> Dict[str, str]:
     """
     Enhance user prompts to be appropriate for children's book illustrations
     
@@ -283,6 +289,9 @@ def enhance_childbook_prompt(user_prompt: str, story_theme: str, age_group: str,
         f"{user_prompt}, {page_context}, " +
         "professional children's book art, published quality, digital painting"
     )
+
+    if character_description and character_description.strip():
+        enhanced_positive = f"{character_description.strip()}, {enhanced_positive}" 
     
     # Comprehensive negative prompt for child safety
     negative_prompt = (

@@ -1,10 +1,10 @@
 # backend/worker/job_process.py
-import os, time, json, platform
+import os, time, json, platform, copy
 from datetime import datetime, timezone
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import Job
+from app.models import Job, WorkflowDefinition
 from app.comfyui_client import ComfyUIClient
 # from app.db import DATABASE_URL  # placeholder - will use environment variable instead
 
@@ -33,6 +33,22 @@ WORKFLOW_PATH = os.getenv("COMFYUI_WORKFLOW", get_default_workflow_path())
 
 def load_workflow() -> dict:
     """Load the ComfyUI workflow JSON"""
+    session = _Session()
+    try:
+        definition = (
+            session.query(WorkflowDefinition)
+            .filter(WorkflowDefinition.slug == "childbook_adventure_v2")
+            .order_by(WorkflowDefinition.version.desc())
+            .first()
+        )
+        if definition:
+            content = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+            return copy.deepcopy(content)
+    except Exception as db_error:
+        print(f"Warning: unable to load workflow definition from database: {db_error}")
+    finally:
+        session.close()
+
     try:
         workflow_path = Path(WORKFLOW_PATH)
         if workflow_path.exists():

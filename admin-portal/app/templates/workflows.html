@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Workflow Definitions</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Slug</th>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Version</th>
+      <th>Active</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for workflow in workflows %}
+    <tr>
+      <td>{{ workflow.slug }}</td>
+      <td>{{ workflow.name }}</td>
+      <td>{{ workflow.type }}</td>
+      <td>{{ workflow.version }}</td>
+      <td>{{ workflow.is_active }}</td>
+      <td>
+        <a href="/workflows/{{ workflow.id }}">Edit</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<section style="margin-top:2rem;">
+  <h3>Create New Workflow Version</h3>
+  <form method="post" action="/workflows/create">
+    <label for="slug">Slug</label>
+    <input id="slug" name="slug" placeholder="childbook_adventure_v2" required>
+
+    <label for="name">Name</label>
+    <input id="name" name="name" placeholder="Childbook Adventure" required>
+
+    <label for="type">Type</label>
+    <input id="type" name="type" placeholder="template" required>
+
+    <label for="content">Workflow JSON</label>
+    <textarea id="content" name="content" placeholder="{...}" required></textarea>
+
+    <button type="submit" class="button button-primary">Create</button>
+  </form>
+</section>
+
+<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+{% endblock %}

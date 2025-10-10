@@ -1,3 +1,716 @@
+===== CHILDBOOK_SETUP.md =====
+# 📚 Children's Book Creator Setup Guide
+
+This guide will help you set up the complete children's book creation app with Ollama local LLM integration.
+
+## 🏗️ Architecture Overview
+
+Your app now transforms images into complete children's books with the following flow:
+
+1. **User uploads image** + provides prompts and book details
+2. **Ollama generates story** based on character and preferences  
+3. **ComfyUI creates illustrations** for each page using enhanced prompts
+4. **ReportLab assembles PDF** with text and images
+5. **User views/shares book** through mobile interface
+
+## 🚀 Quick Start
+
+### 1. Install Ollama (Local LLM)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a suitable model (choose one)
+ollama pull llama3.1:8b      # Recommended - good balance
+ollama pull phi3:mini        # Lighter, faster
+ollama pull mistral:7b       # Alternative option
+
+# Start Ollama server
+ollama serve
+```
+
+### 2. Update Docker Environment
+
+```bash
+cd infra
+cp .env.example .env
+
+# Edit .env to add:
+echo "OLLAMA_SERVER=http://host.docker.internal:11434" >> .env
+echo "OLLAMA_MODEL=llama3.1:8b" >> .env
+```
+
+### 3. Install New Dependencies
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt  # Now includes reportlab, jinja2
+
+# Frontend  
+cd ../frontend
+npm install  # Now includes React Navigation, Picker
+```
+
+### 4. Start All Services
+
+```bash
+# Terminal 1: Start ComfyUI (local)
+cd /path/to/ComfyUI
+python main.py --listen
+
+# Terminal 2: Start containerized services
+cd infra
+docker-compose -f docker-compose.local-comfyui.yml up
+
+# Terminal 3: Start frontend
+cd frontend
+npm start
+```
+
+## 📱 New User Experience
+
+### Book Creation Flow:
+1. **Upload Image**: User selects character image
+2. **Book Details**: Title, theme, age group, page count
+3. **Story Elements**: Character description, positive/negative prompts
+4. **Review & Create**: Final review before generation
+
+### Creation Process:
+- **Story Generation**: Ollama creates age-appropriate narrative
+- **Image Creation**: ComfyUI generates themed illustrations  
+- **PDF Assembly**: ReportLab combines into professional book
+- **Real-time Progress**: WebSocket updates throughout
+
+### Book Management:
+- **Library View**: All books with status tracking
+- **Interactive Reader**: Page-by-page viewing with navigation
+- **PDF Export**: Download/share completed books
+
+## 🔧 Configuration Options
+
+### Ollama Models
+
+Choose based on your hardware:
+
+```bash
+# Light & Fast (4GB RAM)
+ollama pull phi3:mini
+
+# Balanced (8GB RAM) - Recommended
+ollama pull llama3.1:8b  
+
+# High Quality (16GB+ RAM)
+ollama pull llama3.1:70b
+```
+
+### ComfyUI Workflows
+
+Theme-specific workflows in `/workflows/`:
+
+- `childbook_adventure.json` - Exciting landscapes, exploration
+- `childbook_friendship.json` - Warm interactions, cooperation  
+- `childbook_bedtime.json` - Soft colors, calm scenes
+- `childbook_fantasy.json` - Magical elements, sparkles
+
+### Environment Variables
+
+```env
+# Ollama Configuration
+OLLAMA_SERVER=http://host.docker.internal:11434
+OLLAMA_MODEL=llama3.1:8b
+
+# Media Storage
+MEDIA_ROOT=/data/media
+
+# ComfyUI (existing)
+COMFYUI_SERVER=host.docker.internal:8188
+```
+
+## 🗄️ Database Changes
+
+New tables automatically created:
+
+```sql
+-- Books table
+books: id, user_id, title, theme, target_age, page_count, 
+       character_description, positive_prompt, negative_prompt,
+       story_data, status, progress_percentage, pdf_path, etc.
+
+-- Book pages table  
+book_pages: id, book_id, page_number, text_content, 
+            image_description, enhanced_prompt, image_path,
+            image_status, etc.
+```
+
+## 📚 API Endpoints
+
+### New Book Endpoints:
+
+```http
+POST /books/create
+GET  /books/list
+GET  /books/{id}
+GET  /books/{id}/status
+GET  /books/{id}/preview
+GET  /books/{id}/pdf
+DELETE /books/{id}
+POST /books/{id}/retry
+```
+
+## 🎨 ComfyUI Integration
+
+### Enhanced Prompts
+
+The system automatically enhances user prompts with:
+
+- **Age-appropriate modifiers**: Simple shapes for 3-5, detailed art for 9-12
+- **Theme elements**: Adventure landscapes, friendship warmth, etc.
+- **Safety filters**: Removes scary/inappropriate content
+- **Professional quality**: "children's book illustration, published quality"
+
+### Fallback System
+
+- **Primary**: ComfyUI with theme-specific workflows
+- **Fallback**: Placeholder images with book titles when ComfyUI unavailable
+- **Graceful degradation**: Stories still generated even if images fail
+
+## 🔄 Job Processing
+
+### Multi-Stage Pipeline:
+
+1. **Creating** (0-10%): Initialize book record
+2. **Generating Story** (10-20%): Ollama creates narrative
+3. **Generating Images** (20-80%): ComfyUI processes each page
+4. **Composing** (80-95%): ReportLab assembles PDF  
+5. **Completed** (100%): Book ready for viewing
+
+### Worker Management:
+
+```bash
+# Monitor job queue
+docker-compose -f docker-compose.local-comfyui.yml logs -f worker
+
+# Scale workers if needed
+docker-compose -f docker-compose.local-comfyui.yml up --scale worker=2
+```
+
+## 🎯 Testing the System
+
+### 1. Test Ollama Connection
+
+```python
+# In backend container
+python -c "
+from app.story_generator import OllamaStoryGenerator
+gen = OllamaStoryGenerator()
+print('✅ Ollama available:', gen.check_model_availability())
+"
+```
+
+### 2. Create Test Book
+
+1. Open app and login with mock account
+2. Upload a clear photo of a person/character
+3. Fill out book creation form:
+   - **Title**: "My First Adventure"  
+   - **Theme**: Adventure
+   - **Age**: 6-8 years
+   - **Character**: "A brave young explorer"
+   - **Story Elements**: "magical forest, friendly animals"
+4. Submit and monitor progress in BookStatus screen
+
+### 3. Check Generated Content
+
+```bash
+# View story generation logs
+docker logs animapp-worker
+
+# Check created files
+ls /data/media/books/
+ls /data/media/outputs/
+```
+
+## 🚀 Production Deployment
+
+### Scaling Considerations:
+
+1. **Ollama**: Run on dedicated GPU server for better performance
+2. **ComfyUI**: Separate GPU-enabled container with model caching
+3. **Workers**: Scale based on book creation demand
+4. **Storage**: Use S3/cloud storage for generated files
+5. **Database**: PostgreSQL with connection pooling
+
+### Environment Updates:
+
+```env
+# Production Ollama
+OLLAMA_SERVER=https://ollama.yourcompany.com
+
+# Cloud Storage
+AWS_S3_BUCKET=childbook-media
+AWS_ACCESS_KEY_ID=your-key
+AWS_SECRET_ACCESS_KEY=your-secret
+
+# Performance
+OLLAMA_NUM_PARALLEL=4
+COMFYUI_MAX_WORKERS=2
+```
+
+## 🎨 Customization Options
+
+### Story Themes
+Add new themes by:
+1. Creating workflow JSON in `/workflows/childbook_[theme].json`
+2. Adding theme to `THEMES` array in `BookCreationScreen.tsx`
+3. Updating `enhance_childbook_prompt()` function
+
+### Age Groups
+Modify age-specific prompts in `story_generator.py`:
+```python
+age_guidelines = {
+    "2-4": {...},  # New toddler category
+    "13-16": {...} # New teen category  
+}
+```
+
+### PDF Styling
+Customize book layout in `book_processor.py`:
+- Fonts, colors, page layout
+- Image sizing and positioning  
+- Cover page design
+
+## 🐛 Troubleshooting
+
+### Common Issues:
+
+**Ollama not responding:**
+```bash
+ollama serve
+curl http://localhost:11434/api/tags
+```
+
+**ComfyUI connection failed:**
+```bash
+curl http://127.0.0.1:8188/system_stats
+```
+
+**Book creation stuck:**
+```bash
+docker logs animapp-worker
+# Check for error messages in logs
+```
+
+**Frontend navigation errors:**
+```bash
+cd frontend
+npm install @react-navigation/native @react-navigation/native-stack
+npx expo install react-native-screens react-native-safe-area-context
+```
+
+## 📊 Monitoring & Analytics
+
+Monitor book creation success rates:
+
+```sql
+-- Book completion rates
+SELECT 
+    status, 
+    COUNT(*) as count,
+    AVG(progress_percentage) as avg_progress
+FROM books 
+GROUP BY status;
+
+-- Average creation time
+SELECT 
+    AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/60) as avg_minutes
+FROM books 
+WHERE status = 'completed';
+```
+
+---
+
+## 🎉 You're Ready!
+
+Your animation app is now a full-featured children's book creator! Users can upload photos, customize stories, and receive professionally-formatted books with AI-generated content and illustrations.
+
+**Key Features Implemented:**
+- ✅ Local LLM story generation with Ollama
+- ✅ Enhanced ComfyUI workflows for child-friendly art
+- ✅ Professional PDF generation with ReportLab
+- ✅ Complete mobile UI with navigation
+- ✅ Real-time progress tracking
+- ✅ Multi-theme support with safety filters
+- ✅ Graceful fallbacks and error handling
+
+The system is production-ready and can scale based on your needs!
+===== CROSS_PLATFORM_SETUP.md =====
+# AnimApp Cross-Platform Setup Guide
+
+This guide helps you run AnimApp on both **macOS** (development) and **Windows PC** (production).
+
+## 🖥️ Platform-Specific Paths
+
+### **macOS (Development)**
+- **Media Storage**: `~/Documents/AnimApp/media/`
+- **Workflows**: `~/Documents/AnimApp/workflows/`
+- **Database**: `localhost:5432` (local PostgreSQL)
+- **Redis**: `localhost:6379` (local Redis)
+- **ComfyUI**: `127.0.0.1:8188` (local ComfyUI)
+
+### **Windows PC (Production)**
+- **Media Storage**: `C:\Users\{username}\Documents\AnimApp\media\`
+- **Workflows**: `C:\Users\{username}\Documents\AnimApp\workflows\`
+- **Database**: `localhost:5432` (local PostgreSQL)
+- **Redis**: `localhost:6379` (local Redis)
+- **ComfyUI**: `127.0.0.1:8188` (local ComfyUI)
+
+---
+
+## 🚀 Quick Setup
+
+### **Step 1: Auto Setup**
+```bash
+cd backend
+python setup_platform.py
+```
+This creates all directories and configuration files automatically.
+
+### **Step 2: Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+### **Step 3: Setup Services**
+
+#### **PostgreSQL**
+```bash
+# macOS (using Homebrew)
+brew install postgresql
+brew services start postgresql
+createdb animapp
+
+# Windows (using installer)
+# Download from: https://www.postgresql.org/download/windows/
+# Create database: animapp
+```
+
+#### **Redis**
+```bash
+# macOS
+brew install redis
+brew services start redis
+
+# Windows
+# Download from: https://github.com/microsoftarchive/redis/releases
+# Or use Docker: docker run -p 6379:6379 redis:alpine
+```
+
+#### **ComfyUI Setup**
+```bash
+# Clone ComfyUI
+git clone https://github.com/comfyanonymous/ComfyUI.git
+cd ComfyUI
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start with API enabled
+python main.py --listen
+```
+
+---
+
+## 🔧 Configuration Files
+
+### **.env File** (auto-generated by setup script)
+```env
+DATABASE_URL=postgresql://arnie:password@localhost:5432/appdb
+REDIS_URL=redis://localhost:6379/0
+COMFYUI_SERVER=127.0.0.1:8188
+MEDIA_ROOT=~/Documents/AnimApp/media
+COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/image_to_animation.json
+```
+
+### **ComfyUI Workflow**
+1. Create your image-to-animation workflow in ComfyUI
+2. Export as JSON: `Save -> Save (API Format)`
+3. Save to: `~/Documents/AnimApp/workflows/image_to_animation.json`
+
+---
+
+## 🏃‍♂️ Running the App
+
+### **Development (macOS)**
+```bash
+# Terminal 1: Start ComfyUI
+cd ComfyUI
+python main.py --listen
+
+# Terminal 2: Start Backend
+cd backend
+uvicorn app.main:app --reload
+
+# Terminal 3: Start Worker
+cd backend
+python -m rq worker jobs
+
+# Terminal 4: Start Frontend
+cd frontend
+npm start
+```
+
+### **Production (Windows)**
+Same commands work on Windows with PowerShell or Command Prompt.
+
+---
+
+## 🧪 Testing the Integration
+
+### **1. Upload Test**
+- Use the green "Mock Login" button to log in
+- Pick an image and upload
+- Should see: `✅ Job queued: #1`
+
+### **2. Check Processing**
+```bash
+# Check job status in database or API
+curl http://localhost:8000/jobs/status/1
+```
+
+### **3. File Structure Check**
+After upload, you should see:
+```
+~/Documents/AnimApp/media/
+├── inputs/
+│   └── uploaded_image.png
+└── outputs/
+    └── animated_uploaded_image.png
+```
+
+---
+
+## 🔧 ComfyUI Integration Steps
+
+### **1. Create Your Workflow**
+1. Open ComfyUI web interface
+2. Build image-to-animation workflow
+3. Test with sample image
+4. Save as API format JSON
+
+### **2. Update Workflow Integration**
+The `ComfyUIClient` automatically:
+- Uploads your image to ComfyUI
+- Runs the workflow
+- Downloads the result
+- Saves to local storage
+
+### **3. Customize for Your Workflow**
+Edit `comfyui_client.py` if needed:
+- Update `_prepare_workflow()` for your node structure
+- Update `_download_result()` for your output format
+
+---
+
+## 🐛 Troubleshooting
+
+### **ComfyUI Not Working**
+- App falls back to mock processing automatically
+- Check ComfyUI is running: `http://127.0.0.1:8188`
+- Check workflow file exists and is valid JSON
+
+### **Database Issues**
+- Ensure PostgreSQL is running
+- Check connection string in `.env`
+- Create database if it doesn't exist
+
+### **Path Issues**
+- All paths use Python's `pathlib` for cross-platform compatibility
+- Check directories exist: `~/Documents/AnimApp/media/`
+
+### **Worker Issues**
+```bash
+# Check Redis connection
+redis-cli ping
+
+# Check RQ worker
+python -m rq worker jobs --url redis://localhost:6379/0
+```
+
+---
+
+## 🔄 Moving Between Platforms
+
+### **From macOS to Windows**
+1. Copy your ComfyUI workflow JSON file
+2. Run `python setup_platform.py` on Windows
+3. Update database and Redis URLs if needed
+4. Install services (PostgreSQL, Redis)
+
+### **Shared Components**
+- All Python code is cross-platform
+- Database schema is identical
+- Frontend works on both platforms
+- ComfyUI workflows are portable
+
+---
+
+## 📝 Summary
+
+✅ **Cross-platform file paths** using `pathlib`  
+✅ **Platform-specific defaults** for directories  
+✅ **Automatic fallback** to mock processing  
+✅ **Easy setup script** for both platforms  
+✅ **Identical functionality** on macOS and Windows  
+
+Your app will work seamlessly on both platforms! 🎉
+===== DOCKER_SETUP.md =====
+# 🐳 Docker + Local ComfyUI Setup
+
+This setup runs everything in Docker **except** ComfyUI, which runs locally for easier workflow management.
+
+## 🚀 Quick Start
+
+### **1. Set up environment file**
+```bash
+cd infra
+cp .env.example .env
+# Edit .env if needed (default values should work)
+```
+
+### **2. Start ComfyUI locally** 
+```bash
+# In a separate terminal, start your local ComfyUI
+cd /path/to/your/ComfyUI
+python main.py --listen
+# Should be available at http://127.0.0.1:8188
+```
+
+### **3. Create workflows directory**
+```bash
+mkdir -p workflows
+# Copy your workflow JSON file here:
+# workflows/image_to_animation.json
+```
+
+### **4. Start all services with Docker**
+```bash
+cd infra
+docker-compose -f docker-compose.local-comfyui.yml up -d
+```
+
+### **5. Check everything is running**
+```bash
+docker-compose -f docker-compose.local-comfyui.yml ps
+```
+
+## 📋 What runs where:
+
+| Service | Location | URL |
+|---------|----------|-----|
+| 🧠 ComfyUI | **Local** | http://127.0.0.1:8188 |
+| 🚀 Backend API | Docker | http://localhost:8000 |
+| 👷 Worker | Docker | (background) |
+| 🗄️ PostgreSQL | Docker | localhost:5432 |
+| 📦 Redis | Docker | localhost:6379 |
+
+## 🔧 Key Configuration
+
+### **.env file settings:**
+```env
+# This tells containers how to reach your local ComfyUI
+COMFYUI_SERVER=host.docker.internal:8188
+
+# Database runs in container
+DATABASE_URL=postgresql://animapp:password@db:5432/animapp
+
+# Redis runs in container  
+REDIS_URL=redis://redis:6379/0
+
+# Workflows mounted from local directory
+COMFYUI_WORKFLOW=/app/workflows/image_to_animation.json
+```
+
+### **Network magic:**
+- `host.docker.internal:8188` - Containers can reach your local ComfyUI
+- `extra_hosts` configuration allows Docker containers to access your host machine
+
+## 🏃‍♂️ Development Workflow
+
+### **Start everything:**
+```bash
+# Terminal 1: ComfyUI (local)
+cd /path/to/ComfyUI  
+python main.py --listen
+
+# Terminal 2: Docker services
+cd infra
+docker-compose -f docker-compose.local-comfyui.yml up
+```
+
+### **View logs:**
+```bash
+# All services
+docker-compose -f docker-compose.local-comfyui.yml logs -f
+
+# Just backend
+docker-compose -f docker-compose.local-comfyui.yml logs -f backend
+
+# Just worker  
+docker-compose -f docker-compose.local-comfyui.yml logs -f worker
+```
+
+### **Stop everything:**
+```bash
+# Stop Docker services
+docker-compose -f docker-compose.local-comfyui.yml down
+
+# Stop ComfyUI manually (Ctrl+C)
+```
+
+## 🧪 Testing the Integration
+
+### **1. Test upload via frontend**
+- Use mock login (green button)
+- Upload an image
+- Check logs: `docker-compose logs -f worker`
+
+### **2. Test ComfyUI connection**
+```bash
+# From inside backend container
+docker exec -it animapp-backend python -c "
+import requests
+print(requests.get('http://host.docker.internal:8188').status_code)
+"
+# Should print: 200
+```
+
+### **3. Check job processing**
+```bash
+# View worker logs
+docker-compose -f docker-compose.local-comfyui.yml logs -f worker
+```
+
+## 🎯 Benefits of this approach:
+
+✅ **Easy ComfyUI management** - Use your existing setup  
+✅ **Fast iteration** - Change workflows without rebuilding containers  
+✅ **Cross-platform** - Works on macOS, Windows, Linux  
+✅ **Isolated services** - Database, Redis in containers  
+✅ **No conflicts** - Each service in its own container  
+✅ **Production ready** - Same setup works everywhere  
+
+## 🚚 Moving to Production
+
+When ready for production, you can:
+
+1. **Keep this setup** - Run ComfyUI on the same machine
+2. **Containerize ComfyUI** - Add it to docker-compose later
+3. **Separate machines** - Update `COMFYUI_SERVER` to remote IP
+
+The beauty is your backend code doesn't change! 🎉
+===== README.md =====
 # 📚 Children's Book Creator - AnimApp
 
 A full-stack mobile application that transforms user images into AI-generated children's books with custom stories and illustrations.
@@ -38,18 +751,8 @@ AnimApp is an AI-powered children's book creation platform that enables users to
 - ✅ Theme-specific image generation (ComfyUI workflows)
 - ✅ Real-time job processing with RQ
 - ✅ PDF generation and preview
-- ✅ Dual story modes (fully custom or curated templates)
 - ✅ Cross-platform support (macOS, Windows, Linux)
 - ✅ Docker containerization
-
----
-
-## 🧠 Story Modes
-
-AnimApp now supports two creation paths:
-
-- **Custom Story** – upload reference photos, describe your character, and provide optional plot ideas. The system routes your text into both InstantID (node 39) and ControlNet (node 80) prompts so the illustrations and poses stay faithful to your description.
-- **Existing Story Templates** – choose from curated adventures (Space Explorer, Forest Friends, Magic School Day, Pirate Treasure, Bedtime Lullaby). Supply a name and pronouns if you like; AnimApp generates the storyline, illustration prompts, and explicit ControlNet pose cues automatically.
 
 ---
 
@@ -263,13 +966,6 @@ anim-app/
 - **Purpose**: Story generation
 - **Models**: llama3.1:8b, phi3:mini, mistral:7b
 - **Connection**: HTTP API (`host.docker.internal:11434`)
-
-### 7. **Admin Portal** (Port 8090)
-- **Technology**: FastAPI + Jinja templates
-- **Purpose**: Internal dashboard for administrators
-- **Features**: Book overview, workflow inspection, image previews, regeneration, deletion
-- **Authentication**: Default account (`tlhsieh0610@gmail.com` / `aa0910064312`), secured via `ADMIN_API_KEY`
-- **Access**: `http://localhost:8090`
 
 ---
 
@@ -590,11 +1286,6 @@ python main.py --listen
 # Terminal 3: Start Docker services
 cd anim-app/infra
 docker-compose -f docker-compose.local-comfyui.yml up
-
-# Admin portal
-# Visit http://localhost:8090 and sign in with the default admin account
-# Email: tlhsieh0610@gmail.com
-# Password: aa0910064312
 
 # Terminal 4: Start frontend
 cd anim-app/frontend
@@ -1314,3 +2005,4 @@ If you encounter issues:
 **Last Updated**: January 2025
 **Version**: 1.0.0
 **Status**: Production Ready
+

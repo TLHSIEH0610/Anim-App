@@ -21,6 +21,25 @@ def save_upload(file_obj, subdir="inputs", filename=None) -> str:
         shutil.copyfileobj(file_obj, f)
     return path
 
+
+def ensure_unique_path(path: str) -> str:
+    base, ext = os.path.splitext(path)
+    counter = 1
+    candidate = path
+    while os.path.exists(candidate):
+        candidate = f"{base}_{counter}{ext}"
+        counter += 1
+    return candidate
+
+
+def move_to(path: str, target_dir: str, target_name: str) -> str:
+    os.makedirs(target_dir, exist_ok=True)
+    _, ext = os.path.splitext(path)
+    target_path = os.path.join(target_dir, target_name + ext.lower())
+    target_path = ensure_unique_path(target_path)
+    shutil.move(path, target_path)
+    return target_path
+
 def purge_older_than(days: int = KEEP_DAYS) -> int:
     cutoff = datetime.now(timezone.utc).timestamp() - days * 24 * 3600
     removed = 0

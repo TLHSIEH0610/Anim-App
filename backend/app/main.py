@@ -1,12 +1,16 @@
 import os
 from fastapi import FastAPI, Depends
-from .db import engine, Base, get_db
+from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
-from .routes import auth_routes, job_routes, book_routes
+from .routes import auth_routes, job_routes, book_routes, admin_routes
 from fastapi.middleware.cors import CORSMiddleware
+from .default_workflows import ensure_default_workflows
+from .db_utils import apply_schema_patches
 
 # create tables at startup (simple approach for dev)
 Base.metadata.create_all(bind=engine)
+apply_schema_patches(engine)
+ensure_default_workflows(SessionLocal)
 
 app = FastAPI(title="Children's Book Creator API")
 
@@ -20,6 +24,7 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(job_routes.router)
 app.include_router(book_routes.router)
+app.include_router(admin_routes.router)
 
 @app.get("/")
 def read_root():

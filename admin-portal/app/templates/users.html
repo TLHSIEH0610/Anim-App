@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>User Management</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Email</th>
+      <th>Credits</th>
+      <th>Books</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td>{{ user.id }}</td>
+      <td>{{ user.email }}</td>
+      <td>{{ user.credits }}</td>
+      <td>
+        {% if user.books %}
+        <ul>
+          {% for book in user.books %}
+          <li>
+            <a href="/books/{{ book.id }}/workflow">{{ book.title }}</a>
+            ({{ book.status }})
+            | <a href="/books/{{ book.id }}/images">Images</a>
+            | <a href="/books/{{ book.id }}/story">Story</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+          <em>No books</em>
+        {% endif %}
+      </td>
+      <td>
+        <form method="post" action="/users/{{ user.id }}/update" style="display:inline;">
+          <label for="email-{{ user.id }}">Email</label>
+          <input id="email-{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
+          <label for="credits-{{ user.id }}">Credits</label>
+          <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0">
+          <button type="submit" class="button">Update</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+{% endblock %}

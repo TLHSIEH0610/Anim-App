@@ -37,15 +37,18 @@ class Book(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     title = Column(String(255), nullable=False)
-    theme = Column(String(100))  # adventure, friendship, learning, etc.
+    theme = Column(String(100))  # reused to store template key or 'custom'
     target_age = Column(String(10))  # 3-5, 6-8, 9-12
     page_count = Column(Integer, default=8)
-    
+
     # Generation parameters
     character_description = Column(Text)
     positive_prompt = Column(Text)
     negative_prompt = Column(Text)
     original_image_paths = Column(Text)  # JSON array of image paths (1-4 images)
+    story_source = Column(String(20), default="custom")  # custom | template
+    template_key = Column(String(64))
+    template_params = Column(JSON)
     
     # Story data (JSON string)
     story_data = Column(Text)  # JSON of the generated story
@@ -69,6 +72,11 @@ class Book(Base):
     # Relationships
     user = relationship("User", back_populates="books")
     pages = relationship("BookPage", back_populates="book", cascade="all, delete-orphan")
+    workflow_snapshots = relationship(
+        "BookWorkflowSnapshot",
+        back_populates="book",
+        cascade="all, delete-orphan",
+    )
 
 
 class BookPage(Base):
@@ -97,3 +105,33 @@ class BookPage(Base):
     
     # Relationships
     book = relationship("Book", back_populates="pages")
+
+
+class BookWorkflowSnapshot(Base):
+    __tablename__ = "book_workflow_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(Integer, ForeignKey("books.id"), index=True, nullable=False)
+    page_number = Column(Integer, nullable=False)
+    prompt_id = Column(String(100))
+    workflow_json = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    vae_image_path = Column(Text)
+    workflow_version = Column(Integer)
+    workflow_slug = Column(String(100))
+
+    book = relationship("Book", back_populates="workflow_snapshots")
+
+
+class WorkflowDefinition(Base):
+    __tablename__ = "workflow_definitions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(100), index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    content = Column(JSON, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

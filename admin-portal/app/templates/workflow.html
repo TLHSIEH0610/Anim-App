@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Workflow for Book {{ book_id }}</h2>
+
+<div class="workflow-meta">
+  <p><strong>Story Source:</strong> {{ metadata.story_source or 'custom' }}</p>
+  {% if metadata.get('template_key') %}
+  <p><strong>Template:</strong> {{ metadata.template_key }}</p>
+  {% endif %}
+  <p><strong>Page:</strong> {{ metadata.page_number }}{% if metadata.page_count %} / {{ metadata.page_count }}{% endif %}</p>
+  {% if metadata.workflow_slug %}
+  <p><strong>Workflow Slug:</strong> {{ metadata.workflow_slug }}</p>
+  {% endif %}
+  {% if metadata.workflow_version is not none %}
+  <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
+  {% endif %}
+  {% if available_pages and available_pages|length > 1 %}
+  <form method="get" class="page-selector">
+    <label for="page">Jump to page:</label>
+    <select id="page" name="page" onchange="this.form.submit()">
+      {% for p in available_pages %}
+      <option value="{{ p }}" {% if p == current_page %}selected{% endif %}>Page {{ p }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+  <p><strong>Snapshot Source:</strong> {{ metadata.source }}</p>
+  {% if metadata.prompt_id %}
+  <p><strong>Prompt ID:</strong> {{ metadata.prompt_id }}</p>
+  {% endif %}
+  <p><strong>Image Filenames:</strong> {{ metadata.image_filenames }}</p>
+  {% if metadata.prompt %}
+  <p><strong>Positive Prompt:</strong> {{ metadata.prompt }}</p>
+  {% endif %}
+</div>
+
+<h3>Workflow JSON</h3>
+<pre>{{ workflow }}</pre>
+
+<a href="/dashboard">Back to dashboard</a>
+{% endblock %}
