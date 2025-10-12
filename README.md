@@ -246,10 +246,10 @@ anim-app/
 - **Purpose**: Job queue, caching
 - **Persistence**: AOF (Append-Only File)
 
-### 5. **ComfyUI** (Port 8188)
+### 5. **ComfyUI** (Image Generation)
 - **Technology**: Python-based image generation UI
 - **Purpose**: AI image generation with custom workflows
-- **Connection**: HTTP API (`host.docker.internal:8188`)
+- **Connection**: HTTP API (configured via environment variable)
 
 ### 6. **Ollama** (Port 11434)
 - **Technology**: Local LLM server
@@ -504,8 +504,8 @@ DATABASE_URL=postgresql://animapp:your-secure-password@db:5432/animapp
 # Redis
 REDIS_URL=redis://redis:6379/0
 
-# ComfyUI (local)
-COMFYUI_SERVER=host.docker.internal:8188
+# ComfyUI (local or remote via domain/proxy)
+COMFYUI_SERVER=https://your-domain.com  # For remote/Cloudflare setup, or host.docker.internal:8188 for local
 
 # Ollama
 OLLAMA_SERVER=http://host.docker.internal:11434
@@ -534,8 +534,8 @@ DATABASE_URL=postgresql://arnie:password@localhost:5432/appdb
 # Redis (local)
 REDIS_URL=redis://localhost:6379/0
 
-# ComfyUI (local)
-COMFYUI_SERVER=127.0.0.1:8188
+# ComfyUI (local or remote via domain/proxy)
+COMFYUI_SERVER=127.0.0.1:8188  # For local, or https://your-domain.com for remote/Cloudflare setup
 
 # Ollama (local)
 OLLAMA_SERVER=http://localhost:11434
@@ -633,7 +633,7 @@ npm start
 
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs (Swagger UI)
-- **ComfyUI**: http://localhost:8188
+- **ComfyUI**: http://localhost:8188 (local) or your configured domain/Cloudflare endpoint
 - **Ollama**: http://localhost:11434
 - **Frontend**: Expo Dev Tools (usually http://localhost:19000)
 - **PostgreSQL**: localhost:5432
@@ -1001,15 +1001,20 @@ brew install --cask react-native-debugger  # macOS
 tail -f /path/to/ComfyUI/comfyui.log
 
 # Test workflow manually
-# 1. Open http://localhost:8188
+# 1. Open http://localhost:8188 (for local) or your configured domain/Cloudflare endpoint
 # 2. Load workflow JSON
 # 3. Queue prompt
 # 4. Check for errors
 
-# API testing
+# API testing (local)
 curl http://localhost:8188/system_stats
 curl http://localhost:8188/queue
 curl http://localhost:8188/history
+
+# API testing (remote/Cloudflare)
+curl -k https://your-domain.com/system_stats  # Replace with your actual domain
+curl -k https://your-domain.com/queue
+curl -k https://your-domain.com/history
 ```
 
 ### Ollama Debugging
@@ -1092,14 +1097,21 @@ ORDER BY page_number;
 **Solution**:
 ```bash
 # Check services are running
-curl http://localhost:8188/system_stats  # ComfyUI
+curl http://localhost:8188/system_stats  # ComfyUI (local)
 curl http://localhost:11434/api/tags     # Ollama
 
-# Verify Docker can reach host
+# For remote ComfyUI (Cloudflare/proxy setup), test the domain directly
+curl -k https://your-domain.com/system_stats  # ComfyUI (remote)
+
+# Verify Docker can reach host (for local setup)
 docker exec animapp-backend curl http://host.docker.internal:8188/system_stats
 
-# Update .env if needed
+# Update .env if needed (for local setup)
 COMFYUI_SERVER=host.docker.internal:8188
+OLLAMA_SERVER=http://host.docker.internal:11434
+
+# Or for remote/Cloudflare setup
+COMFYUI_SERVER=https://your-domain.com  # Replace with your actual domain
 OLLAMA_SERVER=http://host.docker.internal:11434
 ```
 

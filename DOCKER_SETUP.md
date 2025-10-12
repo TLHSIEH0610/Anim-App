@@ -1,6 +1,6 @@
-# 🐳 Docker + Local ComfyUI Setup
+# 🐳 Docker + ComfyUI Setup
 
-This setup runs everything in Docker **except** ComfyUI, which runs locally for easier workflow management.
+This setup runs everything in Docker and connects to ComfyUI either locally or remotely (e.g., via Cloudflare proxy) for easier workflow management.
 
 ## 🚀 Quick Start
 
@@ -11,12 +11,15 @@ cp .env.example .env
 # Edit .env if needed (default values should work)
 ```
 
-### **2. Start ComfyUI locally** 
+### **2. Start ComfyUI** 
 ```bash
-# In a separate terminal, start your local ComfyUI
+# For local setup: Start your local ComfyUI in a separate terminal
 cd /path/to/your/ComfyUI
 python main.py --listen
 # Should be available at http://127.0.0.1:8188
+
+# For remote setup (e.g., via Cloudflare): Ensure your remote ComfyUI is accessible
+# Update COMFYUI_SERVER in .env to point to your domain (e.g., https://your-domain.com)
 ```
 
 ### **3. (Optional) Prepare a fallback workflow file**
@@ -42,7 +45,7 @@ docker-compose -f docker-compose.local-comfyui.yml ps
 
 | Service | Location | URL |
 |---------|----------|-----|
-| 🧠 ComfyUI | **Local** | http://127.0.0.1:8188 |
+| 🧠 ComfyUI | **Local or Remote** | http://127.0.0.1:8188 (local) or your domain (remote) |
 | 🚀 Backend API | Docker | http://localhost:8000 |
 | 👷 Worker | Docker | (background) |
 | 🗄️ PostgreSQL | Docker | localhost:5432 |
@@ -52,8 +55,10 @@ docker-compose -f docker-compose.local-comfyui.yml ps
 
 ### **.env file settings:**
 ```env
-# This tells containers how to reach your local ComfyUI
+# For local ComfyUI, tells containers how to reach your local instance
 COMFYUI_SERVER=host.docker.internal:8188
+# For remote ComfyUI (e.g., via Cloudflare), use your domain
+# COMFYUI_SERVER=https://your-domain.com
 
 # Database runs in container
 DATABASE_URL=postgresql://animapp:password@db:5432/animapp

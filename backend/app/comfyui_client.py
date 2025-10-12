@@ -9,33 +9,65 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 import os
 from datetime import datetime
+import urllib3
+
+# Disable SSL warnings when using verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class ComfyUIClient:
     def __init__(self, server_address: str = "127.0.0.1:8188"):
         self.server_address = server_address
         self.client_id = str(uuid.uuid4())
+        # Determine if the server address includes the protocol (http/https)
+        if "://" in server_address:
+            self.base_url = server_address
+        else:
+            # Default to http if no protocol specified
+            self.base_url = f"http://{server_address}"
         
+    def _build_url(self, endpoint: str) -> str:
+        """Build a full URL for the given endpoint"""
+        return f"{self.base_url}/{endpoint.lstrip('/')}"
+    
+    def _get_request_kwargs(self) -> dict:
+        """Get request kwargs that handle SSL for both HTTP and HTTPS"""
+        # For HTTPS URLs, we might need to disable SSL verification for local development
+        # with self-signed certificates, but keep verification for production domains
+        if self.base_url.startswith('https://'):
+            # Check if this is a local development URL that might have self-signed certificates
+            if 'localhost' in self.base_url or '127.0.0.1' in self.base_url:
+                # Disable SSL verification for local development with self-signed certificates
+                return {'verify': False, 'timeout': 30}
+            else:
+                # Keep SSL verification for production domains (like Cloudflare proxied domains)
+                return {'verify': True, 'timeout': 30}
+        else:
+            # HTTP URLs don't need SSL verification
+            return {'timeout': 30}
+    
     def queue_prompt(self, prompt: Dict[str, Any]) -> str:
         """Queue a prompt and return the prompt ID"""
-        url = f"http://{self.server_address}/prompt"
-        data = {"prompt": prompt, "client_id": self.client_id}
-        response = requests.post(url, json=data, timeout=30)
+        url = self._build_url("prompt")
+        request_kwargs = self._get_request_kwargs()
+        response = requests.post(url, json={"prompt": prompt, "client_id": self.client_id}, **request_kwargs)
         response.raise_for_status()
         return response.json()["prompt_id"]
     
     def get_history(self, prompt_id: str) -> Optional[Dict]:
         """Get the history/results for a prompt"""
-        url = f"http://{self.server_address}/history/{prompt_id}"
-        response = requests.get(url, timeout=30)
+        url = self._build_url(f"history/{prompt_id}")
+        request_kwargs = self._get_request_kwargs()
+        response = requests.get(url, **request_kwargs)
         if response.status_code == 200:
             return response.json()
         return None
     
     def get_image(self, filename: str, subfolder: str = "", folder_type: str = "output") -> bytes:
         """Download an image from ComfyUI"""
-        url = f"http://{self.server_address}/view"
+        url = self._build_url("view")
         params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
-        response = requests.get(url, params=params, timeout=30)
+        request_kwargs = self._get_request_kwargs()
+        response = requests.get(url, params=params, **request_kwargs)
         response.raise_for_status()
         return response.content
     
@@ -234,11 +266,15 @@ class ComfyUIClient:
     
     def _upload_image(self, image_path: str) -> str:
         """Upload image to ComfyUI"""
-        url = f"http://{self.server_address}/upload/image"
+        url = self._build_url("upload/image")
+        
+        request_kwargs = self._get_request_kwargs()
+        # For upload, we need to update timeout separately
+        request_kwargs['timeout'] = 60
         
         with open(image_path, 'rb') as f:
             files = {'image': f}
-            response = requests.post(url, files=files, timeout=60)
+            response = requests.post(url, files=files, **request_kwargs)
             response.raise_for_status()
             data = response.json()
             print(f"[ComfyUI] Upload response: {data}")

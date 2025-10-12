@@ -9,7 +9,7 @@ This guide helps you run AnimApp on both **macOS** (development) and **Windows P
 - **Optional fallback workflow**: `~/Documents/AnimApp/workflows/Anmi-App.json`
 - **Database**: `localhost:5432` (local PostgreSQL)
 - **Redis**: `localhost:6379` (local Redis)
-- **ComfyUI**: `127.0.0.1:8188` (local ComfyUI)
+- **ComfyUI**: `127.0.0.1:8188` (local ComfyUI) or your configured domain (remote)
 
 ### **Windows PC (Production)**
 - **Media Storage**: `C:\Users\{username}\Documents\AnimApp\media\`
