@@ -14,13 +14,23 @@ import * as ImagePicker from "expo-image-picker";
 import { createBook, BookCreationData, getStoryTemplates } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 
-const DEFAULT_TEMPLATES = [
+interface TemplateDisplay {
+  key: string;
+  label: string;
+  description: string;
+  defaultAge: string;
+  pageCount: number;
+  storyText?: string;
+}
+
+const DEFAULT_TEMPLATES: TemplateDisplay[] = [
   {
     key: "space_explorer",
     label: "🚀 Space Explorer",
     description: "Cosmic adventure with friendly planets and zero-gravity playtime.",
     defaultAge: "6-8",
     pageCount: 8,
+    storyText: "An exciting journey through the cosmos with friendly planets and daring discoveries.",
   },
   {
     key: "forest_friends",
@@ -28,6 +38,7 @@ const DEFAULT_TEMPLATES = [
     description: "Gentle woodland kindness with cuddly animal companions.",
     defaultAge: "3-5",
     pageCount: 8,
+    storyText: "A cozy walk through the forest where kindness grows with every furry friend met.",
   },
   {
     key: "magic_school",
@@ -35,6 +46,7 @@ const DEFAULT_TEMPLATES = [
     description: "A whimsical day at a floating academy full of sparkly lessons.",
     defaultAge: "6-8",
     pageCount: 8,
+    storyText: "Lessons sparkle and broomsticks zoom during a day at the floating magic academy.",
   },
   {
     key: "pirate_adventure",
@@ -42,6 +54,7 @@ const DEFAULT_TEMPLATES = [
     description: "Brave voyages, clever riddles, and sharing treasure with new friends.",
     defaultAge: "6-8",
     pageCount: 8,
+    storyText: "A treasure hunt full of riddles, roaring waves, and pirate crews that share their loot.",
   },
   {
     key: "bedtime_lullaby",
@@ -49,6 +62,7 @@ const DEFAULT_TEMPLATES = [
     description: "A dreamy glide toward sleep with moonlight and lullabies.",
     defaultAge: "3-5",
     pageCount: 8,
+    storyText: "Moonbeams and whispers guide a gentle journey toward the coziest dreams.",
   },
 ];
 
@@ -77,15 +91,15 @@ const buildAutoTitle = (storyLabel: string | undefined, characterName: string | 
   const cleanName = (characterName || "").trim();
 
   if (cleanName) {
-    return `${cleanStory} + ${cleanName}`;
+    return `${cleanStory} - ${cleanName}`;
   }
 
-  return `${cleanStory} + Character Name`;
+  return `${cleanStory} - Character Name`;
 };
 
 export default function BookCreationScreen({ navigation }) {
   const { token } = useAuth();
-  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
+  const [templates, setTemplates] = useState<TemplateDisplay[]>(DEFAULT_TEMPLATES);
   const [form, setForm] = useState<BookForm>({
     title: buildAutoTitle(DEFAULT_TEMPLATES[0].label, ""),
     pageCount: DEFAULT_TEMPLATES[0].pageCount,
@@ -105,6 +119,27 @@ export default function BookCreationScreen({ navigation }) {
     return found || templates[0];
   }, [templates, form.templateKey]);
 
+  const storylinePreview = useMemo(() => {
+    if (!selectedTemplate) {
+      return "";
+    }
+
+    const characterName = form.templateInput.name.trim() || "your character";
+    const baseStory = selectedTemplate.storyText?.trim()
+      ? selectedTemplate.storyText
+      : selectedTemplate.description;
+
+    if (!baseStory) {
+      return "";
+    }
+
+    return baseStory
+      .replace(/\{\{\s*name\s*\}\}/gi, characterName)
+      .replace(/\{name\}/gi, characterName)
+      .replace(/\[name\]/gi, characterName)
+      .replace(/<name>/gi, characterName);
+  }, [selectedTemplate, form.templateInput.name]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -113,7 +148,7 @@ export default function BookCreationScreen({ navigation }) {
         const response = await getStoryTemplates();
         if (!isMounted) return;
         if (response.stories && response.stories.length) {
-          const mapped = response.stories.map((story) => ({
+          const mapped: TemplateDisplay[] = response.stories.map((story) => ({
             key: story.slug,
             label: story.name || story.slug,
             description:
@@ -121,6 +156,7 @@ export default function BookCreationScreen({ navigation }) {
               `${story.page_count || 0} pages${story.default_age ? ` · Ages ${story.default_age}` : ""}`,
             defaultAge: story.default_age || DEFAULT_TEMPLATES[0].defaultAge,
             pageCount: story.page_count || DEFAULT_TEMPLATES[0].pageCount,
+            storyText: story.story_text || "",
           }));
 
           setTemplates(mapped);
@@ -431,16 +467,12 @@ export default function BookCreationScreen({ navigation }) {
         {form.templateInput.name.trim() ? (
           <Text style={styles.reviewDetail}>Lead Character: {form.templateInput.name.trim()}</Text>
         ) : null}
-        {selectedTemplate?.description ? (
-          <Text style={styles.reviewStoryline}>{selectedTemplate.description}</Text>
+        {storylinePreview ? (
+          <View style={styles.reviewStorylineWrapper}>
+            <Text style={styles.reviewStorylineHeading}>Storyline Preview</Text>
+            <Text style={styles.reviewStoryline}>{storylinePreview}</Text>
+          </View>
         ) : null}
-      </View>
-
-      <View style={styles.costInfo}>
-        <Text style={styles.costTitle}>💰 Cost Information</Text>
-        <Text style={styles.costDetail}>• First book each month: FREE</Text>
-        <Text style={styles.costDetail}>• Additional books: 3 credits each</Text>
-        <Text style={styles.costDetail}>• Creation time: 5-15 minutes</Text>
       </View>
 
       <TouchableOpacity style={styles.reviewBackButton} onPress={() => setCurrentStep(1)}>
@@ -820,28 +852,24 @@ const styles = StyleSheet.create({
     color: "#4b5563",
     marginBottom: 4,
   },
+  reviewStorylineWrapper: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  reviewStorylineHeading: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#312e81",
+    marginBottom: 6,
+  },
   reviewStoryline: {
-    marginTop: 8,
     fontSize: 14,
     color: "#1f2937",
     lineHeight: 20,
-  },
-  costInfo: {
-    backgroundColor: "#e0f2fe",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#bae6fd",
-  },
-  costTitle: {
-    fontWeight: "600",
-    color: "#0c4a6e",
-    marginBottom: 6,
-  },
-  costDetail: {
-    color: "#075985",
-    fontSize: 14,
   },
   createButton: {
     backgroundColor: "#2563eb",

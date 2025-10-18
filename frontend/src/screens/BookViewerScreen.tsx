@@ -15,6 +15,7 @@ import {
 import { getBookPreview, getBookPdfUrl, adminRegenerateBook } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
+import { PDFDocument } from 'pdf-lib';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -48,19 +49,6 @@ export default function BookViewerScreen({ route, navigation }) {
     }
   };
 
-  const handleShare = async () => {
-    if (!bookData) return;
-    
-    try {
-      await Share.share({
-        message: `Check out my children's book: "${bookData.title}"! Created with our AI book creator.`,
-        title: bookData.title,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-
   const downloadToDocumentDirectory = async (sourceUri: string, fileName: string) => {
     const destinationPath = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
     const downloadResult = await FileSystem.downloadAsync(
@@ -86,6 +74,16 @@ export default function BookViewerScreen({ route, navigation }) {
       const fileName = `${bookData.title?.replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'book'}.pdf`;
       const localPath = await downloadToDocumentDirectory(pdfUrl, fileName);
 
+      const originalBase64 = await FileSystem.readAsStringAsync(localPath, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const pdfDoc = await PDFDocument.load(originalBase64);
+      if (pdfDoc.getPageCount() > 1) {
+        pdfDoc.removePage(0);
+      }
+      const prunedBase64 = await pdfDoc.saveAsBase64({ dataUri: false });
+
       if (Platform.OS === 'android') {
         try {
           const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
@@ -94,17 +92,13 @@ export default function BookViewerScreen({ route, navigation }) {
             return;
           }
 
-          const base64Pdf = await FileSystem.readAsStringAsync(localPath, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
           const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
             permissions.directoryUri,
             fileName,
             'application/pdf'
           );
 
-          await FileSystem.writeAsStringAsync(targetUri, base64Pdf, {
+          await FileSystem.writeAsStringAsync(targetUri, prunedBase64, {
             encoding: FileSystem.EncodingType.Base64,
           });
 
@@ -114,6 +108,9 @@ export default function BookViewerScreen({ route, navigation }) {
           Alert.alert('Download failed', 'Could not save the PDF. Please try again.');
         }
       } else {
+        await FileSystem.writeAsStringAsync(localPath, prunedBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
         await Share.share({
           url: localPath,
           title: bookData.title,
@@ -342,12 +339,6 @@ export default function BookViewerScreen({ route, navigation }) {
           )}
         </TouchableOpacity>
         
-        <TouchableOpacity style={[styles.actionButton, styles.primaryActionButton]} onPress={handleShare}>
-          <Text style={[styles.actionButtonText, styles.primaryActionButtonText]}>
-            🔗 Share Book
-          </Text>
-        </TouchableOpacity>
-        
         <TouchableOpacity style={[styles.actionButton, styles.destructiveActionButton]} onPress={handleAdminRegenerate}>
           <Text style={[styles.actionButtonText, styles.destructiveActionButtonText]}>
             🔄 Regenerate Book
@@ -557,9 +548,6 @@ const styles = StyleSheet.create({
   actionButtonDisabled: {
     opacity: 0.6,
   },
-  primaryActionButton: {
-    backgroundColor: '#3b82f6',
-  },
   destructiveActionButton: {
     backgroundColor: '#ef4444',
   },
@@ -567,9 +555,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
-  },
-  primaryActionButtonText: {
-    color: 'white',
   },
   destructiveActionButtonText: {
     color: 'white',
