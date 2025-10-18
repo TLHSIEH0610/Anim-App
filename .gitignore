@@ -69,6 +69,7 @@ logs/
 *.temp
 .tmp/
 .temp/
+frontend/android/
 .code/
 
 # Build outputs
