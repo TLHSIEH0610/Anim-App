@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Keypoint Images</h2>
+<p>Upload reference keypoint masks for InstantID (node 100). Each story page can reference one of these by slug.</p>
+
+{% if images %}
+  <table>
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>Slug</th>
+        <th>Name</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for image in images %}
+      <tr>
+        <td>
+          {% if image.image_path %}
+            <img src="/files-proxy?path={{ image.image_path | urlencode }}" alt="{{ image.slug }}" style="max-width:140px; border-radius:6px; border:1px solid #d1d5db;">
+          {% else %}
+            <em>n/a</em>
+          {% endif %}
+        </td>
+        <td><code>{{ image.slug }}</code></td>
+        <td>{{ image.name }}</td>
+        <td>{{ image.updated_at or image.created_at or '—' }}</td>
+        <td><a href="/keypoint-images/{{ image.slug }}">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No keypoint images yet. Upload one below to get started.</p>
+{% endif %}
+
+<section style="margin-top:2.5rem;">
+  <h3>Upload Keypoint Image</h3>
+  <form method="post" action="/keypoint-images/create" enctype="multipart/form-data" style="margin-top:1rem;">
+    <label for="create-slug">Slug</label>
+    <input id="create-slug" name="slug" value="{{ form_defaults.slug }}" placeholder="e.g. side_profile" required>
+
+    <label for="create-name">Name</label>
+    <input id="create-name" name="name" value="{{ form_defaults.name }}" placeholder="Readable name" required>
+
+    <label for="create-file">Keypoint Image</label>
+    <input id="create-file" type="file" name="image_file" accept="image/*" required>
+    <p style="font-size:0.85rem; color:#6b7280;">PNG masks with transparent background typically work best.</p>
+
+    <button type="submit" class="button button-primary" style="margin-top:1rem;">Save Keypoint</button>
+  </form>
+</section>
+
+<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+{% endblock %}

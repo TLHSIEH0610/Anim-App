@@ -2,13 +2,12 @@ import { api } from "./client";
 
 export interface TemplateParams {
   name?: string;
-  gender?: "male" | "female" | "neutral";
+  gender?: "male" | "female";
 }
 
 export interface BookCreationData {
   files: string[];
   title: string;
-  target_age?: string;
   page_count: number;
   character_description?: string;
   positive_prompt?: string;
@@ -16,6 +15,19 @@ export interface BookCreationData {
   story_source: "custom" | "template";
   template_key?: string;
   template_params?: TemplateParams;
+}
+
+export interface StoryTemplateSummary {
+  slug: string;
+  name: string;
+  description?: string | null;
+  default_age?: string | null;
+  page_count: number;
+}
+
+export async function getStoryTemplates(): Promise<{ stories: StoryTemplateSummary[] }> {
+  const response = await api.get("/books/stories/templates");
+  return response.data;
 }
 
 export interface Book {
@@ -84,9 +96,6 @@ export async function createBook(token: string, data: BookCreationData): Promise
 
     // Add form fields
     formData.append("title", data.title);
-    if (data.target_age) {
-      formData.append("target_age", data.target_age);
-    }
     formData.append("page_count", data.page_count.toString());
     if (data.character_description) {
       formData.append("character_description", data.character_description);

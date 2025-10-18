@@ -90,7 +90,7 @@ def comfyui_process_image(input_path: str) -> str:
     
     try:
         client = ComfyUIClient(COMFYUI_SERVER)
-        result = client.process_image_to_animation(input_path, workflow)
+        result = client.process_image_to_animation(input_path, workflow, keypoint_filename=None)
         
         if result["status"] == "success":
             return result["output_path"]

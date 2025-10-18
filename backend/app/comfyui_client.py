@@ -128,7 +128,7 @@ class ComfyUIClient:
         num_images = len(image_filenames)
 
         # Update LoadImage nodes with actual filenames
-        image_nodes = ["13", "94", "98", "100"]
+        image_nodes = ["13", "94", "98", "101"]
         for i, filename in enumerate(image_filenames):
             if i < len(image_nodes) and image_nodes[i] in workflow:
                 workflow[image_nodes[i]]["inputs"]["image"] = filename
@@ -138,7 +138,7 @@ class ComfyUIClient:
             # Single image: Connect node 13 directly to ApplyInstantID (node 60)
             workflow["60"]["inputs"]["image"] = ["13", 0]
             # Remove unused nodes
-            for node_id in ["75", "94", "95", "98", "101", "100"]:
+            for node_id in ["75", "94", "95", "98", "101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
@@ -146,7 +146,7 @@ class ComfyUIClient:
             # Two images: Use node 75 (batch 13+94), connect to node 60
             workflow["60"]["inputs"]["image"] = ["75", 0]
             # Remove unused nodes
-            for node_id in ["95", "98", "101", "100"]:
+            for node_id in ["95", "98", "101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
@@ -154,7 +154,7 @@ class ComfyUIClient:
             # Three images: Use nodes 75 (13+94) and 95 (75+98), connect 95 to node 60
             workflow["60"]["inputs"]["image"] = ["95", 0]
             # Remove unused nodes
-            for node_id in ["101", "100"]:
+            for node_id in ["101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
@@ -170,6 +170,7 @@ class ComfyUIClient:
         workflow_json: Dict[str, Any],
         custom_prompt: str | None = None,
         control_prompt: str | None = None,
+        keypoint_filename: str | None = None,
     ) -> Dict:
         """
         Process image(s) through ComfyUI workflow
@@ -208,6 +209,11 @@ class ComfyUIClient:
             import copy
             workflow = copy.deepcopy(workflow_json)
             workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
+
+            if keypoint_filename and "100" in workflow and "inputs" in workflow["100"]:
+                workflow["100"]["inputs"]["image"] = keypoint_filename
+                workflow["100"]["inputs"]["load_from_upload"] = True
+                print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
 
             # Debug log: surface the filenames wired into each LoadImage node
             try:
@@ -298,26 +304,20 @@ class ComfyUIClient:
         """
         # Find the positive prompt CLIPTextEncode node and update it with custom prompt
         # First, try to find nodes with "children's book illustration" (old workflow)
-        if custom_prompt is None:
-            return workflow
+        positive_nodes = ["39"]
+        negative_nodes = ["40"]
 
-        positive_nodes = ["39", "8", "10"]
-        control_nodes = ["80"]
-
-        for node_id in workflow:
-            node = workflow[node_id]
+        for node_id, node in workflow.items():
             if node.get("class_type") == "CLIPTextEncode" and "text" in node.get("inputs", {}):
                 original = node["inputs"]["text"]
-                if node_id in positive_nodes:
+                if custom_prompt is not None and node_id in positive_nodes:
                     node["inputs"]["text"] = custom_prompt
-                    print(f"Updating node {node_id} prompt from: {original}" )
+                    print(f"Updating node {node_id} prompt from: {original}")
                     print(f"Updated node {node_id} prompt to: {custom_prompt}")
-                elif node_id in control_nodes:
-                    if control_prompt is None:
-                        continue
+                elif control_prompt is not None and node_id in negative_nodes:
                     node["inputs"]["text"] = control_prompt
-                    print(f"Updating node {node_id} control prompt from: {original}")
-                    print(f"Updated node {node_id} control prompt to: {control_prompt}")
+                    print(f"Updating node {node_id} negative prompt from: {original}")
+                    print(f"Updated node {node_id} negative prompt to: {control_prompt}")
 
         return workflow
 
@@ -366,38 +366,60 @@ class ComfyUIClient:
             if node_id in ["25", "10"] and "images" in node_outputs:  # SaveImage nodes
                 image_info = node_outputs["images"][0]
                 filename = image_info["filename"]
+                subfolder = image_info.get("subfolder", "")
+                folder_type = image_info.get("type", "output")
                 print(f"Found SaveImage output from node {node_id}: {filename}")
-                
+
                 # Download the file
-                image_data = self.get_image(filename)
-                
+                image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+
                 # Save locally with cross-platform path
                 output_path = output_dir / f"result_{int(time.time())}_{filename}"
                 with open(output_path, 'wb') as f:
                     f.write(image_data)
-                
+
                 return str(output_path)
-        
+
         # If no SaveImage node found, look for any saved images (not temp files)
+        fallback_image = None
+        fallback_info = None
+
         for node_id, node_outputs in outputs.items():
-            if "images" in node_outputs:
-                for image_info in node_outputs["images"]:
-                    filename = image_info["filename"]
-                    # Skip temp files - they're preview images, not final outputs
-                    if "temp" not in filename.lower():
-                        print(f"Found non-temp output: {filename} from node {node_id}")
-                        
-                        # Download the file
-                        image_data = self.get_image(filename)
-                        
-                        # Save locally with cross-platform path
-                        output_path = output_dir / f"result_{int(time.time())}_{filename}"
-                        with open(output_path, 'wb') as f:
-                            f.write(image_data)
-                        
-                        return str(output_path)
-        
-        raise Exception("No SaveImage or non-temp output images found in workflow result")
+            if "images" not in node_outputs:
+                continue
+
+            for image_info in node_outputs["images"]:
+                filename = image_info.get("filename")
+                if not filename:
+                    continue
+
+                subfolder = image_info.get("subfolder", "")
+                folder_type = image_info.get("type", "output")
+
+                # Prefer non-temp outputs but keep the first temp as fallback
+                if "temp" not in (filename or "").lower():
+                    print(f"Found non-temp output: {filename} from node {node_id}")
+                    image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+                    output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                    with open(output_path, 'wb') as f:
+                        f.write(image_data)
+                    return str(output_path)
+
+                if fallback_image is None:
+                    fallback_image = (filename, subfolder, folder_type)
+                    fallback_info = (node_id, image_info)
+
+        if fallback_image:
+            filename, subfolder, folder_type = fallback_image
+            node_id, _ = fallback_info
+            print(f"Falling back to temp output {filename} from node {node_id}")
+            image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+            output_path = output_dir / f"result_{int(time.time())}_{filename}"
+            with open(output_path, 'wb') as f:
+                f.write(image_data)
+            return str(output_path)
+
+        raise Exception("No image outputs found in workflow result")
 
     def _download_intermediate_image(self, outputs: Optional[Dict[str, Any]], node_ids) -> Optional[str]:
         """Download an intermediate image (e.g. VAE decode) for debugging/preview"""

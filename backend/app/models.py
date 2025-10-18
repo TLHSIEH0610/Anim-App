@@ -173,8 +173,25 @@ class StoryTemplatePage(Base):
     story_text = Column(Text, nullable=False)
     image_prompt = Column(Text, nullable=False)
     positive_prompt = Column(Text, nullable=False)
+    negative_prompt = Column(Text)
     pose_prompt = Column(Text, nullable=False)
+    controlnet_image = Column(String(150))
+    keypoint_image = Column(String(150))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     template = relationship("StoryTemplate", back_populates="pages")
+
+
+class ControlNetImage(Base):
+    __tablename__ = "controlnet_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(120), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    workflow_slug = Column(String(100), nullable=False, default="base")
+    image_path = Column(Text, nullable=False)
+    preview_path = Column(Text)
+    metadata_json = Column("metadata", JSON)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

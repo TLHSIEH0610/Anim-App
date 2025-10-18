@@ -5,6 +5,11 @@ def apply_schema_patches(engine):
     statements = [
         "ALTER TABLE book_workflow_snapshots ADD COLUMN workflow_version INTEGER",
         "ALTER TABLE book_workflow_snapshots ADD COLUMN workflow_slug VARCHAR(100)",
+        "ALTER TABLE story_template_pages ADD COLUMN controlnet_image VARCHAR(150)",
+        "ALTER TABLE story_template_pages ADD COLUMN keypoint_image VARCHAR(150)",
+        "ALTER TABLE story_template_pages ADD COLUMN negative_prompt TEXT",
+        "ALTER TABLE controlnet_images ADD COLUMN preview_path TEXT",
+        "ALTER TABLE controlnet_images ADD COLUMN metadata JSON",
     ]
 
     with engine.connect() as conn:

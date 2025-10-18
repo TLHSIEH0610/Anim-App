@@ -10,9 +10,11 @@ import {
   Dimensions,
   ActivityIndicator,
   Share,
+  Platform,
 } from 'react-native';
 import { getBookPreview, getBookPdfUrl, adminRegenerateBook } from '../api/books';
 import { useAuth } from '../context/AuthContext';
+import * as FileSystem from 'expo-file-system';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -23,6 +25,7 @@ export default function BookViewerScreen({ route, navigation }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState({});
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const loadBookData = async () => {
     if (!token) return;
@@ -58,24 +61,71 @@ export default function BookViewerScreen({ route, navigation }) {
     }
   };
 
-  const handleDownloadPdf = () => {
-    if (!bookData) return;
-    
-    Alert.alert(
-      'Download PDF',
-      'Open the PDF version of your book?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Open PDF', 
-          onPress: () => {
-            const pdfUrl = getBookPdfUrl(bookId);
-            // In a real app, you'd use Linking.openURL(pdfUrl) or a PDF viewer
-            Alert.alert('PDF Ready', `Your PDF is available at: ${pdfUrl}`);
+  const downloadToDocumentDirectory = async (sourceUri: string, fileName: string) => {
+    const destinationPath = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
+    const downloadResult = await FileSystem.downloadAsync(
+      sourceUri,
+      destinationPath,
+      token
+        ? {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        }
-      ]
+        : undefined
     );
+    return downloadResult.uri;
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!bookData) return;
+
+    try {
+      setIsDownloading(true);
+      const pdfUrl = getBookPdfUrl(bookId);
+      const fileName = `${bookData.title?.replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'book'}.pdf`;
+      const localPath = await downloadToDocumentDirectory(pdfUrl, fileName);
+
+      if (Platform.OS === 'android') {
+        try {
+          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (!permissions.granted) {
+            Alert.alert('Download cancelled', 'Storage permission is required to save the PDF.');
+            return;
+          }
+
+          const base64Pdf = await FileSystem.readAsStringAsync(localPath, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            'application/pdf'
+          );
+
+          await FileSystem.writeAsStringAsync(targetUri, base64Pdf, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          Alert.alert('Download complete', 'PDF saved to the folder you selected.');
+        } catch (androidError) {
+          console.error('Android PDF save error:', androidError);
+          Alert.alert('Download failed', 'Could not save the PDF. Please try again.');
+        }
+      } else {
+        await Share.share({
+          url: localPath,
+          title: bookData.title,
+          message: `Your book "${bookData.title}" is ready as a PDF.`,
+        });
+      }
+    } catch (error) {
+      console.error('PDF download error:', error);
+      Alert.alert('Download failed', 'Unable to download PDF. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleAdminRegenerate = () => {
@@ -280,8 +330,16 @@ export default function BookViewerScreen({ route, navigation }) {
 
       {/* Actions */}
       <View style={styles.actionsContainer}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleDownloadPdf}>
-          <Text style={styles.actionButtonText}>📄 Download PDF</Text>
+        <TouchableOpacity
+          style={[styles.actionButton, isDownloading && styles.actionButtonDisabled]}
+          onPress={handleDownloadPdf}
+          disabled={isDownloading}
+        >
+          {isDownloading ? (
+            <ActivityIndicator color="#2563eb" />
+          ) : (
+            <Text style={styles.actionButtonText}>📄 Download PDF</Text>
+          )}
         </TouchableOpacity>
         
         <TouchableOpacity style={[styles.actionButton, styles.primaryActionButton]} onPress={handleShare}>
@@ -495,6 +553,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   primaryActionButton: {
     backgroundColor: '#3b82f6',

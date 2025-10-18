@@ -45,6 +45,75 @@ async def backend_request(method: str, path: str, **kwargs) -> httpx.Response:
     return response
 
 
+async def render_controlnet_page(
+    request: Request,
+    session_data: dict,
+    *,
+    message: str | None = None,
+    error: str | None = None,
+    form_defaults: dict | None = None,
+):
+    images: list[dict] = []
+    combined_error = error
+
+    try:
+        resp = await backend_request("GET", "/admin/keypoint-images")
+        images = resp.json().get("images", [])
+    except httpx.HTTPError as exc:
+        combined_error = f"Failed to load keypoint images: {exc}" if not combined_error else f"{combined_error}; {exc}"
+
+    if form_defaults is None:
+        form_defaults = {
+            "slug": "",
+            "name": "",
+        }
+
+    context = {
+        "request": request,
+        "admin_email": session_data.get("email"),
+        "images": images,
+        "message": message,
+        "error": combined_error,
+        "form_defaults": form_defaults,
+    }
+
+    return templates.TemplateResponse("controlnet_images.html", context)
+
+
+async def render_controlnet_edit_page(
+    request: Request,
+    session_data: dict,
+    slug: str,
+    *,
+    message: str | None = None,
+    error: str | None = None,
+    form_defaults: dict | None = None,
+):
+    try:
+        resp = await backend_request("GET", f"/admin/keypoint-images/{slug}")
+        image = resp.json()
+    except httpx.HTTPError as exc:
+        redirect_error = quote_plus(f"Failed to load ControlNet image: {exc}")
+        return RedirectResponse(f"/keypoint-images?error={redirect_error}", status_code=status.HTTP_303_SEE_OTHER)
+
+    if form_defaults is None:
+        form_defaults = {
+            "slug": image.get("slug", slug),
+            "name": image.get("name", ""),
+        }
+
+    context = {
+        "request": request,
+        "admin_email": session_data.get("email"),
+        "image": image,
+        "message": message,
+        "error": error,
+        "form_defaults": form_defaults,
+    }
+
+    return templates.TemplateResponse("controlnet_image_edit.html", context)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
     session = get_admin_session(request)
@@ -76,6 +145,164 @@ async def logout():
     response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie("admin_session")
     return response
+
+
+@app.get("/controlnet-images", response_class=HTMLResponse)
+@app.get("/keypoint-images", response_class=HTMLResponse)
+async def controlnet_images_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    message = request.query_params.get("message")
+    error = request.query_params.get("error")
+    return await render_controlnet_page(request, session, message=message, error=error)
+
+
+@app.post("/controlnet-images/create")
+@app.post("/keypoint-images/create")
+async def controlnet_images_create(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    form = await request.form()
+    slug = (form.get("slug", "") or "").strip()
+    name = (form.get("name", "") or "").strip()
+    image_file = form.get("image_file")
+
+    error = None
+    if not slug:
+        error = "Slug is required."
+    elif not name:
+        error = "Name is required."
+
+    files = None
+    if image_file and getattr(image_file, "filename", ""):
+        image_file.file.seek(0)
+        files = {
+            "image_file": (
+                image_file.filename,
+                image_file.file,
+                image_file.content_type or "application/octet-stream",
+            )
+        }
+    else:
+        error = error or "Please upload a keypoint image before saving."
+
+    data = {
+        "slug": slug,
+        "name": name,
+    }
+
+    if error is None:
+        try:
+            if files:
+                await backend_request("POST", "/admin/keypoint-images", data=data, files=files)
+            else:
+                await backend_request("POST", "/admin/keypoint-images", data=data)
+            return RedirectResponse(
+                "/keypoint-images?message=ControlNet%20image%20created",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        except httpx.HTTPError as exc:
+            error = f"Failed to create ControlNet image: {exc}"
+
+    form_defaults = {
+        "slug": slug,
+        "name": name,
+    }
+
+    return await render_controlnet_page(request, session, error=error, form_defaults=form_defaults)
+
+
+@app.get("/controlnet-images/{slug}", response_class=HTMLResponse)
+@app.get("/keypoint-images/{slug}", response_class=HTMLResponse)
+async def controlnet_image_edit(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    message = request.query_params.get("message")
+    error = request.query_params.get("error")
+    return await render_controlnet_edit_page(request, session, slug, message=message, error=error)
+
+
+@app.post("/controlnet-images/{slug}")
+@app.post("/keypoint-images/{slug}")
+async def controlnet_image_update(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    form = await request.form()
+    new_slug = (form.get("slug", slug) or slug).strip() or slug
+    name = (form.get("name", "") or "").strip()
+    image_file = form.get("image_file")
+
+    data = {
+        "new_slug": new_slug,
+        "name": name,
+    }
+
+    files = None
+    if image_file and getattr(image_file, "filename", ""):
+        image_file.file.seek(0)
+        files = {
+            "image_file": (
+                image_file.filename,
+                image_file.file,
+                image_file.content_type or "application/octet-stream",
+            )
+        }
+
+    error = None
+    if not new_slug:
+        error = "Slug is required."
+    if not name:
+        error = error or "Name is required."
+
+    if error is None:
+        try:
+            if files:
+                await backend_request("PUT", f"/admin/keypoint-images/{slug}", data=data, files=files)
+            else:
+                await backend_request("PUT", f"/admin/keypoint-images/{slug}", data=data)
+            target = new_slug or slug
+            return RedirectResponse(
+                f"/keypoint-images/{target}?message=ControlNet%20image%20updated",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        except httpx.HTTPError as exc:
+            error = f"Failed to update ControlNet image: {exc}"
+
+    form_defaults = {
+        "slug": new_slug,
+        "name": name,
+    }
+
+    return await render_controlnet_edit_page(request, session, slug, error=error, form_defaults=form_defaults)
+
+
+@app.post("/controlnet-images/{slug}/delete")
+@app.post("/keypoint-images/{slug}/delete")
+async def controlnet_image_delete(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        await backend_request("DELETE", f"/admin/keypoint-images/{slug}")
+        return RedirectResponse(
+            "/keypoint-images?message=ControlNet%20image%20deleted",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        error = quote_plus(f"Failed to delete image: {exc}")
+        return RedirectResponse(
+            f"/keypoint-images/{slug}?error={error}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -510,6 +737,25 @@ async def update_workflow(workflow_id: int, request: Request):
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/workflows/{workflow_id}?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/workflows/{workflow_id}/delete")
+async def delete_workflow(workflow_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        await backend_request("DELETE", f"/admin/workflows/{workflow_id}")
+        return RedirectResponse(
+            "/workflows?message=Workflow%20deleted",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/workflows?error={quote_plus(str(exc))}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 

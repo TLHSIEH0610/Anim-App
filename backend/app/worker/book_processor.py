@@ -16,6 +16,7 @@ from app.models import (
     WorkflowDefinition,
     StoryTemplate,
     StoryTemplatePage,
+    ControlNetImage,
 )
 from app.comfyui_client import ComfyUIClient
 from app.story_generator import OllamaStoryGenerator, enhance_childbook_prompt
@@ -36,6 +37,8 @@ BASE_INSTANT_PROMPT = (
     "soft pastel colors, whimsical art, storybook character, friendly cartoon style, "
     "hand-drawn illustration, warm lighting, child-friendly art style"
 )
+
+DEFAULT_NEGATIVE_PROMPT = "text, watermark, low quality, medium quality, blurry, censored, wrinkles, distorted"
 
 AGE_DESCRIPTORS = {
     "3-5": "preschool-aged",
@@ -141,7 +144,7 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
 
     replacements = {
         "Name": name,
-        "name": name.lower(),
+        "name": name,
         "they": pronouns["they"],
         "them": pronouns["them"],
         "their": pronouns["their"],
@@ -153,6 +156,16 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         "gender": gender_word,
         "Gender": gender_word.capitalize(),
     }
+
+    age_value = (
+        params.get("age")
+        or book.target_age
+        or template.default_age
+        or ""
+    )
+    age_value = str(age_value) if age_value is not None else ""
+    replacements["age"] = age_value
+    replacements["Age"] = age_value
 
     template_pages = sorted(template.pages, key=lambda p: p.page_number)
     if not template_pages:
@@ -167,24 +180,30 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
 
         story_text = _format_template_text(page_template.story_text, replacements)
         image_prompt = _format_template_text(page_template.image_prompt, replacements)
-        positive_prompt = _format_template_text(page_template.positive_prompt, replacements)
-        pose_prompt = _format_template_text(page_template.pose_prompt, replacements)
-
-        if not positive_prompt.strip():
-            subject = _build_prompt_description(image_prompt, book.target_age, gender)
-            positive_prompt = f"{BASE_INSTANT_PROMPT}, {subject}"
+        positive_prompt = _format_template_text(page_template.positive_prompt, replacements) if page_template.positive_prompt else ""
+        negative_prompt = _format_template_text(page_template.negative_prompt, replacements) if getattr(page_template, "negative_prompt", None) else ""
+        pose_prompt = _format_template_text(page_template.pose_prompt, replacements) if page_template.pose_prompt else ""
+        keypoint_slug = page_template.keypoint_image
 
         pages.append(
             {
                 "page": page_number,
                 "text": story_text,
                 "image_description": image_prompt,
+                "image_kp": keypoint_slug,
             }
         )
-        overrides[page_number] = {
-            "positive": positive_prompt.strip(),
-            "control": pose_prompt.strip() or image_prompt.strip(),
-        }
+
+        override: Dict[str, str] = {}
+        if positive_prompt.strip():
+            override["positive"] = positive_prompt.strip()
+        if negative_prompt.strip():
+            override["negative"] = negative_prompt.strip()
+        if keypoint_slug:
+            override["keypoint"] = keypoint_slug
+        if pose_prompt and pose_prompt.strip():
+            override["pose"] = pose_prompt.strip()
+        overrides[page_number] = override
 
     story_data = {
         "title": book.title,
@@ -489,6 +508,7 @@ def create_childbook(book_id: int):
         session.commit()
 
         pages = session.query(BookPage).filter_by(book_id=book.id).order_by(BookPage.page_number).all()
+        keypoint_cache: Dict[str, str] = {}
         total_pages = len(pages)
         
         for i, page in enumerate(pages):
@@ -498,26 +518,23 @@ def create_childbook(book_id: int):
                 page.image_started_at = datetime.now(timezone.utc)
                 session.commit()
                 
-                control_prompt: Optional[str] = None
-                prompt_override = template_prompt_overrides.get(page.page_number)
-                if prompt_override:
-                    positive_prompt = prompt_override["positive"]
-                    control_prompt = prompt_override["control"]
-                    page.enhanced_prompt = positive_prompt
-                else:
-                    enhanced_prompts = enhance_childbook_prompt(
-                        page.image_description,
-                        book.theme or "custom",
-                        book.target_age or "6-8",
-                        f"Page {page.page_number} of children's book",
-                        character_description=book.character_description,
-                    )
+                prompt_override = template_prompt_overrides.get(page.page_number, {})
+                keypoint_slug = prompt_override.get("keypoint")
 
-                    positive_prompt = enhanced_prompts["positive"]
-                    control_prompt = positive_prompt
-                    page.enhanced_prompt = positive_prompt
+                enhanced_prompts = enhance_childbook_prompt(
+                    page.image_description,
+                    book.theme or "custom",
+                    book.target_age or "6-8",
+                    f"Page {page.page_number} of children's book",
+                    character_description=book.character_description,
+                )
+                positive_override = prompt_override.get("positive")
+                page.enhanced_prompt = positive_override or enhanced_prompts.get("positive") or page.image_description
+
+                negative_override = prompt_override.get("negative")
+                negative_prompt = negative_override or enhanced_prompts.get("negative") or DEFAULT_NEGATIVE_PROMPT
                 session.commit()
-                
+
                 # Try to generate image with ComfyUI
                 try:
                     # Load appropriate workflow
@@ -535,6 +552,27 @@ def create_childbook(book_id: int):
 
                     print(f"Using {len(image_paths)} reference image(s) for character consistency")
 
+                    keypoint_filename: Optional[str] = None
+                    if keypoint_slug:
+                        cached_filename = keypoint_cache.get(keypoint_slug)
+                        if cached_filename:
+                            keypoint_filename = cached_filename
+                        else:
+                            kp_record = (
+                                session.query(ControlNetImage)
+                                .filter(ControlNetImage.slug == keypoint_slug)
+                                .first()
+                            )
+                            if kp_record and kp_record.image_path and os.path.exists(kp_record.image_path):
+                                try:
+                                    keypoint_filename = comfyui_client._upload_image(kp_record.image_path)
+                                    print(f"Uploaded keypoint '{keypoint_slug}' as {keypoint_filename}")
+                                    keypoint_cache[keypoint_slug] = keypoint_filename
+                                except Exception as upload_error:
+                                    print(f"Failed to upload keypoint image '{keypoint_slug}': {upload_error}")
+                            else:
+                                print(f"Keypoint image '{keypoint_slug}' not found or missing path")
+
                     # Generate image with ComfyUI
                     print(f"Starting ComfyUI processing for page {page.page_number}...")
                     print(f"Using enhanced prompt: {page.enhanced_prompt}")
@@ -545,7 +583,8 @@ def create_childbook(book_id: int):
                         image_paths,
                         copy.deepcopy(workflow),
                         page.enhanced_prompt,
-                        control_prompt,
+                        negative_prompt,
+                        keypoint_filename=keypoint_filename,
                     )
 
                     workflow_payload = result.get("workflow")

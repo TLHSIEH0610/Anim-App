@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Edit Keypoint Image</h2>
+
+<div class="card" style="margin-bottom:1.5rem; max-width:320px;">
+  {% if image.image_path %}
+    <img src="/files-proxy?path={{ image.image_path | urlencode }}" alt="{{ image.slug }}" style="width:100%; border-radius:8px; border:1px solid #d1d5db;">
+  {% else %}
+    <p><em>No image stored</em></p>
+  {% endif %}
+  <p style="margin-top:0.75rem;"><strong>Slug:</strong> <code>{{ image.slug }}</code></p>
+  <p><strong>Name:</strong> {{ image.name }}</p>
+  <p><strong>Updated:</strong> {{ image.updated_at or image.created_at or '—' }}</p>
+</div>
+
+<form method="post" action="/keypoint-images/{{ image.slug }}" enctype="multipart/form-data" style="margin-bottom:2rem;">
+  <label for="edit-slug">Slug</label>
+  <input id="edit-slug" name="slug" value="{{ form_defaults.slug }}" required>
+
+  <label for="edit-name">Name</label>
+  <input id="edit-name" name="name" value="{{ form_defaults.name }}" required>
+
+  <label for="edit-file">Replace Image</label>
+  <input id="edit-file" type="file" name="image_file" accept="image/*">
+  <p style="font-size:0.85rem; color:#6b7280;">Uploading a new file replaces the current keypoint mask after you save.</p>
+
+  <button type="submit" class="button button-primary" style="margin-top:1rem;">Save Changes</button>
+</form>
+
+<form method="post" action="/keypoint-images/{{ image.slug }}/delete" onsubmit="return confirm('Delete keypoint image {{ image.slug }}?');">
+  <button type="submit" class="button-outline">Delete Keypoint Image</button>
+</form>
+
+<a href="/keypoint-images" style="margin-top: 2rem; display: inline-block;">Back to keypoints</a>
+{% endblock %}

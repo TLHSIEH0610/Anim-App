@@ -4,11 +4,12 @@ import os
 import json
 import base64
 import copy
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -25,6 +26,7 @@ from ..models import (
     WorkflowDefinition,
     StoryTemplate,
     StoryTemplatePage,
+    ControlNetImage,
 )
 from ..comfyui_client import ComfyUIClient
 from ..worker.book_processor import (
@@ -32,6 +34,7 @@ from ..worker.book_processor import (
     _load_story_template,
     _build_story_from_template,
 )
+from ..storage import save_upload, move_to
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -90,7 +93,9 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
             "story_text": page.story_text,
             "image_prompt": page.image_prompt,
             "positive_prompt": page.positive_prompt,
-            "pose_prompt": page.pose_prompt,
+            "negative_prompt": page.negative_prompt or "",
+            "pose_prompt": page.pose_prompt or "",
+            "image_kp": page.keypoint_image,
         }
         for page in sorted(template.pages, key=lambda p: p.page_number)
     ]
@@ -109,6 +114,71 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "created_at": template.created_at.isoformat() if template.created_at else None,
         "updated_at": template.updated_at.isoformat() if template.updated_at else None,
     }
+
+
+def _resolve_keypoint_slug(value: Optional[str], db: Session) -> Optional[str]:
+    if value is None:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+
+    record = (
+        db.query(ControlNetImage)
+        .filter(func.lower(ControlNetImage.slug) == candidate.lower())
+        .first()
+    )
+    if not record:
+        record = (
+            db.query(ControlNetImage)
+            .filter(func.lower(ControlNetImage.name) == candidate.lower())
+            .first()
+        )
+
+    if not record:
+        raise HTTPException(status_code=400, detail=f"Keypoint image '{value}' not found")
+
+    return record.slug
+
+
+def _keypoint_base_dir() -> Path:
+    base = Path(os.getenv("MEDIA_ROOT", "/data/media")).expanduser()
+    target = base / "controlnet" / "keypoints"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _keypoint_upload_dir() -> Path:
+    return _keypoint_base_dir()
+
+
+def _controlnet_image_to_dict(image: ControlNetImage) -> dict:
+    return {
+        "id": image.id,
+        "slug": image.slug,
+        "name": image.name,
+        "workflow_slug": image.workflow_slug,
+        "image_path": image.image_path,
+        "preview_path": None,
+        "metadata": image.metadata_json or {},
+        "created_at": image.created_at.isoformat() if image.created_at else None,
+        "updated_at": image.updated_at.isoformat() if image.updated_at else None,
+    }
+
+
+def _store_keypoint_upload(upload: UploadFile, slug: str) -> str:
+    filename = Path(upload.filename or f"{slug}.png").name
+    if not filename:
+        filename = f"{slug}.png"
+    upload.file.seek(0)
+    temp_path = save_upload(upload.file, subdir="controlnet/keypoints", filename=filename)
+    return _rename_keypoint(temp_path, slug)
+
+
+def _rename_keypoint(path: str, slug: str) -> str:
+    if not path or not os.path.exists(path):
+        return path
+    return move_to(path, str(_keypoint_base_dir()), slug)
 
 
 @router.get("/books")
@@ -413,6 +483,137 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
     return {"users": items}
 
 
+@router.get("/controlnet-images")
+@router.get("/keypoint-images")
+def admin_list_controlnet_images(_: None = Depends(require_admin), db: Session = Depends(get_db)):
+    images = (
+        db.query(ControlNetImage)
+        .order_by(ControlNetImage.created_at.desc().nullslast())
+        .all()
+    )
+    return {"images": [_controlnet_image_to_dict(image) for image in images]}
+
+
+@router.get("/controlnet-images/{slug}")
+@router.get("/keypoint-images/{slug}")
+def admin_get_controlnet_image(
+    slug: str,
+    include_data: bool = False,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    image = db.query(ControlNetImage).filter(ControlNetImage.slug == slug).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Keypoint image not found")
+
+    payload = _controlnet_image_to_dict(image)
+    if include_data and image.image_path:
+        payload["data_uri"] = _encode_image_base64(image.image_path)
+
+    return payload
+
+
+@router.post("/controlnet-images")
+@router.post("/keypoint-images")
+async def admin_create_controlnet_image(
+    slug: str = Form(...),
+    name: str = Form(...),
+    image_file: UploadFile = File(...),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    slug_value = slug.strip()
+    if not slug_value:
+        raise HTTPException(status_code=400, detail="Slug is required")
+
+    existing = db.query(ControlNetImage).filter(ControlNetImage.slug == slug_value).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Keypoint image with this slug already exists")
+
+    stored_path = _store_keypoint_upload(image_file, slug_value)
+
+    record = ControlNetImage(
+        slug=slug_value,
+        name=name.strip() or slug_value,
+        workflow_slug="keypoint",
+        image_path=stored_path,
+        preview_path=None,
+        metadata_json={},
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return _controlnet_image_to_dict(record)
+
+
+@router.put("/controlnet-images/{slug}")
+@router.put("/keypoint-images/{slug}")
+async def admin_update_controlnet_image(
+    slug: str,
+    new_slug: Optional[str] = Form(None),
+    name: Optional[str] = Form(None),
+    image_file: Optional[UploadFile] = File(None),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    record = db.query(ControlNetImage).filter(ControlNetImage.slug == slug).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="ControlNet image not found")
+
+    target_slug = (new_slug or record.slug).strip()
+    if not target_slug:
+        raise HTTPException(status_code=400, detail="Slug cannot be empty")
+
+    if target_slug != record.slug:
+        conflict = db.query(ControlNetImage).filter(ControlNetImage.slug == target_slug).first()
+        if conflict:
+            raise HTTPException(status_code=400, detail="Another ControlNet image already uses that slug")
+
+    updated_path = record.image_path
+
+    if image_file is not None:
+        new_path = _store_keypoint_upload(image_file, target_slug)
+        if updated_path and updated_path != new_path and os.path.exists(updated_path):
+            try:
+                os.remove(updated_path)
+            except OSError:
+                pass
+        updated_path = new_path
+    elif target_slug != record.slug:
+        updated_path = _rename_keypoint(record.image_path, target_slug)
+
+    record.slug = target_slug
+    if name is not None:
+        record.name = name.strip() or target_slug
+    record.workflow_slug = "keypoint"
+
+    if updated_path:
+        record.image_path = updated_path
+    record.preview_path = None
+    record.metadata_json = record.metadata_json or {}
+
+    db.commit()
+    db.refresh(record)
+    return _controlnet_image_to_dict(record)
+
+
+@router.delete("/controlnet-images/{slug}")
+@router.delete("/keypoint-images/{slug}")
+def admin_delete_controlnet_image(slug: str, _: None = Depends(require_admin), db: Session = Depends(get_db)):
+    record = db.query(ControlNetImage).filter(ControlNetImage.slug == slug).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="ControlNet image not found")
+
+    if record.image_path and os.path.exists(record.image_path):
+        try:
+            os.remove(record.image_path)
+        except OSError:
+            pass
+    db.delete(record)
+    db.commit()
+    return {"message": "ControlNet image deleted"}
+
+
 class AdminUserUpdatePayload(BaseModel):
     email: Optional[str] = None
     credits: Optional[int] = None
@@ -496,13 +697,22 @@ def admin_create_story_template(
     db.flush()
 
     for page in sorted(payload.pages, key=lambda p: p.page_number):
+        keypoint_slug = _resolve_keypoint_slug(page.image_kp, db)
+        if keypoint_slug is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Page {page.page_number} requires an 'image_kp' slug",
+            )
         page_row = StoryTemplatePage(
             story_template_id=template.id,
             page_number=page.page_number,
             story_text=page.story_text,
             image_prompt=page.image_prompt,
             positive_prompt=page.positive_prompt,
-            pose_prompt=page.pose_prompt,
+            negative_prompt=page.negative_prompt or "",
+            pose_prompt=page.pose_prompt or "",
+            controlnet_image=None,
+            keypoint_image=keypoint_slug,
         )
         db.add(page_row)
 
@@ -539,13 +749,22 @@ def admin_update_story_template(
     db.query(StoryTemplatePage).filter(StoryTemplatePage.story_template_id == template.id).delete()
 
     for page in sorted(payload.pages, key=lambda p: p.page_number):
+        keypoint_slug = _resolve_keypoint_slug(page.image_kp, db)
+        if keypoint_slug is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Page {page.page_number} requires an 'image_kp' slug",
+            )
         page_row = StoryTemplatePage(
             story_template_id=template.id,
             page_number=page.page_number,
             story_text=page.story_text,
             image_prompt=page.image_prompt,
             positive_prompt=page.positive_prompt,
-            pose_prompt=page.pose_prompt,
+            negative_prompt=page.negative_prompt or "",
+            pose_prompt=page.pose_prompt or "",
+            controlnet_image=None,
+            keypoint_image=keypoint_slug,
         )
         db.add(page_row)
 
@@ -572,7 +791,9 @@ class StoryTemplatePagePayload(BaseModel):
     story_text: str
     image_prompt: str
     positive_prompt: str
-    pose_prompt: str
+    negative_prompt: Optional[str] = None
+    pose_prompt: Optional[str] = None
+    image_kp: str
 
 
 class StoryTemplatePayload(BaseModel):
@@ -704,6 +925,21 @@ def admin_update_workflow(
 
     db.commit()
     return {"message": "Workflow updated"}
+
+
+@router.delete("/workflows/{workflow_id}")
+def admin_delete_workflow(
+    workflow_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    definition = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
+    if not definition:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    db.delete(definition)
+    db.commit()
+    return {"message": "Workflow deleted"}
 
 
 @router.delete("/books/{book_id}")

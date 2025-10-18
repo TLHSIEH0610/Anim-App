@@ -36,10 +36,12 @@
     <p>Use these placeholders inside story text and prompts. They are populated when a user creates a book:</p>
     <ul>
       <li><code>{Name}</code> – lead character name collected from the book creator UI.</li>
-      <li><code>{name}</code> – lowercase version of the name.</li>
+      <li><code>{name}</code> – same as <code>{Name}</code>, useful for inline lowercase text.</li>
       <li><code>{gender}</code> – descriptive word such as “boy”, “girl”, or “child” based on the selected pronouns.</li>
       <li><code>{they}</code>, <code>{them}</code>, <code>{their}</code>, <code>{theirs}</code> (and capitalised variants) – pronouns derived from the chosen gender.</li>
     </ul>
+    <p>Each page object may include <code>"image_kp"</code> to reference a keypoint image slug (from the Keypoint Images section). Leave it blank for automatic pose detection.</p>
+    <p><code>"positive_prompt"</code> feeds the CLIPText node used for guidance (node 40 in your workflow).</p>
   </div>
 
   <button type="submit" class="button button-primary">Save Story Template</button>

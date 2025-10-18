@@ -10,6 +10,12 @@ import {
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../api/client";
+
+const DEV_GOOGLE_BYPASS =
+  (__DEV__ &&
+    (process.env.EXPO_PUBLIC_DEV_GOOGLE_BYPASS || "true").toLowerCase() !== "false") ||
+  false;
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -76,46 +82,45 @@ const LoginScreen = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    promptAsync();
-  };
-
-  const handleMockLogin = async () => {
+  const performMockLogin = async (reason: string) => {
     setIsLoading(true);
-    
+
     try {
-      // Login with the mock user account through backend API
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:8000'}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: "test@example.com",
-          password: "password"
-        }),
+      console.log(`[auth] ${reason}: hitting`, api.defaults.baseURL, "/auth/mock");
+      const { data } = await api.post("/auth/mock", {
+        email: "test@example.com",
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Mock user data
-        const user = {
-          id: "1",
-          email: "test@example.com", 
-          name: "Test User",
-        };
+      console.log("[auth] mock response", data);
 
-        await login(data.token, user);
-      } else {
-        throw new Error("Login failed");
-      }
+      const user = data.user || {
+        id: "1",
+        email: "test@example.com",
+        name: "Test User",
+      };
+
+      await login(data.token, {
+        id: String(user.id ?? "1"),
+        email: user.email ?? "test@example.com",
+        name: user.name ?? "Test User",
+      });
     } catch (error) {
-      console.error("Mock login error:", error);
+      console.error("[auth] mock login error", error);
       Alert.alert("Error", "Mock login failed. Make sure backend is running.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleMockLogin = () => performMockLogin("manual mock button");
+
+  const handleGoogleLogin = () => {
+    if (DEV_GOOGLE_BYPASS) {
+      performMockLogin("dev Google bypass");
+      return;
+    }
+
+    promptAsync();
   };
 
   return (

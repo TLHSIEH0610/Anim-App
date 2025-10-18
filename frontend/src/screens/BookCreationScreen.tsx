@@ -10,66 +10,60 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
-import { createBook, BookCreationData } from "../api/books";
+import { createBook, BookCreationData, getStoryTemplates } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 
-const STORY_TEMPLATES = [
+const DEFAULT_TEMPLATES = [
   {
     key: "space_explorer",
     label: "🚀 Space Explorer",
     description: "Cosmic adventure with friendly planets and zero-gravity playtime.",
     defaultAge: "6-8",
+    pageCount: 8,
   },
   {
     key: "forest_friends",
     label: "🌲 Forest Friends",
     description: "Gentle woodland kindness with cuddly animal companions.",
     defaultAge: "3-5",
+    pageCount: 8,
   },
   {
     key: "magic_school",
     label: "✨ Magic School Day",
     description: "A whimsical day at a floating academy full of sparkly lessons.",
     defaultAge: "6-8",
+    pageCount: 8,
   },
   {
     key: "pirate_adventure",
     label: "🏴‍☠️ Pirate Treasure",
     description: "Brave voyages, clever riddles, and sharing treasure with new friends.",
     defaultAge: "6-8",
+    pageCount: 8,
   },
   {
     key: "bedtime_lullaby",
     label: "🌙 Bedtime Lullaby",
     description: "A dreamy glide toward sleep with moonlight and lullabies.",
     defaultAge: "3-5",
+    pageCount: 8,
   },
 ];
 
-const AGE_GROUPS = [
-  { value: "3-5", label: "3-5 years (Preschool)" },
-  { value: "6-8", label: "6-8 years (Early Elementary)" },
-  { value: "9-12", label: "9-12 years (Elementary)" },
-];
-
-const PAGE_COUNTS = [1, 4, 8];
-
-const GENDER_OPTIONS: Array<{ value: "neutral" | "male" | "female"; label: string }> = [
-  { value: "neutral", label: "Gender neutral" },
+const GENDER_OPTIONS: Array<{ value: "male" | "female"; label: string }> = [
   { value: "female", label: "Girl" },
   { value: "male", label: "Boy" },
 ];
 
 interface TemplateInput {
   name: string;
-  gender: "neutral" | "male" | "female";
+  gender: "male" | "female";
 }
 
 interface BookForm {
   title: string;
-  targetAge: string;
   pageCount: number;
   images: string[];
   templateKey: string;
@@ -78,34 +72,113 @@ interface BookForm {
 
 const steps = ["Upload Images", "Story Setup", "Review"];
 
+const buildAutoTitle = (storyLabel: string | undefined, characterName: string | undefined) => {
+  const cleanStory = (storyLabel || "Story").trim();
+  const cleanName = (characterName || "").trim();
+
+  if (cleanName) {
+    return `${cleanStory} + ${cleanName}`;
+  }
+
+  return `${cleanStory} + Character Name`;
+};
+
 export default function BookCreationScreen({ navigation }) {
   const { token } = useAuth();
+  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [form, setForm] = useState<BookForm>({
-    title: "",
-    targetAge: STORY_TEMPLATES[0].defaultAge,
-    pageCount: 4,
+    title: buildAutoTitle(DEFAULT_TEMPLATES[0].label, ""),
+    pageCount: DEFAULT_TEMPLATES[0].pageCount,
     images: [],
-    templateKey: STORY_TEMPLATES[0].key,
+    templateKey: DEFAULT_TEMPLATES[0].key,
     templateInput: {
       name: "",
-      gender: "neutral",
+      gender: "female",
     },
   });
 
   const [isCreating, setIsCreating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
-  const selectedTemplate = useMemo(
-    () => STORY_TEMPLATES.find((tpl) => tpl.key === form.templateKey) || STORY_TEMPLATES[0],
-    [form.templateKey]
-  );
+  const selectedTemplate = useMemo(() => {
+    const found = templates.find((tpl) => tpl.key === form.templateKey);
+    return found || templates[0];
+  }, [templates, form.templateKey]);
 
   useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      targetAge: selectedTemplate.defaultAge,
-    }));
-  }, [selectedTemplate.defaultAge]);
+    let isMounted = true;
+
+    const loadTemplates = async () => {
+      try {
+        const response = await getStoryTemplates();
+        if (!isMounted) return;
+        if (response.stories && response.stories.length) {
+          const mapped = response.stories.map((story) => ({
+            key: story.slug,
+            label: story.name || story.slug,
+            description:
+              story.description ||
+              `${story.page_count || 0} pages${story.default_age ? ` · Ages ${story.default_age}` : ""}`,
+            defaultAge: story.default_age || DEFAULT_TEMPLATES[0].defaultAge,
+            pageCount: story.page_count || DEFAULT_TEMPLATES[0].pageCount,
+          }));
+
+          setTemplates(mapped);
+          const currentExists = mapped.some((tpl) => tpl.key === form.templateKey);
+          if (!currentExists) {
+            setForm((prev) => ({
+              ...prev,
+              templateKey: mapped[0].key,
+              pageCount: mapped[0].pageCount,
+            }));
+          }
+        }
+      } catch (error) {
+        console.warn("Unable to fetch story templates, using defaults", error);
+      }
+    };
+
+    loadTemplates();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTemplate) {
+      return;
+    }
+
+    setForm((prev) => {
+      const nextPages = selectedTemplate.pageCount || prev.pageCount;
+
+      if (prev.pageCount === nextPages) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        pageCount: nextPages,
+      };
+    });
+  }, [selectedTemplate]);
+
+  useEffect(() => {
+    const templateLabel = selectedTemplate?.label;
+    const nextTitle = buildAutoTitle(templateLabel, form.templateInput.name);
+
+    setForm((prev) => {
+      if (prev.title === nextTitle) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        title: nextTitle,
+      };
+    });
+  }, [selectedTemplate, form.templateInput.name]);
 
   const updateForm = <K extends keyof BookForm>(field: K, value: BookForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -124,7 +197,7 @@ export default function BookCreationScreen({ navigation }) {
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: "images",
         allowsEditing: false,
         quality: 0.9,
         allowsMultipleSelection: true,
@@ -182,7 +255,6 @@ export default function BookCreationScreen({ navigation }) {
       page_count: form.pageCount,
       story_source: "template",
       template_key: form.templateKey,
-      target_age: form.targetAge,
       template_params: {
         name: form.templateInput.name.trim() || undefined,
         gender: form.templateInput.gender,
@@ -275,20 +347,9 @@ export default function BookCreationScreen({ navigation }) {
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>📖 Story Setup</Text>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Book Title *</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Enter your book title..."
-          value={form.title}
-          onChangeText={(text) => updateForm("title", text)}
-          maxLength={100}
-        />
-      </View>
-
       <Text style={styles.templateIntro}>Select a ready-made story to customize quickly.</Text>
       <View style={styles.templateList}>
-        {STORY_TEMPLATES.map((template) => (
+        {templates.map((template) => (
           <TouchableOpacity
             key={template.key}
             style={[
@@ -299,77 +360,54 @@ export default function BookCreationScreen({ navigation }) {
           >
             <Text style={styles.templateTitle}>{template.label}</Text>
             <Text style={styles.templateDescription}>{template.description}</Text>
-            <Text style={styles.templateMeta}>Suggested Age: {template.defaultAge}</Text>
+            <Text style={styles.templateMeta}>
+              Suggested Age: {template.defaultAge} · {template.pageCount} pages
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Lead Character Name (optional)</Text>
+        <Text style={styles.label}>Character Name</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Name to personalize the story"
+          placeholder="Enter a character name"
           value={form.templateInput.name}
           onChangeText={(text) => updateTemplateInput("name", text)}
         />
-        <Text style={styles.helpText}>Used for the <Text style={{ fontWeight: "600" }}>{"{Name}"}</Text> placeholder in story templates.</Text>
       </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Character Pronouns</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={form.templateInput.gender}
-            onValueChange={(value) => updateTemplateInput("gender", value)}
-            style={styles.picker}
-          >
-            {GENDER_OPTIONS.map((option) => (
-              <Picker.Item key={option.value} label={option.label} value={option.value} />
-            ))}
-          </Picker>
-        </View>
-        <Text style={styles.helpText}>Controls <Text style={{ fontWeight: "600" }}>{"{gender}"}</Text> and pronoun placeholders such as <Text style={{ fontWeight: "600" }}>{"{they}"}</Text>.</Text>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Target Age</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={form.targetAge}
-            onValueChange={(value) => updateForm("targetAge", value)}
-            style={styles.picker}
-          >
-            {AGE_GROUPS.map((age) => (
-              <Picker.Item key={age.value} label={age.label} value={age.value} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Number of Pages</Text>
-        <View style={styles.pageCountContainer}>
-          {PAGE_COUNTS.map((count) => (
+        <View style={styles.optionGroup}>
+          {GENDER_OPTIONS.map((option) => (
             <TouchableOpacity
-              key={count}
+              key={option.value}
               style={[
-                styles.pageCountButton,
-                form.pageCount === count && styles.pageCountButtonActive,
+                styles.optionPill,
+                form.templateInput.gender === option.value && styles.optionPillActive,
               ]}
-              onPress={() => updateForm("pageCount", count)}
+              onPress={() => updateTemplateInput("gender", option.value)}
             >
+              <View
+                style={[
+                  styles.optionRadio,
+                  form.templateInput.gender === option.value && styles.optionRadioActive,
+                ]}
+              />
               <Text
                 style={[
-                  styles.pageCountText,
-                  form.pageCount === count && styles.pageCountTextActive,
+                  styles.optionLabel,
+                  form.templateInput.gender === option.value && styles.optionLabelActive,
                 ]}
               >
-                {count}
+                {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
+
     </View>
   );
 
@@ -387,12 +425,14 @@ export default function BookCreationScreen({ navigation }) {
 
       <View style={styles.reviewDetails}>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
-        <Text style={styles.reviewDetail}>Template: {selectedTemplate.label}</Text>
-        <Text style={styles.reviewDetail}>Age: {form.targetAge} years</Text>
+        <Text style={styles.reviewDetail}>Template: {selectedTemplate?.label ?? "Custom"}</Text>
         <Text style={styles.reviewDetail}>Pages: {form.pageCount}</Text>
         <Text style={styles.reviewDetail}>Images: {form.images.length} reference image(s)</Text>
         {form.templateInput.name.trim() ? (
           <Text style={styles.reviewDetail}>Lead Character: {form.templateInput.name.trim()}</Text>
+        ) : null}
+        {selectedTemplate?.description ? (
+          <Text style={styles.reviewStoryline}>{selectedTemplate.description}</Text>
         ) : null}
       </View>
 
@@ -402,6 +442,10 @@ export default function BookCreationScreen({ navigation }) {
         <Text style={styles.costDetail}>• Additional books: 3 credits each</Text>
         <Text style={styles.costDetail}>• Creation time: 5-15 minutes</Text>
       </View>
+
+      <TouchableOpacity style={styles.reviewBackButton} onPress={() => setCurrentStep(1)}>
+        <Text style={styles.reviewBackButtonText}>← Back to Story Setup</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.createButton, isCreating && styles.createButtonDisabled]}
@@ -469,6 +513,13 @@ export default function BookCreationScreen({ navigation }) {
       </View>
 
       {renderStepContent()}
+
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={() => navigation.navigate("BookLibrary")}
+      >
+        <Text style={styles.cancelButtonText}>Cancel</Text>
+      </TouchableOpacity>
 
       {currentStep < steps.length - 1 && (
         <View style={styles.navigation}>
@@ -662,39 +713,45 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     fontSize: 15,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "white",
-  },
-  picker: {
-    height: 44,
-  },
-  pageCountContainer: {
+  optionGroup: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-  pageCountButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+  optionPill: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "white",
   },
-  pageCountButtonActive: {
-    backgroundColor: "#dbeafe",
+  optionPillActive: {
     borderColor: "#2563eb",
+    backgroundColor: "#eff6ff",
   },
-  pageCountText: {
-    color: "#4b5563",
-    fontWeight: "600",
+  optionRadio: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: "#93c5fd",
+    marginRight: 8,
   },
-  pageCountTextActive: {
+  optionRadioActive: {
+    borderColor: "#2563eb",
+    backgroundColor: "#2563eb",
+  },
+  optionLabel: {
+    fontSize: 14,
+    color: "#1f2937",
+    fontWeight: "500",
+  },
+  optionLabelActive: {
     color: "#1d4ed8",
+    fontWeight: "600",
   },
   templateIntro: {
     fontSize: 14,
@@ -763,6 +820,12 @@ const styles = StyleSheet.create({
     color: "#4b5563",
     marginBottom: 4,
   },
+  reviewStoryline: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#1f2937",
+    lineHeight: 20,
+  },
   costInfo: {
     backgroundColor: "#e0f2fe",
     borderRadius: 12,
@@ -794,6 +857,35 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "600",
+  },
+  reviewBackButton: {
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "white",
+    alignItems: "center",
+  },
+  reviewBackButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  cancelButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
   },
   navigation: {
     flexDirection: "row",

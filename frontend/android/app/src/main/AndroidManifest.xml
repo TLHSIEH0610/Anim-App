@@ -26,6 +26,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="animapp"/>
+        <data android:scheme="exp+anim-app"/>
       </intent-filter>
     </activity>
   </application>

@@ -15,6 +15,10 @@ class LoginIn(BaseModel):
     email: str
     password: str
 
+
+class MockLoginIn(BaseModel):
+    email: str | None = None
+
 @router.post("/register")
 def register(payload: RegisterIn, db: Session = Depends(get_db)):
     if get_user_by_email(db, payload.email):
@@ -28,3 +32,19 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     if not u or not verify_pw(payload.password, u.password_hash):
         raise HTTPException(401, "Invalid credentials")
     return {"token": create_access_token(u.id)}
+
+
+@router.post("/mock")
+def mock_login(payload: MockLoginIn | None = None, db: Session = Depends(get_db)):
+    email = (payload.email if payload else None) or "test@example.com"
+    user = get_user_by_email(db, email)
+    if not user:
+        user = create_user(db, email, "password")
+    token = create_access_token(user.id)
+    return {
+        "token": token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+        },
+    }
