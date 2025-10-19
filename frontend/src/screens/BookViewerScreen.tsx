@@ -16,6 +16,7 @@ import { getBookPreview, getBookPdfUrl, adminRegenerateBook } from '../api/books
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
+import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
