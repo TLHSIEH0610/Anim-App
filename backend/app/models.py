@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON, Numeric
 from sqlalchemy.orm import relationship, foreign
 from datetime import datetime, timezone
 from .db import Base
@@ -12,9 +12,11 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     credits = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    free_trials_used = Column(JSON, default=list)
 
     jobs = relationship("Job", back_populates="user")
     books = relationship("Book", back_populates="user")
+    payments = relationship("Payment", back_populates="user")
 
 
 class Job(Base):
@@ -153,6 +155,8 @@ class StoryTemplate(Base):
     illustration_style = Column(Text)
     workflow_slug = Column(String(100), nullable=False, default="base")
     is_active = Column(Boolean, default=True)
+    free_trial_slug = Column(String(120))
+    price_dollars = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -181,6 +185,26 @@ class StoryTemplatePage(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     template = relationship("StoryTemplate", back_populates="pages")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    book_id = Column(Integer, ForeignKey("books.id"), nullable=True, index=True)
+    story_template_slug = Column(String(100))
+    amount_dollars = Column(Integer, nullable=False, default=0)
+    currency = Column(String(10), nullable=False, default="usd")
+    method = Column(String(20), nullable=False)
+    stripe_payment_intent_id = Column(String(255))
+    status = Column(String(50), nullable=False)
+    metadata = Column(JSON)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="payments")
+    book = relationship("Book")
 
 
 class ControlNetImage(Base):
