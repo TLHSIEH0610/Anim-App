@@ -25,6 +25,19 @@ templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
+def _format_backend_error(exc: httpx.HTTPError) -> str:
+    """Extract a concise message from HTTP errors returned by the backend."""
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+        try:
+            data = exc.response.json()
+            if isinstance(data, dict) and data.get("detail"):
+                return str(data["detail"])
+        except Exception:
+            pass
+        return f"{exc.response.status_code} {exc.response.reason_phrase}"
+    return str(exc)
+
+
 def get_admin_session(request: Request) -> Dict[str, Any] | None:
     cookie = request.cookies.get("admin_session")
     if not cookie:
@@ -536,6 +549,12 @@ async def create_story_template(request: Request):
     try:
         await backend_request("POST", "/admin/story-templates", json=payload)
         return RedirectResponse("/stories?message=Story%20template%20created", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/stories?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/stories?error={quote_plus(str(exc))}",
@@ -598,6 +617,12 @@ async def update_story_template(slug: str, request: Request):
     try:
         await backend_request("PUT", f"/admin/story-templates/{slug}", json=payload)
         return RedirectResponse("/stories?message=Story%20template%20updated", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/stories/{slug}?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/stories/{slug}?error={quote_plus(str(exc))}",
@@ -631,6 +656,28 @@ async def workflows_page(request: Request):
             "error": error,
         },
     )
+
+
+@app.post("/stories/{slug}/delete")
+async def delete_story_template(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        await backend_request("DELETE", f"/admin/story-templates/{slug}")
+        return RedirectResponse("/stories?message=Story%20template%20deleted", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/stories?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 @app.post("/workflows/create")

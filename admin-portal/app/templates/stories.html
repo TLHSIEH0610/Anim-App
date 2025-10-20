@@ -24,7 +24,12 @@
       <td>{{ story.workflow_slug }}</td>
       <td>{{ story.is_active }}</td>
       <td>{{ story.page_count }}</td>
-      <td><a href="/stories/{{ story.slug }}">Edit</a></td>
+      <td>
+        <a href="/stories/{{ story.slug }}">Edit</a>
+        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
+          <button type="submit" class="button button-danger">Delete</button>
+        </form>
+      </td>
     </tr>
     {% endfor %}
   </tbody>

@@ -722,6 +722,28 @@ def admin_create_story_template(
 
 
 @router.put("/story-templates/{slug}")
+@router.delete("/story-templates/{slug}")
+def admin_delete_story_template(
+    slug: str,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.slug == slug)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+
+    page_count = len(template.pages) if template.pages else 0
+    db.delete(template)
+    db.commit()
+
+    return {"message": "Story template deleted", "slug": slug, "page_count": page_count}
+
+
 def admin_update_story_template(
     slug: str,
     payload: StoryTemplatePayload,
