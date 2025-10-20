@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, API_BASE_ORIGIN } from "./client";
 
 export interface TemplateParams {
   name?: string;
@@ -167,7 +167,7 @@ export async function getBookPreview(token: string, bookId: number): Promise<Boo
 }
 
 export function getBookPdfUrl(bookId: number): string {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:8000';
+  const baseUrl = API_BASE_ORIGIN;
   return `${baseUrl}/books/${bookId}/pdf`;
 }
 

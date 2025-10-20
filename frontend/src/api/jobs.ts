@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, API_BASE_ORIGIN } from "./client";
 
 export async function uploadImage(token: string, fileUri: string) {
   try {
@@ -33,7 +33,8 @@ export async function getJobList() {
 }
 
 export function getJobImageUrl(jobId: number) {
-  return `${process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:8000'}/jobs/image/${jobId}`;
+  const baseUrl = API_BASE_ORIGIN;
+  return `${baseUrl}/jobs/image/${jobId}`;
 }
 
 export async function getJobImageData(jobId: number) {

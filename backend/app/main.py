@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
 from .db_utils import apply_schema_patches
+from sqlalchemy import text
 
 # create tables at startup (simple approach for dev)
 Base.metadata.create_all(bind=engine)
@@ -35,7 +36,7 @@ def read_root():
 @app.get("/health")
 def health(db=Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {"status":"healthy","db":"connected"}
     except Exception as e:
         return {"status":"unhealthy","error": str(e)}
@@ -43,7 +44,6 @@ def health(db=Depends(get_db)):
 @app.get("/db-check")
 def db_check():
     # quick DB check using raw SQL
-    from sqlalchemy import text
     try:
         with engine.connect() as conn:
             res = conn.execute(text("SELECT 1")).scalar()

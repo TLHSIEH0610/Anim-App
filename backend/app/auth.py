@@ -2,11 +2,13 @@ import os, datetime
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
-from passlib.hash import bcrypt
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from .db import get_db
 from .models import User
 
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev")
 ALGO = "HS256"
@@ -17,10 +19,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def hash_pw(pw: str) -> str:
-    return bcrypt.hash(pw)
+    return pwd_context.hash(pw)
 
 def verify_pw(pw: str, h: str) -> bool:
-    return bcrypt.verify(pw, h)
+    try:
+        return pwd_context.verify(pw, h)
+    except ValueError:
+        return False
 
 def create_user(db: Session, email: str, password: str) -> User:
     u = User(email=email, password_hash=hash_pw(password))
