@@ -1,16 +1,18 @@
-import os
+﻿import os
 import json
 import base64
+from datetime import datetime, timezone
+from decimal import Decimal
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
 from typing import List, Optional
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
 from app.db import get_db
-from app.models import Book, BookPage, User, StoryTemplate
+from app.models import Book, BookPage, StoryTemplate, Payment
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
 from app.storage import save_upload
-from app.utility import user_free_remaining
+from app.pricing import resolve_story_price
 from rq import Queue
 import redis
 
@@ -20,6 +22,23 @@ router = APIRouter(prefix="/books", tags=["books"])
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
 _redis = redis.from_url(redis_url)
 q = Queue("books", connection=_redis)
+
+
+def _decimal_to_float(value: Optional[Decimal]) -> Optional[float]:
+    if value is None:
+        return None
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return float(value.quantize(Decimal("0.01")))
+
+
+def _parse_bool(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
 
 @router.post("/create", response_model=BookResponse)
 async def create_book(
@@ -33,32 +52,22 @@ async def create_book(
     character_description: str = Form(""),
     positive_prompt: str = Form(""),
     negative_prompt: str = Form(""),
+    payment_id: Optional[int] = Form(None),
+    apply_free_trial: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     user = Depends(current_user)
 ):
-    """Create a new children's book with 1-4 uploaded images and prompts"""
+    """Create a new children's book after validating payment/promotions."""
 
-    # Validate number of files
     if not files or len(files) < 1:
         raise HTTPException(400, "At least 1 image is required")
     if len(files) > 4:
         raise HTTPException(400, "Maximum 4 images allowed")
-
-    # Validate all files
     for file in files:
         ext = (file.filename or "").split(".")[-1].lower()
         if ext not in {"jpg", "jpeg", "png"}:
             raise HTTPException(400, f"Unsupported file type for {file.filename}. Use JPG or PNG.")
 
-    # Check user credits/quota
-    free_left = user_free_remaining(db, user.id)
-    books_this_month = db.query(Book).filter(Book.user_id == user.id).count()
-
-    # For books, let's say 1 free book per month, then costs 3 credits
-    if books_this_month >= 1 and user.credits < 3:
-        raise HTTPException(402, "Insufficient credits. Book creation requires 3 credits after your first free book.")
-
-    # Validate inputs
     if not title.strip():
         raise HTTPException(400, "Title is required")
 
@@ -66,22 +75,22 @@ async def create_book(
     if story_source not in {"custom", "template"}:
         raise HTTPException(400, "story_source must be 'custom' or 'template'")
 
-    story_template = None
-    template_params_dict = None
+    template_params_dict = {}
     if template_params:
         try:
             template_params_dict = json.loads(template_params)
         except json.JSONDecodeError:
             raise HTTPException(400, "template_params must be valid JSON")
-    if template_params_dict is None:
-        template_params_dict = {}
 
     allowed_pages = [1, 4, 6, 8, 10, 12, 16]
-
     if page_count not in allowed_pages:
         raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
 
+    pricing_quote = None
+    payment_record = None
+    story_template = None
     theme_value = "custom"
+    apply_free_trial_flag = _parse_bool(apply_free_trial)
 
     if story_source == "template":
         if not template_key:
@@ -97,12 +106,42 @@ async def create_book(
         if not target_age:
             target_age = story_template.default_age
         theme_value = story_template.slug
+
+        pricing_quote = resolve_story_price(user, story_template)
+
+        if pricing_quote.final_price <= Decimal("0"):
+            if pricing_quote.free_trial_slug:
+                if pricing_quote.free_trial_consumed:
+                    raise HTTPException(400, "Free trial already consumed")
+                if not apply_free_trial_flag:
+                    raise HTTPException(400, "apply_free_trial flag must be true to consume free trial")
+        else:
+            if not payment_id:
+                raise HTTPException(402, "Payment required before book creation")
+            payment_record = (
+                db.query(Payment)
+                .filter(Payment.id == payment_id, Payment.user_id == user.id)
+                .with_for_update()
+                .first()
+            )
+            if not payment_record:
+                raise HTTPException(404, "Payment not found")
+            if payment_record.status != "completed":
+                raise HTTPException(400, "Payment not completed")
+            if payment_record.book_id is not None:
+                raise HTTPException(400, "Payment already consumed")
+            if payment_record.story_template_slug and payment_record.story_template_slug != story_template.slug:
+                raise HTTPException(400, "Payment template mismatch")
+
+            expected_amount = pricing_quote.final_price.quantize(Decimal("0.01"))
+            paid_amount = Decimal(payment_record.amount_dollars or 0).quantize(Decimal("0.01"))
+            if paid_amount != expected_amount:
+                raise HTTPException(400, "Payment amount mismatch")
     else:
         if target_age not in ["3-5", "6-8", "9-12"]:
             raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
 
     try:
-        # Create book record placeholder so we have an ID for file naming
         character_desc_value = character_description.strip()
         if story_source == "template" and not character_desc_value:
             if template_params_dict and template_params_dict.get("name"):
@@ -127,7 +166,6 @@ async def create_book(
         db.add(book)
         db.flush()
 
-        # Save all uploaded images with organized names
         saved_paths = []
         for i, file in enumerate(files):
             original_ext = (file.filename or "").split(".")[-1]
@@ -138,27 +176,43 @@ async def create_book(
 
         book.original_image_paths = json.dumps(saved_paths)
 
+        if (
+            pricing_quote
+            and pricing_quote.final_price <= Decimal("0")
+            and pricing_quote.free_trial_slug
+            and apply_free_trial_flag
+        ):
+            trials = list(user.free_trials_used or [])
+            if pricing_quote.free_trial_slug not in trials:
+                trials.append(pricing_quote.free_trial_slug)
+                user.free_trials_used = trials
+
+        if payment_record:
+            payment_record.book_id = book.id
+            metadata = payment_record.metadata_json or {}
+            metadata.update({
+                "book_id": book.id,
+                "applied_at": datetime.now(timezone.utc).isoformat(),
+            })
+            payment_record.metadata_json = metadata
+
         db.commit()
         db.refresh(book)
-        
-        # Deduct credits if not free
-        if books_this_month >= 1:
-            user.credits -= 3
-            db.commit()
-        
-        # Enqueue book creation job
+
         job = q.enqueue(
             "app.worker.book_processor.create_childbook",
             book.id,
-            job_timeout=1800  # 30 minutes timeout
+            job_timeout=1800
         )
-        
-        return BookResponse.from_orm(book)
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(500, f"Failed to create book: {str(e)}")
 
+        return BookResponse.from_orm(book)
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(500, f"Failed to create book: {exc}")
 @router.get("/list", response_model=BookListResponse)
 def list_user_books(user = Depends(current_user), db: Session = Depends(get_db)):
     """Get list of user's books"""
@@ -237,11 +291,11 @@ def get_book_preview(book_id: int, user = Depends(current_user), db: Session = D
                     file_ext = page.image_path.lower().split('.')[-1]
                     mime_type = "image/png" if file_ext == "png" else "image/jpeg"
                     page_data["image_data"] = f"data:{mime_type};base64,{image_data}"
-                    print(f"✅ Successfully loaded image for page {page.page_number}, size: {len(image_data)} chars")
+                    print(f"âœ… Successfully loaded image for page {page.page_number}, size: {len(image_data)} chars")
             except Exception as e:
-                print(f"❌ Error loading image for page {page.page_number}: {e}")
+                print(f"âŒ Error loading image for page {page.page_number}: {e}")
         else:
-            print(f"⚠️ Page {page.page_number}: status={page.image_status}, path={page.image_path}, exists={os.path.exists(page.image_path) if page.image_path else 'N/A'}")
+            print(f"âš ï¸ Page {page.page_number}: status={page.image_status}, path={page.image_path}, exists={os.path.exists(page.image_path) if page.image_path else 'N/A'}")
         
         preview_pages.append(page_data)
     
@@ -375,7 +429,7 @@ def admin_regenerate_book(book_id: int, user = Depends(current_user), db: Sessio
 
 
 @router.get("/stories/templates")
-def list_story_templates(db: Session = Depends(get_db)):
+def list_story_templates(user = Depends(current_user), db: Session = Depends(get_db)):
     templates = (
         db.query(StoryTemplate)
         .options(joinedload(StoryTemplate.pages))
@@ -385,6 +439,7 @@ def list_story_templates(db: Session = Depends(get_db)):
     )
     stories = []
     for template in templates:
+        quote = resolve_story_price(user, template)
         stories.append(
             {
                 "slug": template.slug,
@@ -392,6 +447,35 @@ def list_story_templates(db: Session = Depends(get_db)):
                 "description": template.description,
                 "default_age": template.default_age,
                 "page_count": len(template.pages) or 0,
+                "currency": quote.currency,
+                "price_dollars": _decimal_to_float(template.price_dollars),
+                "discount_price": _decimal_to_float(template.discount_price),
+                "final_price": _decimal_to_float(quote.final_price),
+                "promotion_type": quote.promotion_type,
+                "promotion_label": quote.promotion_label,
+                "free_trial_slug": quote.free_trial_slug,
+                "free_trial_consumed": quote.free_trial_consumed,
+                "credits_required": quote.credits_required,
+                "credits_balance": user.credits,
             }
         )
     return {"stories": stories}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

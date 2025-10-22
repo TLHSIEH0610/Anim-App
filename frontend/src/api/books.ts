@@ -15,7 +15,10 @@ export interface BookCreationData {
   story_source: "custom" | "template";
   template_key?: string;
   template_params?: TemplateParams;
+  paymentId?: number;
+  applyFreeTrial?: boolean;
 }
+
 
 export interface StoryTemplateSummary {
   slug: string;
@@ -113,6 +116,14 @@ export async function createBook(token: string, data: BookCreationData): Promise
     }
     if (data.template_params) {
       formData.append("template_params", JSON.stringify(data.template_params));
+    }
+
+    if (typeof data.paymentId === "number") {
+      formData.append("payment_id", String(data.paymentId));
+    }
+
+    if (data.applyFreeTrial) {
+      formData.append("apply_free_trial", "true");
     }
 
     const response = await api.post("/books/create", formData, {

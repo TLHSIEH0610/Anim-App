@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON, Numeric
 from sqlalchemy.orm import relationship, foreign
 from datetime import datetime, timezone
+from decimal import Decimal
 from .db import Base
 import json
 
@@ -156,7 +157,8 @@ class StoryTemplate(Base):
     workflow_slug = Column(String(100), nullable=False, default="base")
     is_active = Column(Boolean, default=True)
     free_trial_slug = Column(String(120))
-    price_dollars = Column(Integer, nullable=False, default=1)
+    price_dollars = Column(Numeric(10, 2), nullable=False, default=Decimal("1.50"))
+    discount_price = Column(Numeric(10, 2))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -194,12 +196,13 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     book_id = Column(Integer, ForeignKey("books.id"), nullable=True, index=True)
     story_template_slug = Column(String(100))
-    amount_dollars = Column(Integer, nullable=False, default=0)
-    currency = Column(String(10), nullable=False, default="usd")
+    amount_dollars = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    currency = Column(String(10), nullable=False, default="aud")
     method = Column(String(20), nullable=False)
     stripe_payment_intent_id = Column(String(255))
     status = Column(String(50), nullable=False)
     metadata_json = Column('metadata', JSON)
+    credits_used = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

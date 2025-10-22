@@ -126,6 +126,35 @@ export default function BookViewerScreen({ route, navigation }) {
     }
   };
 
+
+  const handleShare = async () => {
+    if (!bookData) {
+      return;
+    }
+
+    try {
+      const page = bookData.pages?.[currentPage];
+      const messageParts: string[] = [];
+      if (bookData.title) {
+        messageParts.push(bookData.title.trim());
+      }
+      if (page?.text) {
+        messageParts.push(page.text.trim());
+      }
+      const message = messageParts.length > 0
+        ? messageParts.join('\n\n')
+        : 'Check out this story!';
+
+      await Share.share({
+        title: bookData.title || 'My Storybook',
+        message,
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      Alert.alert('Share failed', 'Unable to open the share sheet. Please try again.');
+    }
+  };
+
   const handleAdminRegenerate = () => {
     if (!bookData) return;
     
@@ -572,3 +601,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

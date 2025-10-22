@@ -1,4 +1,5 @@
-from sqlalchemy import text
+﻿from sqlalchemy import text
+from textwrap import dedent
 
 
 def apply_schema_patches(engine):
@@ -10,10 +11,35 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_template_pages ADD COLUMN negative_prompt TEXT",
         "ALTER TABLE controlnet_images ADD COLUMN preview_path TEXT",
         "ALTER TABLE controlnet_images ADD COLUMN metadata JSON",
-        "ALTER TABLE story_templates ADD COLUMN price_dollars INTEGER DEFAULT 1",
+        "ALTER TABLE story_templates ADD COLUMN price_dollars NUMERIC(10,2) DEFAULT 1.5",
+        "ALTER TABLE story_templates ADD COLUMN discount_price NUMERIC(10,2)",
         "ALTER TABLE story_templates ADD COLUMN free_trial_slug VARCHAR(120)",
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",
-        "CREATE TABLE IF NOT EXISTS payments (\n            id SERIAL PRIMARY KEY,\n            user_id INTEGER NOT NULL REFERENCES users(id),\n            book_id INTEGER REFERENCES books(id),\n            story_template_slug VARCHAR(100),\n            amount_dollars INTEGER NOT NULL DEFAULT 0,\n            currency VARCHAR(10) NOT NULL DEFAULT 'usd',\n            method VARCHAR(20) NOT NULL,\n            stripe_payment_intent_id VARCHAR(255),\n            status VARCHAR(50) NOT NULL,\n            metadata JSON,\n            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n        )",
+        dedent(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                book_id INTEGER REFERENCES books(id),
+                story_template_slug VARCHAR(100),
+                amount_dollars NUMERIC(10,2) NOT NULL DEFAULT 0,
+                currency VARCHAR(10) NOT NULL DEFAULT 'aud',
+                method VARCHAR(20) NOT NULL,
+                stripe_payment_intent_id VARCHAR(255),
+                status VARCHAR(50) NOT NULL,
+                metadata JSON,
+                credits_used INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        ),
+        "ALTER TABLE story_templates ALTER COLUMN price_dollars TYPE NUMERIC(10,2) USING price_dollars::numeric",
+        "ALTER TABLE story_templates ALTER COLUMN price_dollars SET DEFAULT 1.5",
+        "ALTER TABLE story_templates ALTER COLUMN price_dollars SET NOT NULL",
+        "ALTER TABLE payments ALTER COLUMN amount_dollars TYPE NUMERIC(10,2) USING amount_dollars::numeric",
+        "ALTER TABLE payments ALTER COLUMN currency SET DEFAULT 'aud'",
+        "ALTER TABLE payments ADD COLUMN credits_used INTEGER DEFAULT 0",
     ]
 
     with engine.connect() as conn:
@@ -32,8 +58,9 @@ def apply_schema_patches(engine):
     post_updates = [
         "UPDATE book_workflow_snapshots SET workflow_slug = COALESCE(workflow_slug, 'legacy')",
         "UPDATE book_workflow_snapshots SET workflow_version = COALESCE(workflow_version, 0)",
-        "UPDATE story_templates SET price_dollars = COALESCE(price_dollars, 1)",
+        "UPDATE story_templates SET price_dollars = COALESCE(price_dollars, 1.5)",
         "UPDATE users SET free_trials_used = '[]'::json WHERE free_trials_used IS NULL",
+        "UPDATE payments SET currency = 'aud' WHERE currency IS NULL OR currency = ''",
     ]
 
     with engine.connect() as conn:

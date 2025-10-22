@@ -5,6 +5,7 @@ import json
 import base64
 import copy
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from types import SimpleNamespace
@@ -86,6 +87,21 @@ def _encode_image_base64(path: Optional[str]) -> Optional[str]:
         return None
 
 
+
+def _decimal_to_float(value: Optional[Decimal]) -> Optional[float]:
+    if value is None:
+        return None
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return float(value.quantize(Decimal("0.01")))
+
+
+def _to_decimal(value: Optional[float]) -> Optional[Decimal]:
+    if value is None:
+        return None
+    return Decimal(str(value))
+
+
 def _story_template_to_dict(template: StoryTemplate) -> dict:
     pages = [
         {
@@ -109,6 +125,9 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "illustration_style": template.illustration_style,
         "workflow_slug": template.workflow_slug,
         "is_active": template.is_active,
+        "free_trial_slug": template.free_trial_slug,
+        "price_dollars": _decimal_to_float(template.price_dollars),
+        "discount_price": _decimal_to_float(template.discount_price),
         "page_count": len(pages),
         "pages": pages,
         "created_at": template.created_at.isoformat() if template.created_at else None,
@@ -692,6 +711,9 @@ def admin_create_story_template(
         illustration_style=payload.illustration_style,
         workflow_slug=payload.workflow_slug or "base",
         is_active=payload.is_active if payload.is_active is not None else True,
+        free_trial_slug=(payload.free_trial_slug or None),
+        price_dollars=_to_decimal(payload.price_dollars) or Decimal("1.50"),
+        discount_price=_to_decimal(payload.discount_price),
     )
     db.add(template)
     db.flush()
@@ -765,6 +787,9 @@ def admin_update_story_template(
     template.default_age = payload.default_age
     template.illustration_style = payload.illustration_style
     template.workflow_slug = payload.workflow_slug or "base"
+    template.free_trial_slug = payload.free_trial_slug or None
+    template.price_dollars = _to_decimal(payload.price_dollars) or Decimal("1.50")
+    template.discount_price = _to_decimal(payload.discount_price)
     if payload.is_active is not None:
         template.is_active = payload.is_active
 
@@ -826,6 +851,9 @@ class StoryTemplatePayload(BaseModel):
     illustration_style: Optional[str] = None
     workflow_slug: Optional[str] = "base"
     is_active: Optional[bool] = True
+    free_trial_slug: Optional[str] = None
+    price_dollars: Optional[float] = None
+    discount_price: Optional[float] = None
     pages: List[StoryTemplatePagePayload]
 
 
@@ -1163,3 +1191,10 @@ def admin_get_workflow(
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
     }
+
+
+
+
+
+
+

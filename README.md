@@ -1,4 +1,5 @@
-# 📚 Children's Book Creator - AnimApp
+﻿# 📚 Children's Book Creator - AnimApp
+- **Expo configuration** - set `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `frontend/.env` so the mobile Stripe client can initialize.
 
 A full-stack mobile application that transforms user images into AI-generated children's books with custom stories and illustrations.
 
@@ -43,6 +44,15 @@ AnimApp is an AI-powered children's book creation platform that enables users to
 - ✅ Docker containerization
 
 ---
+
+## Payments & Promotions
+
+AnimApp now includes in-app pricing logic and payment tooling so promotions and checkouts stay consistent across the stack.
+
+- **Free trial tracking** – each `User` stores consumed free-trial slugs; templates provide an optional `free_trial_slug`, and the backend enforces single-use consumption.
+- **Dynamic pricing** – story templates carry `price_dollars` plus optional `discount_price`; the shared resolver prioritises free trials, then discounts, and computes credit requirements.
+- **Checkout options** – the mobile flow now submits credit redemptions, Stripe intents, or free-trial flags before queueing book generation; the backend re-validates amounts and links the resulting `Payment` record to the book.
+- **Payment history** – `/billing/history` and the Billing History screen surface card/credit transactions (method, amount, status, timestamp) for end-users and support staff.
 
 ## 🧠 Story Templates
 
