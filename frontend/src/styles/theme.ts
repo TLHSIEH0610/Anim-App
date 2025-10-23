@@ -62,6 +62,11 @@ export const typography = {
     fontWeight: '600' as const,
     color: colors.textPrimary,
   },
+  headingS: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: colors.textPrimary,
+  },
   body: {
     fontSize: 15,
     color: colors.textSecondary,

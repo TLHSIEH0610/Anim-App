@@ -7,11 +7,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  StyleProp,
+  ViewStyle,
 } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchBillingHistory, BillingHistoryEntry } from "../api/billing";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
-
+import { AppStackParamList } from "../navigation/types";
 const formatCurrency = (amount: number, currency: string) => {
   try {
     return new Intl.NumberFormat(undefined, {
@@ -26,6 +29,15 @@ const formatCurrency = (amount: number, currency: string) => {
   }
 };
 
+const formatCredits = (value: number) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+  return Number.isInteger(numeric) ? numeric.toString() : numeric.toFixed(2).replace(/\.0+$/, "");
+};
+
+
 const formatDateTime = (value: string) => {
   try {
     const date = new Date(value);
@@ -37,16 +49,19 @@ const formatDateTime = (value: string) => {
 
 type HistoryStatus = "idle" | "loading" | "error";
 
+
+type BillingHistoryScreenProps = NativeStackScreenProps<AppStackParamList, "BillingHistory">;
+
 interface HistoryItemProps {
   entry: BillingHistoryEntry;
 }
 
 const statusStyleKey = (status: string) => `status_${status}` as keyof typeof styles;
-const styles_status = (status: string) => styles[statusStyleKey(status)] || styles.status_default;
-
+const styles_status = (status: string): StyleProp<ViewStyle> =>
+  (styles[statusStyleKey(status)] as StyleProp<ViewStyle>) || styles.status_default;
 const HistoryItem = ({ entry }: HistoryItemProps) => {
   const amountLabel = entry.method === "credit"
-    ? `${entry.credits_used} credits`
+    ? `${formatCredits(entry.credits_used)} credits`
     : formatCurrency(entry.amount, entry.currency);
 
   return (
@@ -67,7 +82,7 @@ const HistoryItem = ({ entry }: HistoryItemProps) => {
   );
 };
 
-export default function BillingHistoryScreen({ navigation }: { navigation: any }) {
+export default function BillingHistoryScreen({ navigation }: BillingHistoryScreenProps) {
   const [entries, setEntries] = useState<BillingHistoryEntry[]>([]);
   const [status, setStatus] = useState<HistoryStatus>("idle");
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +93,7 @@ export default function BillingHistoryScreen({ navigation }: { navigation: any }
       const response = await fetchBillingHistory();
       setEntries(response.items || []);
       setStatus("idle");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load billing history", error?.response?.data || error);
       setStatus("error");
     }
@@ -95,7 +110,7 @@ export default function BillingHistoryScreen({ navigation }: { navigation: any }
     try {
       const response = await fetchBillingHistory();
       setEntries(response.items || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to refresh billing history", error?.response?.data || error);
     } finally {
       setRefreshing(false);
@@ -270,3 +285,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSecondary,
   },
 });
+
+

@@ -1,12 +1,10 @@
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_CEILING
+from decimal import Decimal
 from typing import Optional
 
 from .models import StoryTemplate, User
 
 CURRENCY = "aud"
-CREDITS_PER_AUD = Decimal("2")
-
 
 def _to_decimal(value: Optional[Decimal], default: Decimal) -> Decimal:
     if value is None:
@@ -28,7 +26,7 @@ class PriceQuote:
     promotion_label: Optional[str]
     free_trial_slug: Optional[str]
     free_trial_consumed: bool
-    credits_required: int
+    credits_required: Decimal
 
     @property
     def discount_price(self) -> Optional[Decimal]:
@@ -59,7 +57,7 @@ def resolve_story_price(user: User, template: StoryTemplate) -> PriceQuote:
             promotion_label = "Sale"
             final_price = discount_decimal
 
-    credits_required = int((final_price * CREDITS_PER_AUD).to_integral_value(rounding=ROUND_CEILING)) if final_price > Decimal("0") else 0
+    credits_required = final_price.quantize(Decimal("0.01")) if final_price > Decimal("0") else Decimal("0.00")
 
     return PriceQuote(
         base_price=base_price,

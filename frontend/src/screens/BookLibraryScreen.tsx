@@ -12,13 +12,15 @@ import {
 import { getBookList, deleteBook, adminRegenerateBook, Book } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import { colors, radii, shadow, spacing, statusColors, typography } from '../styles/theme';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AppStackParamList } from '../navigation/types';
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   ...statusColors,
   generating_images: '#8b5cf6',
 };
 
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
   creating: '🚀 Starting...',
   generating_story: '📖 Writing story...',
   generating_images: '🎨 Creating art...',
@@ -27,7 +29,9 @@ const STATUS_LABELS = {
   failed: '❌ Failed',
 };
 
-export default function BookLibraryScreen({ navigation }) {
+type BookLibraryScreenProps = NativeStackScreenProps<AppStackParamList, 'BookLibrary'>;
+
+export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps) {
   const { user, token, logout } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +81,10 @@ export default function BookLibraryScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (!token) {
+                Alert.alert('Error', 'Session expired. Please log in again.');
+                return;
+              }
               await deleteBook(token, book.id);
               Alert.alert('Success', 'Book deleted successfully');
               loadBooks(); // Refresh the list
@@ -100,6 +108,10 @@ export default function BookLibraryScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (!token) {
+                Alert.alert('Error', 'Session expired. Please log in again.');
+                return;
+              }
               await adminRegenerateBook(token, book.id);
               Alert.alert('Success', 'Book regeneration started! Check the status page to monitor progress.');
               loadBooks(); // Refresh the list

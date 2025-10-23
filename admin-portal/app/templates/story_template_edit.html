@@ -22,6 +22,32 @@
   <label for="workflow_slug">Workflow Slug</label>
   <input id="workflow_slug" name="workflow_slug" value="{{ story.workflow_slug }}">
 
+  <label for="price_dollars">Base Price (AUD)</label>
+  <input
+    id="price_dollars"
+    name="price_dollars"
+    type="number"
+    step="0.01"
+    min="0"
+    value="{{ '%.2f' % story.price_dollars if story.price_dollars is not none else '' }}"
+    required>
+
+  <label for="discount_price">Discount Price (AUD)</label>
+  <input
+    id="discount_price"
+    name="discount_price"
+    type="number"
+    step="0.01"
+    min="0"
+    value="{{ '%.2f' % story.discount_price if story.discount_price is not none else '' }}">
+
+  <label for="free_trial_slug">Free Trial Slug</label>
+  <input
+    id="free_trial_slug"
+    name="free_trial_slug"
+    value="{{ story.free_trial_slug or '' }}"
+    placeholder="winter_free_trial">
+
   <label for="is_active">Active</label>
   <select id="is_active" name="is_active">
     <option value="true" {% if story.is_active %}selected{% endif %}>True</option>

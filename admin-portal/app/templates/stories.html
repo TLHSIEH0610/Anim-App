@@ -53,6 +53,15 @@
     <label for="workflow_slug">Workflow Slug</label>
     <input id="workflow_slug" name="workflow_slug" value="base">
 
+    <label for="price_dollars">Base Price (AUD)</label>
+    <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" required>
+
+    <label for="discount_price">Discount Price (AUD)</label>
+    <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" placeholder="Optional">
+
+    <label for="free_trial_slug">Free Trial Slug</label>
+    <input id="free_trial_slug" name="free_trial_slug" placeholder="winter_free_trial">
+
     <label for="is_active">Active</label>
     <select id="is_active" name="is_active">
       <option value="true" selected>True</option>

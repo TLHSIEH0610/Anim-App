@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useStripe, isStripeAvailable } from "../lib/stripe";
+import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
 import {
   createBook,
   BookCreationData,
@@ -29,6 +29,8 @@ import {
 } from "../api/billing";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { AppStackParamList } from "../navigation/types";
 
 interface TemplateDisplay extends StoryTemplateSummary {
   description?: string | null;
@@ -67,6 +69,23 @@ const buildAutoTitle = (storyLabel: string | undefined, characterName: string | 
   return `${cleanStory} - Character Name`;
 };
 
+const formatCredits = (value: number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return "0";
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return "0";
+  }
+  return Number.isInteger(numeric) ? numeric.toString() : numeric.toFixed(2).replace(/\.?0+$/, "");
+};
+
+type CardDetailsChange = {
+  complete?: boolean;
+};
+
+
+
 const formatCurrency = (amount: number | null | undefined, currency: string | undefined) => {
   if (amount === null || amount === undefined) {
     return "--";
@@ -84,7 +103,9 @@ const formatCurrency = (amount: number | null | undefined, currency: string | un
     return `${fallbackCurrency} ${safeAmount.toFixed(2)}`;
   }
 };
-export default function BookCreationScreen({ navigation }) {
+type BookCreationScreenProps = NativeStackScreenProps<AppStackParamList, "BookCreation">;
+
+export default function BookCreationScreen({ navigation }: BookCreationScreenProps) {
   const { token } = useAuth();
   const stripe = useStripe();
   const cardPaymentsSupported = isStripeAvailable && !!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
@@ -112,10 +133,18 @@ export default function BookCreationScreen({ navigation }) {
   const [pricingError, setPricingError] = useState<string | null>(null);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("none");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"free_trial" | "credits" | "card" | null>(
+    null
+  );
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
+  const [cardDetailsComplete, setCardDetailsComplete] = useState(false);
+  const [cardFieldError, setCardFieldError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [autoTitle, setAutoTitle] = useState<string>("");
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
 
   const selectedTemplate = useMemo(() => {
     if (!form.templateKey) {
@@ -142,10 +171,39 @@ export default function BookCreationScreen({ navigation }) {
 
   const resetPaymentState = useCallback(() => {
     setPaymentMode("none");
+    setSelectedPaymentMethod(null);
     setPaymentId(null);
     setPaymentError(null);
     setCreditsBalance(null);
+    setCardDetailsComplete(false);
+    setCardFieldError(null);
   }, []);
+
+  const isPaymentComplete = useCallback(
+    (mode: PaymentMode, id: number | null, quote: PricingQuote | null) => {
+      if (!quote) {
+        return false;
+      }
+      if (quote.final_price <= 0) {
+        if (quote.free_trial_slug && !quote.free_trial_consumed) {
+          return mode === "free_trial";
+        }
+        return true;
+      }
+
+      if (mode === "credits") {
+        return true;
+      }
+      if (mode === "stripe_confirmed" && id !== null) {
+        return true;
+      }
+      if (mode === "free_trial") {
+        return Boolean(quote.free_trial_slug) && !quote.free_trial_consumed;
+      }
+      return false;
+    },
+    []
+  );
   const loadPricing = useCallback(
     async (templateSlug: string | null) => {
       if (!templateSlug) {
@@ -185,11 +243,14 @@ export default function BookCreationScreen({ navigation }) {
         setForm((prev) => {
           const first = mapped[0];
           const templateKey = first?.slug ?? null;
+          const generatedTitle = buildAutoTitle(first?.name, prev.templateInput.name);
+          setAutoTitle(generatedTitle);
+          setTitleManuallyEdited(false);
           return {
             ...prev,
             templateKey,
             pageCount: first?.page_count ?? prev.pageCount,
-            title: buildAutoTitle(first?.name, prev.templateInput.name),
+            title: generatedTitle,
           };
         });
         if (mapped[0]) {
@@ -219,18 +280,57 @@ export default function BookCreationScreen({ navigation }) {
       ...prev,
       pageCount: selectedTemplate.page_count ?? prev.pageCount,
     }));
-    const templateLabel = selectedTemplate?.name;
-    setForm((prev) => ({
-      ...prev,
-      title: buildAutoTitle(templateLabel, prev.templateInput.name),
-    }));
   }, [selectedTemplate]);
+
+  useEffect(() => {
+    const generated = buildAutoTitle(selectedTemplate?.name, form.templateInput.name);
+    setAutoTitle(generated);
+    if (!titleManuallyEdited) {
+      setForm((prev) => (prev.title === generated ? prev : { ...prev, title: generated }));
+    }
+  }, [selectedTemplate?.name, form.templateInput.name, titleManuallyEdited]);
 
   useEffect(() => {
     if (selectedTemplate) {
       loadPricing(selectedTemplate.slug);
     }
   }, [selectedTemplate?.slug, loadPricing]);
+
+  useEffect(() => {
+    if (!pricingQuote) {
+      return;
+    }
+    const freeTrialAvailable = Boolean(
+      pricingQuote.free_trial_slug && !pricingQuote.free_trial_consumed
+    );
+    const balanceForSelection = pricingQuote.credits_balance ?? 0;
+    const requiredForSelection = pricingQuote.credits_required ?? 0;
+    const creditsAvailable = requiredForSelection > 0 && balanceForSelection >= requiredForSelection;
+    const cardAvailable =
+      cardPaymentsSupported && pricingQuote.final_price > 0 && pricingQuote.card_available !== false;
+
+    setSelectedPaymentMethod((prev) => {
+      if (prev === "free_trial" && freeTrialAvailable) {
+        return prev;
+      }
+      if (prev === "credits" && creditsAvailable) {
+        return prev;
+      }
+      if (prev === "card" && cardAvailable) {
+        return prev;
+      }
+      if (freeTrialAvailable) {
+        return "free_trial";
+      }
+      if (creditsAvailable) {
+        return "credits";
+      }
+      if (cardAvailable) {
+        return "card";
+      }
+      return null;
+    });
+  }, [pricingQuote, cardPaymentsSupported]);
 
   const updateForm = <K extends keyof BookForm>(field: K, value: BookForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -245,9 +345,26 @@ export default function BookCreationScreen({ navigation }) {
       },
     }));
     if (field === "name") {
+      if (value.trim().length > 0) {
+        setNameError(null);
+      }
       const templateLabel = selectedTemplate?.name;
-      updateForm("title", buildAutoTitle(templateLabel, value));
+      const generated = buildAutoTitle(templateLabel, value);
+      setAutoTitle(generated);
+      if (!titleManuallyEdited) {
+        updateForm("title", generated);
+      }
     }
+  };
+
+  const handleTitleChange = (value: string) => {
+    if (value.trim().length === 0) {
+      setTitleManuallyEdited(false);
+      updateForm("title", value);
+      return;
+    }
+    setTitleManuallyEdited(true);
+    updateForm("title", value);
   };
   const pickImage = async () => {
     try {
@@ -301,76 +418,49 @@ export default function BookCreationScreen({ navigation }) {
     if (!pricingQuote || !pricingQuote.free_trial_slug || pricingQuote.free_trial_consumed) {
       return;
     }
-    setPaymentMode("free_trial");
+    setSelectedPaymentMethod("free_trial");
+    setPaymentMode("none");
     setPaymentId(null);
     setPaymentError(null);
+    setCardDetailsComplete(false);
+    setCardFieldError(null);
   };
 
-  const handlePayWithCredits = async () => {
-    if (!selectedTemplate) {
+  const handlePayWithCredits = () => {
+    if (!pricingQuote) {
       return;
     }
+    const required = pricingQuote.credits_required ?? 0;
+    const balance = pricingQuote.credits_balance ?? 0;
+    if (required <= 0 || balance < required) {
+      return;
+    }
+    setSelectedPaymentMethod("credits");
+    setPaymentMode("none");
+    setPaymentId(null);
+    setPaymentError(null);
+    setCardDetailsComplete(false);
+    setCardFieldError(null);
+  };
+
+  const handlePayWithCard = () => {
     if (!pricingQuote || pricingQuote.final_price <= 0) {
       return;
     }
-    if ((pricingQuote.credits_required ?? 0) <= 0) {
-      return;
-    }
     if (!cardPaymentsSupported) {
       setPaymentError("Card payments are unavailable in this build.");
       return;
     }
-    setIsPaymentLoading(true);
-    setPaymentError(null);
-    try {
-      const result: PaymentResult = await payWithCredits(selectedTemplate.slug);
-      setPaymentId(result.payment_id);
-      setPaymentMode("credits");
-      setPricingQuote(result.quote);
-      setCreditsBalance(result.quote.credits_balance ?? null);
-      Alert.alert("Credits Applied", "Your credits have been deducted for this book.");
-    } catch (error: any) {
-      console.error("Credit payment failed", error?.response?.data || error);
-      setPaymentError(error?.response?.data?.detail || "Unable to use credits.");
-    } finally {
-      setIsPaymentLoading(false);
-    }
-  };
-
-  const handlePayWithCard = async () => {
-    if (!selectedTemplate || !pricingQuote || pricingQuote.final_price <= 0) {
+    if (pricingQuote.card_available === false) {
+      setPaymentError("Card payments are currently disabled. Please choose another option.");
       return;
     }
-    if (!cardPaymentsSupported) {
-      setPaymentError("Card payments are unavailable in this build.");
-      return;
-    }
-    setIsPaymentLoading(true);
+    setSelectedPaymentMethod("card");
+    setPaymentMode("none");
+    setPaymentId(null);
     setPaymentError(null);
-    try {
-      const intent: StripeIntentResponse = await createStripeIntent(selectedTemplate.slug);
-      const sheetInit = await stripe.initPaymentSheet({
-        merchantDisplayName: "AnimApp",
-        paymentIntentClientSecret: intent.client_secret,
-      });
-      if (sheetInit.error) {
-        throw new Error(sheetInit.error.message ?? "Unable to initialize payment sheet");
-      }
-      const sheetPresent = await stripe.presentPaymentSheet();
-      if (sheetPresent.error) {
-        throw new Error(sheetPresent.error.message ?? "Payment cancelled");
-      }
-      const confirmation = await confirmStripePayment(intent.payment_id);
-      setPaymentId(confirmation.payment_id);
-      setPaymentMode("stripe_confirmed");
-      Alert.alert("Payment Successful", "Your payment has been confirmed.");
-      await loadPricing(selectedTemplate.slug);
-    } catch (error: any) {
-      console.error("Stripe payment failed", error);
-      setPaymentError(error?.message || "Unable to complete card payment.");
-    } finally {
-      setIsPaymentLoading(false);
-    }
+    setCardDetailsComplete(false);
+    setCardFieldError(null);
   };
 
   const canProceedToNext = () => {
@@ -378,44 +468,66 @@ export default function BookCreationScreen({ navigation }) {
       case 0:
         return form.images.length > 0;
       case 1:
-        return !!selectedTemplate;
+        return !!selectedTemplate && !!form.templateInput.name.trim();
       case 2:
-        return !!pricingQuote && !pricingLoading;
+        if (!pricingQuote || pricingLoading) {
+          return false;
+        }
+        if (pricingQuote.final_price <= 0 && (!pricingQuote.free_trial_slug || pricingQuote.free_trial_consumed)) {
+          return true;
+        }
+        return selectedPaymentMethod !== null;
       default:
         return true;
     }
   };
 
-  const isPaymentSatisfied = useMemo(() => {
-    if (!pricingQuote) {
-      return false;
-    }
-    if (pricingQuote.final_price <= 0) {
-      if (pricingQuote.free_trial_slug && !pricingQuote.free_trial_consumed) {
-        return paymentMode === "free_trial";
-      }
-      return true;
-    }
-    return paymentMode === "credits" || (paymentMode === "stripe_confirmed" && paymentId !== null);
-  }, [pricingQuote, paymentMode, paymentId]);
-  const createChildBook = async () => {
+  const ensureFormReady = (): { template: TemplateDisplay; quote: PricingQuote } | null => {
     if (!form.images.length) {
       Alert.alert("Missing Images", "Please select at least 1 image");
-      return;
+      return null;
     }
     if (!form.title.trim()) {
       Alert.alert("Missing Title", "Please enter a book title");
-      return;
+      return null;
+    }
+    if (!form.templateInput.name.trim()) {
+      setNameError("Character name is required.");
+      Alert.alert("Character Name Required", "Please provide a character name before continuing.");
+      return null;
     }
     if (!selectedTemplate) {
       Alert.alert("Template Required", "Please select a story template");
-      return;
+      return null;
     }
     if (!pricingQuote) {
       Alert.alert("Pricing Required", "Pricing information is unavailable. Please try again.");
+      return null;
+    }
+    return { template: selectedTemplate, quote: pricingQuote };
+  };
+
+  const createChildBook = async (
+    overrides?: { paymentModeOverride?: PaymentMode; paymentIdOverride?: number | null }
+  ) => {
+    const effectivePaymentMode = overrides?.paymentModeOverride ?? paymentMode;
+    const effectivePaymentId =
+      overrides && Object.prototype.hasOwnProperty.call(overrides, "paymentIdOverride")
+        ? overrides.paymentIdOverride ?? null
+        : paymentId;
+
+    const preflight = ensureFormReady();
+    if (!preflight) {
       return;
     }
-    if (!isPaymentSatisfied) {
+    const { template, quote } = preflight;
+
+    if (!token) {
+      Alert.alert("Authentication Required", "Please sign in again to create your book.");
+      return;
+    }
+
+    if (!isPaymentComplete(effectivePaymentMode, effectivePaymentId, quote)) {
       Alert.alert("Complete Payment", "Please complete the payment step before creating your book.");
       return;
     }
@@ -425,17 +537,17 @@ export default function BookCreationScreen({ navigation }) {
       title: form.title.trim(),
       page_count: form.pageCount,
       story_source: "template",
-      template_key: selectedTemplate.slug,
+      template_key: template.slug,
       template_params: {
         name: form.templateInput.name.trim() || undefined,
         gender: form.templateInput.gender,
       },
     };
 
-    if (paymentId) {
-      payload.paymentId = paymentId;
+    if (effectivePaymentId) {
+      payload.paymentId = effectivePaymentId;
     }
-    if (paymentMode === "free_trial") {
+    if (effectivePaymentMode === "free_trial") {
       payload.applyFreeTrial = true;
     }
 
@@ -453,6 +565,7 @@ export default function BookCreationScreen({ navigation }) {
           },
         ]
       );
+      resetPaymentState();
     } catch (error: any) {
       console.error("Book creation error:", error?.response?.data || error.message);
       let errorMessage = "Failed to create book. Please try again.";
@@ -495,6 +608,108 @@ export default function BookCreationScreen({ navigation }) {
         ) : null}
       </TouchableOpacity>
     );
+  };
+
+  const handleConfirmPaymentAndCreate = async () => {
+    const preflight = ensureFormReady();
+    if (!preflight) {
+      return;
+    }
+    const { template, quote } = preflight;
+    const paymentRequired =
+      quote.final_price > 0 ||
+      (!!quote.free_trial_slug && !quote.free_trial_consumed);
+
+    if (!selectedPaymentMethod && paymentRequired) {
+      setPaymentError("Please choose a payment method in the review step.");
+      setCurrentStep(2);
+      return;
+    }
+
+    setPaymentError(null);
+    setIsPaymentLoading(true);
+
+    let nextMode: PaymentMode = "none";
+    let nextPaymentId: number | null = null;
+
+    try {
+      if (!paymentRequired) {
+        nextMode = "none";
+      } else if (selectedPaymentMethod === "free_trial") {
+        if (!quote.free_trial_slug || quote.free_trial_consumed) {
+          throw new Error("Free trial is no longer available for this template.");
+        }
+        nextMode = "free_trial";
+      } else if (selectedPaymentMethod === "credits") {
+        const required = quote.credits_required ?? 0;
+        const balance = quote.credits_balance ?? 0;
+        if (required > 0 && balance < required) {
+          throw new Error("Not enough credits to complete this purchase.");
+        }
+        if (required > 0) {
+          const result: PaymentResult = await payWithCredits(template.slug);
+          nextMode = "credits";
+          nextPaymentId = result.payment_id;
+          setPricingQuote(result.quote);
+          setCreditsBalance(result.quote.credits_balance ?? null);
+        } else {
+          nextMode = "credits";
+        }
+      } else if (selectedPaymentMethod === "card") {
+        if (!cardPaymentsSupported) {
+          throw new Error("Card payments are unavailable in this build.");
+        }
+        if (quote.card_available === false) {
+          throw new Error("Card payments are currently disabled.");
+        }
+        if (quote.final_price <= 0) {
+          throw new Error("Card payment is not required for this selection.");
+        }
+        if (!cardDetailsComplete) {
+          setCardFieldError("Enter a valid card before confirming.");
+          throw new Error("Enter a valid card before confirming.");
+        }
+
+        const intent: StripeIntentResponse = await createStripeIntent(template.slug);
+        const { error: stripeError } = await stripe.confirmPayment(intent.client_secret, {
+          paymentMethodType: "Card",
+          paymentMethodData: {
+            billingDetails: {
+              name: form.templateInput.name?.trim() || undefined,
+            },
+          },
+        });
+
+        if (stripeError) {
+          throw new Error(stripeError.message ?? "Unable to confirm card payment.");
+        }
+
+        const confirmation = await confirmStripePayment(intent.payment_id);
+        nextMode = "stripe_confirmed";
+        nextPaymentId = confirmation.payment_id;
+      }
+
+      setPaymentMode(nextMode);
+      setPaymentId(nextPaymentId);
+
+      await createChildBook({
+        paymentModeOverride: nextMode,
+        paymentIdOverride: nextPaymentId,
+      });
+    } catch (error: any) {
+      console.error("Payment confirmation failed", error?.response?.data || error);
+      const message =
+        error?.response?.data?.detail || error?.message || "Unable to complete payment.";
+      setPaymentError(message);
+      const detail: string | undefined = error?.response?.data?.detail;
+      if (detail && detail.toLowerCase().includes("stripe secret key not configured")) {
+        setPricingQuote((prev) => (prev ? { ...prev, card_available: false } : prev));
+        setSelectedPaymentMethod(null);
+        setCurrentStep(2);
+      }
+    } finally {
+      setIsPaymentLoading(false);
+    }
   };
 
   const renderStep0 = () => (
@@ -564,7 +779,13 @@ export default function BookCreationScreen({ navigation }) {
           placeholder="Enter a character name"
           value={form.templateInput.name}
           onChangeText={(text) => updateTemplateInput("name", text)}
+          onBlur={() => {
+            if (!form.templateInput.name.trim()) {
+              setNameError("Character name is required.");
+            }
+          }}
         />
+        {nameError ? <Text style={styles.errorTextInline}>{nameError}</Text> : null}
       </View>
 
       <View style={styles.formGroup}>
@@ -612,6 +833,15 @@ export default function BookCreationScreen({ navigation }) {
       )}
 
       <View style={styles.reviewDetails}>
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Book Title</Text>
+          <TextInput
+            style={styles.textInput}
+            value={form.title}
+            placeholder={autoTitle || "Story Title"}
+            onChangeText={handleTitleChange}
+          />
+        </View>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
         <Text style={styles.reviewDetail}>
           Template: {selectedTemplate?.name ?? "Custom"} - {form.pageCount} pages
@@ -629,7 +859,7 @@ export default function BookCreationScreen({ navigation }) {
       </View>
 
       <View style={styles.reviewPricingCard}>
-        <Text style={styles.reviewPricingHeading}>Pricing Summary</Text>
+        <Text style={styles.reviewPricingHeading}>Pricing & Payment</Text>
         {pricingLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : pricingQuote ? (
@@ -658,11 +888,15 @@ export default function BookCreationScreen({ navigation }) {
                 {formatCurrency(pricingQuote.final_price, pricingQuote.currency)}
               </Text>
             </View>
+            {renderReviewPaymentDetails()}
           </View>
         ) : (
           <Text style={styles.errorTextInline}>{pricingError || "Pricing unavailable"}</Text>
         )}
       </View>
+
+      <View style={styles.paymentOptionsContainer}>{renderPaymentActions()}</View>
+
 
       <TouchableOpacity style={styles.reviewBackButton} onPress={() => setCurrentStep(1)}>
         <Text style={styles.reviewBackButtonText}>- Back to Story Setup</Text>
@@ -687,10 +921,10 @@ export default function BookCreationScreen({ navigation }) {
           key="free"
           style={[
             styles.paymentButton,
-            paymentMode === "free_trial" && styles.paymentButtonActive,
+            selectedPaymentMethod === "free_trial" && styles.paymentButtonActive,
           ]}
           onPress={handleUseFreeTrial}
-          disabled={isPaymentLoading || !cardPaymentsSupported}
+          disabled={isPaymentLoading}
         >
           <Text style={styles.paymentButtonTitle}>Use Free Trial</Text>
           <Text style={styles.paymentButtonCaption}>
@@ -701,32 +935,45 @@ export default function BookCreationScreen({ navigation }) {
     }
 
     const creditsRequired = pricingQuote.credits_required ?? 0;
-    if (creditsRequired > 0 && (pricingQuote.credits_balance ?? 0) >= creditsRequired) {
+    const creditsBalanceValue = pricingQuote.credits_balance ?? 0;
+    const creditsLabel = formatCredits(creditsRequired);
+    if (creditsRequired > 0 && creditsBalanceValue >= creditsRequired) {
       controls.push(
         <TouchableOpacity
           key="credits"
           style={[
             styles.paymentButton,
-            paymentMode === "credits" && styles.paymentButtonActive,
+            selectedPaymentMethod === "credits" && styles.paymentButtonActive,
           ]}
           onPress={handlePayWithCredits}
-          disabled={isPaymentLoading || !cardPaymentsSupported}
+          disabled={isPaymentLoading}
         >
-          <Text style={styles.paymentButtonTitle}>Use Credits ({creditsRequired})</Text>
+          <Text style={styles.paymentButtonTitle}>Use Credits ({creditsLabel})</Text>
           <Text style={styles.paymentButtonCaption}>
-            Balance: {pricingQuote.credits_balance ?? 0} credits remaining.
+            Balance: {formatCredits(creditsBalanceValue)} credits remaining.
           </Text>
         </TouchableOpacity>
       );
     }
 
-    if (pricingQuote.final_price > 0) {
+    const cardAvailable =
+      cardPaymentsSupported && pricingQuote.card_available !== false && pricingQuote.final_price > 0;
+
+    if (pricingQuote.final_price > 0 && cardPaymentsSupported && pricingQuote.card_available === false) {
+      controls.push(
+        <Text key="card-disabled" style={styles.helperText}>
+          Card payments are currently unavailable. Please choose credits or a free trial.
+        </Text>
+      );
+    }
+
+    if (pricingQuote.final_price > 0 && cardAvailable) {
       controls.push(
         <TouchableOpacity
           key="card"
           style={[
             styles.paymentButton,
-            paymentMode === "stripe_confirmed" && styles.paymentButtonActive,
+            selectedPaymentMethod === "card" && styles.paymentButtonActive,
           ]}
           onPress={handlePayWithCard}
           disabled={isPaymentLoading || !cardPaymentsSupported}
@@ -752,50 +999,89 @@ export default function BookCreationScreen({ navigation }) {
     return controls;
   };
 
-  const renderPaymentSummary = () => {
+  const renderReviewPaymentDetails = () => {
     if (!pricingQuote) {
       return null;
     }
+    const creditsRequired = pricingQuote.credits_required ?? 0;
+    const creditsBalanceValue = pricingQuote.credits_balance ?? 0;
+    const selectionLabel = (() => {
+      if (selectedPaymentMethod === "free_trial") {
+        return "Free trial";
+      }
+      if (selectedPaymentMethod === "credits") {
+        return creditsRequired > 0 ? `Credits (${formatCredits(creditsRequired)})` : "Credits";
+      }
+      if (selectedPaymentMethod === "card") {
+        return "Card";
+      }
+      return pricingQuote.final_price > 0 ? "Not selected" : "No payment needed";
+    })();
+
     return (
-      <View style={styles.paymentSummaryCard}>
-        <Text style={styles.paymentSummaryHeading}>Payment Status</Text>
+      <>
+        <View style={styles.reviewDivider} />
         <View style={styles.pricingRowBetween}>
           <Text style={styles.pricingLabel}>Selected option</Text>
-          <Text style={styles.pricingValue}>
-            {paymentMode === "free_trial" && "Free trial"}
-            {paymentMode === "credits" && "Credits"}
-            {paymentMode === "stripe_confirmed" && "Card"}
-            {paymentMode === "none" && "Not selected"}
-          </Text>
+          <Text style={styles.pricingValue}>{selectionLabel}</Text>
         </View>
-        {paymentId ? (
-          <View style={styles.pricingRowBetween}>
-            <Text style={styles.pricingLabel}>Payment ID</Text>
-            <Text style={styles.pricingValue}>#{paymentId}</Text>
-          </View>
+        {selectedPaymentMethod === "credits" && pricingQuote.final_price > 0 ? (
+          <>
+            <View style={styles.pricingRowBetween}>
+              <Text style={styles.pricingLabel}>Credits to use</Text>
+              <Text style={styles.pricingValue}>{formatCredits(creditsRequired)}</Text>
+            </View>
+            <View style={styles.pricingRowBetween}>
+              <Text style={styles.pricingLabel}>Current balance</Text>
+              <Text style={styles.pricingValue}>{formatCredits(creditsBalanceValue)}</Text>
+            </View>
+          </>
         ) : null}
-        {creditsBalance !== null ? (
-          <View style={styles.pricingRowBetween}>
-            <Text style={styles.pricingLabel}>Credits balance</Text>
-            <Text style={styles.pricingValue}>{creditsBalance}</Text>
-          </View>
-        ) : null}
-        <View style={styles.pricingRowBetween}>
-          <Text style={[styles.pricingLabel, styles.pricingLabelStrong]}>Amount due</Text>
-          <Text style={[styles.pricingValue, styles.pricingValueStrong]}>
-            {formatCurrency(pricingQuote.final_price, pricingQuote.currency)}
+        {selectedPaymentMethod === "card" && pricingQuote.card_available === false ? (
+          <Text style={styles.helperText}>
+            Card payments are currently disabled. Please choose credits or a free trial.
           </Text>
-        </View>
-        {paymentError ? <Text style={styles.errorTextInline}>{paymentError}</Text> : null}
-      </View>
+        ) : null}
+        {selectedPaymentMethod === "card" && pricingQuote.card_available !== false && pricingQuote.final_price > 0 ? (
+          <Text style={styles.helperText}>
+            Enter your card details in the next step to complete payment.
+          </Text>
+        ) : null}
+        {selectedPaymentMethod === null && pricingQuote.final_price > 0 ? (
+          <Text style={styles.helperText}>Choose a payment method below to continue.</Text>
+        ) : null}
+        {pricingQuote.final_price <= 0 ? (
+          <Text style={styles.helperText}>No payment is required for this selection.</Text>
+        ) : null}
+      </>
     );
   };
 
-  const renderStep3 = () => (
-    <View style={styles.stepContent}>
+  const renderStep3 = () => {
+    const paymentRequired = pricingQuote
+      ? pricingQuote.final_price > 0 ||
+        (pricingQuote.free_trial_slug && !pricingQuote.free_trial_consumed)
+      : true;
+
+    const cardDetailsRequired =
+      paymentRequired &&
+      selectedPaymentMethod === "card" &&
+      pricingQuote?.card_available !== false &&
+      cardPaymentsSupported &&
+      !cardDetailsComplete;
+
+    const confirmDisabled = Boolean(
+      isPaymentLoading ||
+      isCreating ||
+      (paymentRequired && !selectedPaymentMethod) ||
+      cardDetailsRequired
+    );
+
+    return (
+      <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Payment</Text>
       <Text style={styles.stepDescription}>
-        Complete payment to start generating your personalized children-s book.
+        Confirm your payment choice to start generating your personalized children-s book.
       </Text>
 
       {pricingLoading ? (
@@ -803,55 +1089,103 @@ export default function BookCreationScreen({ navigation }) {
       ) : pricingQuote ? (
         <View style={styles.paymentInfoCard}>
           <View style={styles.pricingRowBetween}>
-            <Text style={styles.pricingLabel}>Base price</Text>
-            <Text style={styles.pricingValue}>{formatCurrency(pricingQuote.base_price, pricingQuote.currency)}</Text>
-          </View>
-          {pricingQuote.discount_price !== null && pricingQuote.discount_price < pricingQuote.base_price ? (
-            <View style={styles.pricingRowBetween}>
-              <Text style={styles.pricingLabel}>Discount</Text>
-              <Text style={styles.pricingValue}>{formatCurrency(pricingQuote.discount_price, pricingQuote.currency)}</Text>
-            </View>
-          ) : null}
-          {pricingQuote.free_trial_slug ? (
-            <View style={styles.pricingRowBetween}>
-              <Text style={styles.pricingLabel}>Free trial</Text>
-              <Text style={styles.pricingValue}>
-                {pricingQuote.free_trial_consumed ? "Already used" : "Available"}
-              </Text>
-            </View>
-          ) : null}
-          <View style={styles.pricingRowBetween}>
-            <Text style={[styles.pricingLabel, styles.pricingLabelStrong]}>Total</Text>
+            <Text style={styles.pricingLabel}>Total due</Text>
             <Text style={[styles.pricingValue, styles.pricingValueStrong]}>
               {formatCurrency(pricingQuote.final_price, pricingQuote.currency)}
             </Text>
           </View>
+          {selectedPaymentMethod === "credits" ? (
+            <View>
+              <View style={styles.pricingRowBetween}>
+                <Text style={styles.pricingLabel}>Credits to deduct</Text>
+                <Text style={styles.pricingValue}>{formatCredits(pricingQuote.credits_required ?? 0)}</Text>
+              </View>
+              <View style={styles.pricingRowBetween}>
+                <Text style={styles.pricingLabel}>Current balance</Text>
+                <Text style={styles.pricingValue}>{formatCredits(pricingQuote.credits_balance ?? 0)}</Text>
+              </View>
+              <Text style={styles.helperText}>
+                Your credits will be deducted once you confirm this payment.
+              </Text>
+            </View>
+          ) : null}
+          {selectedPaymentMethod === "card" ? (
+            pricingQuote.card_available === false ? (
+              <Text style={styles.helperText}>
+                Card payments are currently disabled. Please choose credits or a free trial.
+              </Text>
+            ) : (
+              <Text style={styles.helperText}>
+                Enter your card details below. Your card will only be charged after you tap Confirm & Pay.
+              </Text>
+            )
+          ) : null}
+          {selectedPaymentMethod === "free_trial" ? (
+            <Text style={styles.helperText}>
+              This book will be unlocked using your available free trial. No payment required.
+            </Text>
+          ) : null}
+          {!selectedPaymentMethod && paymentRequired ? (
+            <Text style={styles.helperText}>
+              Go back to the review step to choose a payment option before confirming.
+            </Text>
+          ) : null}
+          {!paymentRequired ? (
+            <Text style={styles.helperText}>
+              No payment is required for this selection. Confirm to start your book creation.
+            </Text>
+          ) : null}
         </View>
       ) : (
         <Text style={styles.errorTextInline}>{pricingError || "Pricing unavailable."}</Text>
       )}
 
-      <View style={styles.paymentOptionsContainer}>{renderPaymentActions()}</View>
+      {selectedPaymentMethod === "card" && pricingQuote?.card_available !== false && cardPaymentsSupported ? (
+        <View style={styles.cardFieldContainer}>
+          <CardField
+            postalCodeEnabled={false}
+            placeholders={{ number: "4242 4242 4242 4242" }}
+            cardStyle={{
+              backgroundColor: colors.surface,
+              textColor: colors.textPrimary,
+              placeholderColor: colors.textMuted,
+              borderRadius: radii.md,
+              fontSize: 16,
+            }}
+            style={styles.cardField}
+            onCardChange={(details: CardDetailsChange) => {
+              const complete = details?.complete ?? false;
+              setCardDetailsComplete(complete);
+              setCardFieldError(complete ? null : "Enter full card details to continue.");
+            }}
+          />
+          {cardFieldError ? <Text style={styles.errorTextInline}>{cardFieldError}</Text> : null}
+        </View>
+      ) : null}
 
-      {renderPaymentSummary()}
+      {paymentError ? <Text style={styles.errorTextInline}>{paymentError}</Text> : null}
 
       <TouchableOpacity style={styles.reviewBackButton} onPress={() => setCurrentStep(2)}>
         <Text style={styles.reviewBackButtonText}>- Back to Review</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.createButton, (!isPaymentSatisfied || isCreating) && styles.createButtonDisabled]}
-        onPress={createChildBook}
-        disabled={!isPaymentSatisfied || isCreating}
+        style={[
+          styles.createButton,
+          confirmDisabled ? styles.createButtonDisabled : null,
+        ]}
+        onPress={handleConfirmPaymentAndCreate}
+        disabled={confirmDisabled}
       >
-        {isCreating ? (
+        {isPaymentLoading || isCreating ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.createButtonText}>Create My Book</Text>
+          <Text style={styles.createButtonText}>Confirm & Pay</Text>
         )}
       </TouchableOpacity>
     </View>
-  );
+    );
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -871,6 +1205,8 @@ export default function BookCreationScreen({ navigation }) {
   const goToNextStep = () => {
     if (currentStep < steps.length - 1 && canProceedToNext()) {
       setCurrentStep(currentStep + 1);
+    } else if (currentStep === 1 && !form.templateInput.name.trim()) {
+      setNameError("Character name is required.");
     }
   };
 
@@ -1285,6 +1621,11 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral200,
     marginBottom: spacing(4),
   },
+  reviewDivider: {
+    marginVertical: spacing(3),
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral200,
+  },
   reviewPricingHeading: {
     ...typography.headingM,
     marginBottom: spacing(3),
@@ -1337,6 +1678,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.neutral200,
     marginBottom: spacing(4),
+  },
+  cardFieldContainer: {
+    marginTop: spacing(4),
+    marginBottom: spacing(4),
+  },
+  cardField: {
+    width: "100%",
+    height: 52,
   },
   paymentOptionsContainer: {
     gap: spacing(3),
@@ -1437,22 +1786,3 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

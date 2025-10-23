@@ -17,15 +17,20 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 class BillingConfig:
     @staticmethod
-    def stripe_secret() -> str:
+    def stripe_secret(*, required: bool = True) -> Optional[str]:
         secret = os.getenv("STRIPE_SECRET_KEY")
-        if not secret:
+        if not secret and required:
             raise HTTPException(status_code=500, detail="Stripe secret key not configured")
-        return secret
+        return secret or None
 
     @staticmethod
     def stripe_publishable() -> Optional[str]:
-        return os.getenv("STRIPE_PUBLISHABLE_KEY")
+        value = os.getenv("STRIPE_PUBLISHABLE_KEY")
+        return value or None
+
+    @staticmethod
+    def stripe_enabled() -> bool:
+        return bool(os.getenv("STRIPE_SECRET_KEY") and os.getenv("STRIPE_PUBLISHABLE_KEY"))
 
 
 def _decimal_to_float(value: Decimal) -> float:
@@ -42,8 +47,9 @@ def _serialize_quote(user: User, quote: PriceQuote) -> Dict[str, Any]:
         "free_trial_slug": quote.free_trial_slug,
         "free_trial_consumed": quote.free_trial_consumed,
         "discount_price": _decimal_to_float(quote.final_price) if quote.promotion_type == "discount" else None,
-        "credits_required": quote.credits_required,
-        "credits_balance": user.credits,
+        "credits_required": float(quote.credits_required),
+        "credits_balance": float(user.credits or 0),
+        "card_available": BillingConfig.stripe_enabled(),
     }
 
 
@@ -113,14 +119,16 @@ def pay_with_credits(
     if quote.final_price <= Decimal("0"):
         raise HTTPException(status_code=400, detail="No payment required for this selection")
 
-    if quote.credits_required <= 0:
+    if quote.credits_required <= Decimal("0.00"):
         raise HTTPException(status_code=400, detail="Credits not applicable")
 
-    if user.credits < quote.credits_required:
+    required = quote.credits_required
+    user_credits = Decimal(user.credits or 0)
+    if user_credits < required:
         raise HTTPException(status_code=402, detail="Insufficient credits")
 
     try:
-        user.credits -= quote.credits_required
+        user.credits = user_credits - required
         payment = _create_payment(
             db=db,
             user=user,
@@ -128,7 +136,7 @@ def pay_with_credits(
             quote=quote,
             method="credit",
             status="completed",
-            credits_used=quote.credits_required,
+            credits_used=required,
             metadata={"promotion_type": quote.promotion_type},
         )
         db.commit()
@@ -138,7 +146,7 @@ def pay_with_credits(
 
     return {
         "payment_id": payment.id,
-        "credits_balance": user.credits,
+        "credits_balance": float(user.credits or 0),
         "quote": _serialize_quote(user, quote),
     }
 

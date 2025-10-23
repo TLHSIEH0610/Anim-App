@@ -30,7 +30,7 @@ const LoginScreen = () => {
   const googleAuthConfig: AuthSession.AuthRequestConfig = {
     clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID!,
     scopes: ["openid", "profile", "email"],
-    additionalParameters: {},
+    extraParams: {},
     responseType: AuthSession.ResponseType.Token,
     redirectUri,
     usePKCE: false, // Disable PKCE
@@ -74,7 +74,7 @@ const LoginScreen = () => {
       const mockJwtToken = `mock-jwt-${userInfo.id}`;
 
       await login(mockJwtToken, user);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google sign-in error:", error);
       Alert.alert("Error", "Failed to sign in with Google");
     } finally {
@@ -104,7 +104,7 @@ const LoginScreen = () => {
         email: user.email ?? "test@example.com",
         name: user.name ?? "Test User",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("[auth] mock login error", error);
       Alert.alert("Error", "Mock login failed. Make sure backend is running.");
     } finally {

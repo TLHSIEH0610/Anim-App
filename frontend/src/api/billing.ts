@@ -11,6 +11,7 @@ export interface PricingQuote {
   free_trial_consumed: boolean;
   credits_required: number;
   credits_balance: number;
+  card_available?: boolean;
 }
 
 export interface PaymentResult {

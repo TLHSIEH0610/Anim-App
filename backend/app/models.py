@@ -11,7 +11,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    credits = Column(Integer, default=0)
+    credits = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     free_trials_used = Column(JSON, default=list)
 
@@ -202,7 +202,7 @@ class Payment(Base):
     stripe_payment_intent_id = Column(String(255))
     status = Column(String(50), nullable=False)
     metadata_json = Column('metadata', JSON)
-    credits_used = Column(Integer, nullable=False, default=0)
+    credits_used = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

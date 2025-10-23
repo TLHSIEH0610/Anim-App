@@ -8,10 +8,12 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { getBookStatus, retryBookCreation } from '../api/books';
+import { getBookStatus, retryBookCreation, Book } from '../api/books';
 import { useAuth } from '../context/AuthContext';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AppStackParamList } from '../navigation/types';
 
-const STATUS_MESSAGES = {
+const STATUS_MESSAGES: Record<string, string> = {
   creating: "🚀 Starting your book creation...",
   generating_story: "📖 Writing your magical story...",
   generating_images: "🎨 Creating beautiful illustrations...", 
@@ -20,7 +22,7 @@ const STATUS_MESSAGES = {
   failed: "❌ Something went wrong"
 };
 
-const STATUS_DESCRIPTIONS = {
+const STATUS_DESCRIPTIONS: Record<string, string> = {
   creating: "Preparing your book creation process",
   generating_story: "Our AI storyteller is crafting a unique tale based on your character and preferences",
   generating_images: "Creating stunning illustrations for each page of your story",
@@ -29,10 +31,12 @@ const STATUS_DESCRIPTIONS = {
   failed: "There was an error creating your book. You can try again."
 };
 
-export default function BookStatusScreen({ route, navigation }) {
+type BookStatusScreenProps = NativeStackScreenProps<AppStackParamList, 'BookStatus'>;
+
+export default function BookStatusScreen({ route, navigation }: BookStatusScreenProps) {
   const { bookId } = route.params;
   const { token } = useAuth();
-  const [book, setBook] = useState(null);
+  const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
 
@@ -48,7 +52,7 @@ export default function BookStatusScreen({ route, navigation }) {
         setTimeout(loadBookStatus, 3000); // Poll every 3 seconds
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading book status:', error);
       Alert.alert('Error', 'Failed to load book status');
     } finally {
@@ -73,7 +77,7 @@ export default function BookStatusScreen({ route, navigation }) {
               await retryBookCreation(token, book.id);
               Alert.alert('Success', 'Book creation has been restarted');
               loadBookStatus(); // Refresh status
-            } catch (error) {
+            } catch (error: any) {
               Alert.alert('Error', 'Failed to retry book creation');
             } finally {
               setRetrying(false);

@@ -10,8 +10,9 @@ import BookStatusScreen from "./src/screens/BookStatusScreen";
 import BookViewerScreen from "./src/screens/BookViewerScreen";
 import BillingHistoryScreen from "./src/screens/BillingHistoryScreen";
 import { StripeProvider, isStripeAvailable } from "./src/lib/stripe";
+import { AppStackParamList } from "./src/navigation/types";
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<AppStackParamList>();
 
 function AppContent() {
   const { user, isLoading } = useAuth();

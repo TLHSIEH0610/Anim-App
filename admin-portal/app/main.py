@@ -38,6 +38,21 @@ def _format_backend_error(exc: httpx.HTTPError) -> str:
     return str(exc)
 
 
+def _parse_decimal_field(raw_value, field_label: str, *, required: bool = False) -> float | None:
+    """Convert loosely formatted currency user input into a float or None."""
+    text = str(raw_value).strip() if raw_value is not None else ""
+    if not text:
+        if required:
+            raise ValueError(f"{field_label} is required")
+        return None
+
+    normalized = text.replace("$", "").replace(",", "")
+    try:
+        return float(normalized)
+    except ValueError as exc:
+        raise ValueError(f"Invalid {field_label}") from exc
+
+
 def get_admin_session(request: Request) -> Dict[str, Any] | None:
     cookie = request.cookies.get("admin_session")
     if not cookie:
@@ -535,6 +550,16 @@ async def create_story_template(request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    free_trial_slug = (form.get("free_trial_slug") or "").strip() or None
+    try:
+        price_value = _parse_decimal_field(form.get("price_dollars"), "Base price", required=True)
+        discount_value = _parse_decimal_field(form.get("discount_price"), "Discount price")
+    except ValueError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     payload = {
         "slug": form.get("slug", "").strip(),
         "name": form.get("name", "").strip(),
@@ -544,6 +569,9 @@ async def create_story_template(request: Request):
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
+        "free_trial_slug": free_trial_slug,
+        "price_dollars": price_value,
+        "discount_price": discount_value,
     }
 
     try:
@@ -603,6 +631,16 @@ async def update_story_template(slug: str, request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    free_trial_slug = (form.get("free_trial_slug") or "").strip() or None
+    try:
+        price_value = _parse_decimal_field(form.get("price_dollars"), "Base price", required=True)
+        discount_value = _parse_decimal_field(form.get("discount_price"), "Discount price")
+    except ValueError as exc:
+        return RedirectResponse(
+            f"/stories/{slug}?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     payload = {
         "slug": form.get("slug", slug).strip() or slug,
         "name": form.get("name", "").strip(),
@@ -612,6 +650,9 @@ async def update_story_template(slug: str, request: Request):
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
+        "free_trial_slug": free_trial_slug,
+        "price_dollars": price_value,
+        "discount_price": discount_value,
     }
 
     try:

@@ -1,4 +1,4 @@
-﻿from sqlalchemy import text
+from sqlalchemy import text
 from textwrap import dedent
 
 
@@ -28,7 +28,7 @@ def apply_schema_patches(engine):
                 stripe_payment_intent_id VARCHAR(255),
                 status VARCHAR(50) NOT NULL,
                 metadata JSON,
-                credits_used INTEGER NOT NULL DEFAULT 0,
+                credits_used NUMERIC(10,2) NOT NULL DEFAULT 0.00,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
@@ -39,7 +39,11 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates ALTER COLUMN price_dollars SET NOT NULL",
         "ALTER TABLE payments ALTER COLUMN amount_dollars TYPE NUMERIC(10,2) USING amount_dollars::numeric",
         "ALTER TABLE payments ALTER COLUMN currency SET DEFAULT 'aud'",
-        "ALTER TABLE payments ADD COLUMN credits_used INTEGER DEFAULT 0",
+        "ALTER TABLE payments ADD COLUMN credits_used NUMERIC(10,2) DEFAULT 0.00",
+        "ALTER TABLE users ALTER COLUMN credits TYPE NUMERIC(10,2) USING credits::numeric",
+        "ALTER TABLE users ALTER COLUMN credits SET DEFAULT 0.00",
+        "ALTER TABLE payments ALTER COLUMN credits_used TYPE NUMERIC(10,2) USING credits_used::numeric",
+        "ALTER TABLE payments ALTER COLUMN credits_used SET DEFAULT 0.00",
     ]
 
     with engine.connect() as conn:
@@ -60,7 +64,9 @@ def apply_schema_patches(engine):
         "UPDATE book_workflow_snapshots SET workflow_version = COALESCE(workflow_version, 0)",
         "UPDATE story_templates SET price_dollars = COALESCE(price_dollars, 1.5)",
         "UPDATE users SET free_trials_used = '[]'::json WHERE free_trials_used IS NULL",
+        "UPDATE users SET credits = COALESCE(credits, 0.00)",
         "UPDATE payments SET currency = 'aud' WHERE currency IS NULL OR currency = ''",
+        "UPDATE payments SET credits_used = COALESCE(credits_used, 0.00)",
     ]
 
     with engine.connect() as conn:

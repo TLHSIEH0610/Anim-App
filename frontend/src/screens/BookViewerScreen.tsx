@@ -12,21 +12,25 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import { getBookPreview, getBookPdfUrl, adminRegenerateBook } from '../api/books';
+import { getBookPreview, getBookPdfUrl, adminRegenerateBook, BookPreview } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AppStackParamList } from '../navigation/types';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function BookViewerScreen({ route, navigation }) {
+type BookViewerScreenProps = NativeStackScreenProps<AppStackParamList, 'BookViewer'>;
+
+export default function BookViewerScreen({ route, navigation }: BookViewerScreenProps) {
   const { bookId } = route.params;
   const { token } = useAuth();
-  const [bookData, setBookData] = useState(null);
+  const [bookData, setBookData] = useState<BookPreview | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [imageLoading, setImageLoading] = useState({});
+  const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
   const [isDownloading, setIsDownloading] = useState(false);
 
   const loadBookData = async () => {
@@ -42,7 +46,7 @@ export default function BookViewerScreen({ route, navigation }) {
         firstPageStatus: preview.pages?.[0]?.image_status
       });
       setBookData(preview);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading book:', error);
       Alert.alert('Error', 'Failed to load book preview');
     } finally {
@@ -118,7 +122,7 @@ export default function BookViewerScreen({ route, navigation }) {
           message: `Your book "${bookData.title}" is ready as a PDF.`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF download error:', error);
       Alert.alert('Download failed', 'Unable to download PDF. Please try again.');
     } finally {
@@ -149,7 +153,7 @@ export default function BookViewerScreen({ route, navigation }) {
         title: bookData.title || 'My Storybook',
         message,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Share error:', error);
       Alert.alert('Share failed', 'Unable to open the share sheet. Please try again.');
     }
@@ -169,11 +173,16 @@ export default function BookViewerScreen({ route, navigation }) {
           onPress: async () => {
             try {
               setLoading(true);
+              if (!token) {
+                Alert.alert('Error', 'Session expired. Please log in again.');
+                setLoading(false);
+                return;
+              }
               await adminRegenerateBook(token, bookId);
               Alert.alert('Success', 'Book regeneration started! You can check the status page to monitor progress.');
               // Reload book data to show updated status
               await loadBookData();
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error regenerating book:', error);
               Alert.alert('Error', 'Failed to regenerate book. Please try again.');
             } finally {
