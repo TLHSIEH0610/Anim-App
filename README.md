@@ -29,14 +29,14 @@ A full-stack mobile application that transforms user images into AI-generated ch
 
 AnimApp is an AI-powered children's book creation platform that enables users to:
 - Upload character images
-- Generate age-appropriate stories using local LLM (Ollama)
+- Generate age-appropriate stories using story templates stored in the database
 - Create themed illustrations with ComfyUI
 - Produce professional PDF books with ReportLab
 - Manage and view books through a mobile interface
 
 **Key Features:**
 - ? Google OAuth authentication
-- ? AI story generation (Ollama + LLaMA/Phi3/Mistral models)
+- ? AI story generation (Story templates stored in the database)
 - ? Theme-specific image generation (ComfyUI workflows)
 - ? Real-time job processing with RQ
 - ? PDF generation and preview
@@ -51,13 +51,13 @@ AnimApp is an AI-powered children's book creation platform that enables users to
 AnimApp now includes in-app pricing logic and payment tooling so promotions and checkouts stay consistent across the stack.
 
 - **Free trial tracking**  each `User` stores consumed free-trial slugs; templates provide an optional `free_trial_slug`, and the backend enforces single-use consumption.
-- **Dynamic pricing**  story templates carry `price_dollars` plus optional `discount_price`; the shared resolver prioritises free trials, then discounts, and computes credit requirements.
+- **Dynamic pricing**  Story templates carry `price_dollars` plus optional `discount_price`; the shared resolver prioritises free trials, then discounts, and computes credit requirements.
 - **Checkout options**  the mobile flow now submits credit redemptions, Stripe intents, or free-trial flags before queueing book generation; the backend re-validates amounts and links the resulting `Payment` record to the book.
 - **Payment history**  `/billing/history` and the Billing History screen surface card/credit transactions (method, amount, status, timestamp) for end-users and support staff.
 
 ## ?? Story Templates
 
-AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_definitions` table) that every book uses. Variety comes from database-backed story templates that drive both the narrative and prompt engineering.
+AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_definitions` table) that every book uses. Variety comes from database-backed Story templates that drive both the narrative and prompt engineering.
 
 - Users pick a template such as Space Explorer, Forest Friends, Magic School Day, Pirate Adventure, or Bedtime Lullaby directly in the mobile app.
 - Each template page defines `story_text`, `image_prompt`, `positive_prompt` (InstantID ? node?39) and `pose_prompt` (ControlNet ? node?80). Placeholders like `{Name}`, `{gender}`, `{they}` are filled using the name and pronouns collected in the UI.
@@ -101,7 +101,7 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
                                   
      ?              ?               ?
 +---------+  +----------+   +------------+
- Ollama     ComfyUI      ReportLab  
+ Story templates     ComfyUI      ReportLab  
   LLM        Image          PDF     
  Server       Gen         Builder   
 +---------+  +----------+   +------------+
@@ -111,7 +111,7 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
 1. User uploads image ? Frontend sends to Backend API
 2. Backend creates Book record ? Queues job in Redis
 3. RQ Worker picks up job:
-   - Calls Ollama to generate story
+   - Generates narrative from Story templates
    - Sends prompts to ComfyUI for illustrations
    - Assembles PDF with ReportLab
 4. User receives real-time progress updates
@@ -140,10 +140,10 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
 - **HTTP Client**: Requests
 - **WebSocket**: websocket-client
 
-### AI & Image Generation
-- **LLM**: Ollama (llama3.1:8b, phi3:mini, mistral:7b)
+### Story & Image Generation
+- **Narrative Engine**: Database-driven story templates managed through the admin portal
 - **Image Generation**: ComfyUI
-- **Story Generation**: Custom Ollama integration
+- **Prompting**: Template resolver that fills placeholders (name, pronouns, theme cues)
 
 ### Infrastructure
 - **Database**: PostgreSQL 15
@@ -172,9 +172,9 @@ anim-app/
       +-- storage.py         # File upload/deletion utilities
       +-- queue.py           # RQ job queue management
       +-- comfyui_client.py  # ComfyUI API client
-      +-- story_generator.py # Ollama LLM story generation
+      +-- story_generator.py # Resolves story templates into narrative text
       +-- default_workflows.py # Seeds the base ComfyUI workflow into the database
-      +-- default_stories.py   # Seeds built-in story templates into the database
+      +-- default_stories.py   # Seeds built-in Story templates into the database
       +-- utility.py         # Helper functions
       +-- routes/
          +-- auth_routes.py # Login, register, Google OAuth
@@ -187,7 +187,6 @@ anim-app/
    +-- requirements.txt       # Python dependencies
    +-- Dockerfile             # Backend container image
    +-- setup_platform.py      # Cross-platform setup script
-   +-- .env.example           # Environment variables template
 
 +-- frontend/                  # React Native mobile app
    +-- src/
@@ -262,11 +261,11 @@ anim-app/
 - **Purpose**: AI image generation with custom workflows
 - **Connection**: HTTP API (configured via environment variable)
 
-### 6. **Ollama** (Port 11434)
-- **Technology**: Local LLM server
-- **Purpose**: Story generation
-- **Models**: llama3.1:8b, phi3:mini, mistral:7b
-- **Connection**: HTTP API (`host.docker.internal:11434`)
+### 6. **Story templates (database)**
+- **Technology**: PostgreSQL rows seeded via `default_stories.py`
+- **Purpose**: Provide narrative beats, prompts, and pricing metadata
+- **Management**: Edited entirely in the admin portal; no external service to run
+- **Notes**: Templates are versioned and resolved at runtime for every book job
 
 ### 7. **Admin Portal** (Port 8090)
 - **Technology**: FastAPI + Jinja templates
@@ -285,7 +284,6 @@ anim-app/
 - Docker Desktop (macOS/Windows) or Docker Engine (Linux)
 - Docker Compose
 - ComfyUI (running locally or on GPU server)
-- Ollama (running locally or on dedicated server)
 
 **For Local Development:**
 - Python 3.11+
@@ -293,7 +291,7 @@ anim-app/
 - PostgreSQL 15+
 - Redis 7+
 - ComfyUI
-- Ollama
+- (Story templates are seeded automatically; no extra service required)
 - Expo CLI
 
 ### Hardware Requirements
@@ -316,28 +314,23 @@ anim-app/
 ### Option 1: Docker Setup (Recommended)
 
 ```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.1:8b
-ollama serve
-
-# 2. Start ComfyUI locally
+# 1. Start ComfyUI locally (required for illustrations)
 cd /path/to/ComfyUI
 python main.py --listen
 
-# 3. Configure environment
+# 2. Configure environment for backend + worker
 cd anim-app/infra
-cp .env.example .env
-# Edit .env with your settings
+touch .env
+# Populate it with your DATABASE_URL, REDIS_URL, COMFYUI_SERVER, etc. (see sample below)
 
-# 4. Start all services
+# 3. Start all services (backend, worker, db, redis, admin portal)
 docker-compose -f docker-compose.local-comfyui.yml up -d
 
-# 5. Check services
+# 4. Check services
 docker ps
 curl http://localhost:8000/health
 
-# 6. Start frontend
+# 5. Start frontend (Expo)
 cd ../frontend
 npm install
 npm start
@@ -352,12 +345,8 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Configure .env
-cp .env.example .env
-# Edit .env with local PostgreSQL/Redis URLs
-
-# Run setup script
-python setup_platform.py
+# Optional: run helper to create directories + backend/.env
+python setup_platform.py  # edit the generated backend/.env if you skip this step
 
 # Start backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -376,8 +365,7 @@ npm start
 cd /path/to/ComfyUI
 python main.py --listen
 
-# 5. Start Ollama (new terminal)
-ollama serve
+# 5. Story templates are seeded automatically by the backend; no extra process required
 ```
 
 ---
@@ -396,15 +384,14 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Setup platform-specific paths
+# Setup platform-specific paths (creates backend/.env)
 python setup_platform.py
 
 # Create database
 createdb animapp
 
 # Configure environment
-cp .env.example .env
-nano .env  # Edit DATABASE_URL, REDIS_URL, etc.
+nano .env  # Edit DATABASE_URL, REDIS_URL, etc. (file created by the setup script above)
 
 # Run migrations (auto-creates tables on startup)
 uvicorn app.main:app --reload
@@ -458,10 +445,8 @@ rq info --url redis://localhost:6379/0
 ```bash
 # 1. Configure environment
 cd infra
-cp .env.example .env
-
-# Edit production values
-nano .env
+touch .env
+nano .env   # Populate POSTGRES_*, DATABASE_URL, REDIS_URL, COMFYUI_SERVER, ADMIN_API_KEY, etc.
 
 # 2. Build and start services
 docker-compose -f docker-compose.local-comfyui.yml up -d --build
@@ -518,10 +503,6 @@ REDIS_URL=redis://redis:6379/0
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=https://your-domain.com  # For remote/Cloudflare setup, or host.docker.internal:8188 for local
 
-# Ollama
-OLLAMA_SERVER=http://host.docker.internal:11434
-OLLAMA_MODEL=llama3.1:8b
-
 # Storage
 MEDIA_ROOT=/data/media
 
@@ -547,10 +528,6 @@ REDIS_URL=redis://localhost:6379/0
 
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=127.0.0.1:8188  # For local, or https://your-domain.com for remote/Cloudflare setup
-
-# Ollama (local)
-OLLAMA_SERVER=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
 
 # Storage (platform-specific)
 # macOS: ~/Documents/AnimApp/media
@@ -584,14 +561,11 @@ EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
 ### Full Stack (Docker)
 
 ```bash
-# Terminal 1: Start Ollama
-ollama serve
-
-# Terminal 2: Start ComfyUI
+# Terminal 1: Start ComfyUI
 cd /path/to/ComfyUI
 python main.py --listen
 
-# Terminal 3: Start Docker services
+# Terminal 2: Start Docker services
 cd anim-app/infra
 docker-compose -f docker-compose.local-comfyui.yml up
 
@@ -600,7 +574,7 @@ docker-compose -f docker-compose.local-comfyui.yml up
 # Email: tlhsieh0610@gmail.com
 # Password: aa0910064312
 
-# Terminal 4: Start frontend
+# Terminal 3: Start frontend
 cd anim-app/frontend
 npm start
 ```
@@ -618,24 +592,21 @@ brew services start redis  # macOS
 # or
 redis-server  # Manual start
 
-# Terminal 3: Start Ollama
-ollama serve
-
-# Terminal 4: Start ComfyUI
+# Terminal 3: Start ComfyUI
 cd /path/to/ComfyUI
 python main.py --listen
 
-# Terminal 5: Start backend
+# Terminal 4: Start backend
 cd anim-app/backend
 source venv/bin/activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 6: Start worker
+# Terminal 5: Start worker
 cd anim-app/backend
 source venv/bin/activate
 rq worker jobs books --url redis://localhost:6379/0
 
-# Terminal 7: Start frontend
+# Terminal 6: Start frontend
 cd anim-app/frontend
 npm start
 ```
@@ -645,7 +616,6 @@ npm start
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs (Swagger UI)
 - **ComfyUI**: http://localhost:8188 (local) or your configured domain/Cloudflare endpoint
-- **Ollama**: http://localhost:11434
 - **Frontend**: Expo Dev Tools (usually http://localhost:19000)
 - **PostgreSQL**: localhost:5432
 - **Redis**: localhost:6379
@@ -1028,26 +998,24 @@ curl -k https://your-domain.com/queue
 curl -k https://your-domain.com/history
 ```
 
-### Ollama Debugging
+### Story Template Debugging
 
 ```bash
-# Check Ollama status
-ollama list
+# Inspect templates via SQL
+psql $DATABASE_URL -c "SELECT id, slug, title, is_active FROM story_templates ORDER BY updated_at DESC LIMIT 10;"
 
-# Test model
-ollama run llama3.1:8b "Hello, world!"
+# Inspect template pages
+psql $DATABASE_URL -c "SELECT template_id, page_number, story_text FROM story_template_pages WHERE template_id = 1 ORDER BY page_number;"
 
-# API testing
-curl http://localhost:11434/api/tags
-curl http://localhost:11434/api/generate -d '{
-  "model": "llama3.1:8b",
-  "prompt": "Tell me a story",
-  "stream": false
-}'
+# Dump a template to JSON for manual edits
+psql $DATABASE_URL -c "SELECT to_jsonb(t.*) FROM story_templates t WHERE id = 1;"
 
-# View logs
-journalctl -u ollama -f  # Linux systemd
-# or check Ollama server output
+# Reseed defaults (if you really need to restore the built-ins)
+cd backend && source venv/bin/activate && python - <<'PY'
+from app.default_stories import ensure_default_stories
+from app.db import SessionLocal
+ensure_default_stories(SessionLocal)
+PY
 ```
 
 ### Database Debugging
@@ -1081,7 +1049,7 @@ ORDER BY page_number;
 ### ComfyUI Workflows
 
 - The backend seeds a single `base` workflow into the `workflow_definitions` table during startup (`backend/app/default_workflows.py`).
-- RQ workers fetch the latest active record for the slug referenced by each story template (currently `base`). No JSON files need to live in the repository.
+- RQ workers fetch the latest active record for the slug referenced by each Story template (currently `base`). No JSON files need to live in the repository.
 - To publish an update:
   1. Export your ComfyUI graph via **Save ? API Format**.
   2. Open the admin portal ? **Workflows** ? Edit the `base` record (or add a new slug) and paste the JSON.
@@ -1103,27 +1071,27 @@ ORDER BY page_number;
 
 #### 1. **503 upstream connect error**
 
-**Cause**: ComfyUI or Ollama not accessible from Docker container
+**Cause**: ComfyUI unreachable from the backend container or missing story template data
 
 **Solution**:
 ```bash
-# Check services are running
-curl http://localhost:8188/system_stats  # ComfyUI (local)
-curl http://localhost:11434/api/tags     # Ollama
+# Check ComfyUI locally
+curl http://localhost:8188/system_stats
 
-# For remote ComfyUI (Cloudflare/proxy setup), test the domain directly
-curl -k https://your-domain.com/system_stats  # ComfyUI (remote)
+# If ComfyUI runs behind Cloudflare/HTTPS
+curl -k https://your-domain.com/system_stats
 
-# Verify Docker can reach host (for local setup)
+# Verify Docker can reach the host ComfyUI port
 docker exec animapp-backend curl http://host.docker.internal:8188/system_stats
 
-# Update .env if needed (for local setup)
-COMFYUI_SERVER=host.docker.internal:8188
-OLLAMA_SERVER=http://host.docker.internal:11434
+# Confirm templates exist
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM story_templates;"
 
-# Or for remote/Cloudflare setup
-COMFYUI_SERVER=https://your-domain.com  # Replace with your actual domain
-OLLAMA_SERVER=http://host.docker.internal:11434
+# Update .env if needed (local setup)
+COMFYUI_SERVER=host.docker.internal:8188
+
+# Remote setup
+COMFYUI_SERVER=https://your-domain.com
 ```
 
 #### 2. **Database connection failed**
@@ -1165,20 +1133,24 @@ docker-compose -f docker-compose.local-comfyui.yml restart worker
 rq info --url redis://redis:6379/0
 ```
 
-#### 4. **Ollama model not found**
+#### 4. **Story template missing or inactive**
 
-**Cause**: Model not downloaded
+**Cause**: Template rows were deleted/disabled or seeding never ran
 
 **Solution**:
 ```bash
-# List available models
-ollama list
+# Check template count
+psql $DATABASE_URL -c "SELECT id, slug, is_active FROM story_templates;"
 
-# Pull required model
-ollama pull llama3.1:8b
+# Reactivate template
+psql $DATABASE_URL -c "UPDATE story_templates SET is_active = true WHERE slug = 'base';"
 
-# Update .env to match
-OLLAMA_MODEL=llama3.1:8b
+# Reseed defaults (if needed)
+cd backend && source venv/bin/activate && python - <<'PY'
+from app.default_stories import ensure_default_stories
+from app.db import SessionLocal
+ensure_default_stories(SessionLocal)
+PY
 ```
 
 #### 5. **Frontend can't connect to backend**
@@ -1202,7 +1174,7 @@ npm start -- --clear
 
 #### 6. **Book creation stuck at 0%**
 
-**Cause**: Worker not picking up jobs, Ollama/ComfyUI issues
+**Cause**: Worker not picking up jobs, Story template/ComfyUI issues
 
 **Solution**:
 ```bash
@@ -1314,4 +1286,3 @@ If you encounter issues:
 ## ?? Payment Architecture
 
 For a deep dive into the end-to-end payment flow (Stripe configuration, credit redemptions, and frontend behaviour), read [PAYMENT_ARCHITECTURE.md](./PAYMENT_ARCHITECTURE.md). It captures component responsibilities, environment variables, and validation steps so new contributors can bring payments online quickly.
-

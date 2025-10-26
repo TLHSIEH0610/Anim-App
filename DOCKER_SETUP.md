@@ -4,12 +4,12 @@ This setup runs everything in Docker and connects to ComfyUI either locally or r
 
 ## 🚀 Quick Start
 
-### **1. Set up environment file**
+### **1. Create the environment file**
 ```bash
 cd infra
-cp .env.example .env
-# Edit .env if needed (default values should work)
+touch .env
 ```
+Populate it with the values your stack needs (sample below). There is no `.env.example` in the repo—Compose simply loads whatever you place in `infra/.env`.
 
 ### **2. Start ComfyUI** 
 ```bash
@@ -53,21 +53,26 @@ docker-compose -f docker-compose.local-comfyui.yml ps
 
 ## 🔧 Key Configuration
 
-### **.env file settings:**
+### **.env file settings (example):**
 ```env
-# For local ComfyUI, tells containers how to reach your local instance
-COMFYUI_SERVER=host.docker.internal:8188
-# For remote ComfyUI (e.g., via Cloudflare), use your domain
-# COMFYUI_SERVER=https://your-domain.com
+# PostgreSQL (container)
+POSTGRES_DB=animapp
+POSTGRES_USER=animapp
+POSTGRES_PASSWORD=change-me
+DATABASE_URL=postgresql://animapp:change-me@db:5432/animapp
 
-# Database runs in container
-DATABASE_URL=postgresql://animapp:password@db:5432/animapp
-
-# Redis runs in container  
+# Redis (container)
 REDIS_URL=redis://redis:6379/0
 
-# Optional fallback if database workflow lookup fails
-COMFYUI_WORKFLOW=/app/workflows/Anmi-App.json
+# Media path inside containers
+MEDIA_ROOT=/data/media
+
+# ComfyUI endpoint
+COMFYUI_SERVER=host.docker.internal:8188
+# For remote/Cloudflare setups use: COMFYUI_SERVER=https://your-domain.com
+
+# Admin portal
+ADMIN_API_KEY=changeme
 ```
 
 ### **Network magic:**
@@ -110,9 +115,9 @@ docker-compose -f docker-compose.local-comfyui.yml down
 ## 🧪 Testing the Integration
 
 ### **1. Test upload via frontend**
-- Use mock login (green button)
-- Upload an image
-- Check logs: `docker-compose logs -f worker`
+- Sign in with Google (dev build) or use a seeded account
+- Create a book and monitor the status screen
+- Tail worker logs: `docker-compose -f docker-compose.local-comfyui.yml logs -f worker`
 
 ### **2. Test ComfyUI connection**
 ```bash
