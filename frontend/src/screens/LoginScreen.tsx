@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native";
-import * as AuthSession from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
-import Constants from "expo-constants";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing } from "../styles/theme";
 
@@ -20,37 +18,25 @@ const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const isExpoGo = Constants.appOwnership === "expo";
-
-  const googleAuthConfig = useMemo(() => {
-    const expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    const fallbackClientId = androidClientId || iosClientId || expoClientId || webClientId;
+  const googleClientConfig = useMemo(() => {
+    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim();
+    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+    const fallback = androidClientId || iosClientId || webClientId;
 
     return {
-      expoClientId,
-      iosClientId,
       androidClientId,
+      iosClientId,
       webClientId,
-      clientId: fallbackClientId,
+      clientId: fallback,
     };
   }, []);
 
-  const hasGoogleConfig = Boolean(googleAuthConfig.clientId);
-
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "animapp",
-    path: "oauthredirect",
-  });
+  const hasGoogleConfig = Boolean(googleClientConfig.clientId);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    ...googleAuthConfig,
-    redirectUri,
-    responseType: AuthSession.ResponseType.Token,
+    ...googleClientConfig,
     scopes: ["openid", "profile", "email"],
-    usePKCE: false,
   });
 
   const handleGoogleSignIn = useCallback(
@@ -159,17 +145,13 @@ const LoginScreen = () => {
           </TouchableOpacity>
 
           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-        {!hasGoogleConfig ? (
-          <Text style={styles.helperText}>
-            Add your Google OAuth client IDs to `frontend/.env` to enable sign in.
-          </Text>
-        ) : (
-          <Text style={styles.helperText}>
-            {isExpoGo
-              ? "Google sign-in requires a dev client or EAS build. Run `npx expo run` to test locally."
-              : "We only use Google to verify your identity. No passwords."}
-          </Text>
-        )}
+          {!hasGoogleConfig ? (
+            <Text style={styles.helperText}>
+              Add your Google OAuth client IDs to `frontend/.env` to enable sign in.
+            </Text>
+          ) : (
+            <Text style={styles.helperText}>We only use Google to verify your identity. No passwords.</Text>
+          )}
         </View>
       </View>
     </SafeAreaView>
