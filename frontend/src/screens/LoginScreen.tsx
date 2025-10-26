@@ -57,8 +57,7 @@ const LoginScreen = () => {
       try {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         const signInResult = await GoogleSignin.signIn();
-        const tokens = await GoogleSignin.getTokens();
-
+        const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
         const googleUser: User["user"] | undefined = signInResult?.user;
         if (!googleUser?.email) {
           throw new Error("Unable to read Google profile");
@@ -68,6 +67,7 @@ const LoginScreen = () => {
           id: googleUser.id,
           email: googleUser.email,
           name: googleUser.name || googleUser.email,
+          photo: googleUser.photo || null,
         };
 
         // TODO: exchange Google tokens with your backend for a real JWT
