@@ -50,10 +50,10 @@ AnimApp is an AI-powered children's book creation platform that enables users to
 
 AnimApp now includes in-app pricing logic and payment tooling so promotions and checkouts stay consistent across the stack.
 
-- **Free trial tracking** – each `User` stores consumed free-trial slugs; templates provide an optional `free_trial_slug`, and the backend enforces single-use consumption.
-- **Dynamic pricing** – story templates carry `price_dollars` plus optional `discount_price`; the shared resolver prioritises free trials, then discounts, and computes credit requirements.
-- **Checkout options** – the mobile flow now submits credit redemptions, Stripe intents, or free-trial flags before queueing book generation; the backend re-validates amounts and links the resulting `Payment` record to the book.
-- **Payment history** – `/billing/history` and the Billing History screen surface card/credit transactions (method, amount, status, timestamp) for end-users and support staff.
+- **Free trial tracking**  each `User` stores consumed free-trial slugs; templates provide an optional `free_trial_slug`, and the backend enforces single-use consumption.
+- **Dynamic pricing**  story templates carry `price_dollars` plus optional `discount_price`; the shared resolver prioritises free trials, then discounts, and computes credit requirements.
+- **Checkout options**  the mobile flow now submits credit redemptions, Stripe intents, or free-trial flags before queueing book generation; the backend re-validates amounts and links the resulting `Payment` record to the book.
+- **Payment history**  `/billing/history` and the Billing History screen surface card/credit transactions (method, amount, status, timestamp) for end-users and support staff.
 
 ## ?? Story Templates
 
@@ -70,40 +70,40 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
 
 ```
 +-----------------+
-¦  Mobile Client  ¦ (React Native + Expo)
-¦   (Frontend)    ¦
+  Mobile Client   (React Native + Expo)
+   (Frontend)    
 +-----------------+
-         ¦ REST API
+          REST API
          ?
 +-----------------+
-¦   FastAPI       ¦ (Python 3.11)
-¦   Backend       ¦
+   FastAPI        (Python 3.11)
+   Backend       
 +-----------------+
-     ¦   ¦   ¦
-     ¦   ¦   +---------+
-     ¦   ¦             ?
-     ¦   ¦      +--------------+
-     ¦   ¦      ¦  PostgreSQL  ¦ (User data, Books, Jobs)
-     ¦   ¦      +--------------+
-     ¦   ¦
-     ¦   +----------+
-     ¦              ?
-     ¦       +-------------+
-     ¦       ¦    Redis    ¦ (Job Queue)
-     ¦       +-------------+
-     ¦              ¦
-     ¦              ?
-     ¦       +-------------+
-     ¦       ¦  RQ Worker  ¦ (Background Processing)
-     ¦       +-------------+
-     ¦              ¦
+           
+           +---------+
+                     ?
+              +--------------+
+                PostgreSQL   (User data, Books, Jobs)
+              +--------------+
+        
+        +----------+
+                   ?
+            +-------------+
+                Redis     (Job Queue)
+            +-------------+
+                   
+                   ?
+            +-------------+
+              RQ Worker   (Background Processing)
+            +-------------+
+                   
      +--------------+---------------+
-     ¦              ¦               ¦
+                                  
      ?              ?               ?
 +---------+  +----------+   +------------+
-¦ Ollama  ¦  ¦ ComfyUI  ¦   ¦ ReportLab  ¦
-¦  LLM    ¦  ¦  Image   ¦   ¦    PDF     ¦
-¦ Server  ¦  ¦   Gen    ¦   ¦  Builder   ¦
+ Ollama     ComfyUI      ReportLab  
+  LLM        Image          PDF     
+ Server       Gen         Builder   
 +---------+  +----------+   +------------+
 ```
 
@@ -163,63 +163,63 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
 ```
 anim-app/
 +-- backend/                    # FastAPI backend service
-¦   +-- app/
-¦   ¦   +-- main.py            # FastAPI entry point
-¦   ¦   +-- auth.py            # JWT authentication & hashing
-¦   ¦   +-- db.py              # SQLAlchemy database session
-¦   ¦   +-- models.py          # Database models (User, Job, Book, BookPage)
-¦   ¦   +-- schemas.py         # Pydantic validation schemas
-¦   ¦   +-- storage.py         # File upload/deletion utilities
-¦   ¦   +-- queue.py           # RQ job queue management
-¦   ¦   +-- comfyui_client.py  # ComfyUI API client
-¦   ¦   +-- story_generator.py # Ollama LLM story generation
-¦   ¦   +-- default_workflows.py # Seeds the base ComfyUI workflow into the database
-¦   ¦   +-- default_stories.py   # Seeds built-in story templates into the database
-¦   ¦   +-- utility.py         # Helper functions
-¦   ¦   +-- routes/
-¦   ¦   ¦   +-- auth_routes.py # Login, register, Google OAuth
-¦   ¦   ¦   +-- job_routes.py  # Job status endpoints
-¦   ¦   ¦   +-- book_routes.py # Book CRUD & creation endpoints
-¦   ¦   +-- worker/
-¦   ¦       +-- worker_runner.py   # RQ worker initialization
-¦   ¦       +-- job_process.py     # Simple job processing
-¦   ¦       +-- book_processor.py  # Book creation pipeline
-¦   +-- requirements.txt       # Python dependencies
-¦   +-- Dockerfile             # Backend container image
-¦   +-- setup_platform.py      # Cross-platform setup script
-¦   +-- .env.example           # Environment variables template
-¦
+   +-- app/
+      +-- main.py            # FastAPI entry point
+      +-- auth.py            # JWT authentication & hashing
+      +-- db.py              # SQLAlchemy database session
+      +-- models.py          # Database models (User, Job, Book, BookPage)
+      +-- schemas.py         # Pydantic validation schemas
+      +-- storage.py         # File upload/deletion utilities
+      +-- queue.py           # RQ job queue management
+      +-- comfyui_client.py  # ComfyUI API client
+      +-- story_generator.py # Ollama LLM story generation
+      +-- default_workflows.py # Seeds the base ComfyUI workflow into the database
+      +-- default_stories.py   # Seeds built-in story templates into the database
+      +-- utility.py         # Helper functions
+      +-- routes/
+         +-- auth_routes.py # Login, register, Google OAuth
+         +-- job_routes.py  # Job status endpoints
+         +-- book_routes.py # Book CRUD & creation endpoints
+      +-- worker/
+          +-- worker_runner.py   # RQ worker initialization
+          +-- job_process.py     # Simple job processing
+          +-- book_processor.py  # Book creation pipeline
+   +-- requirements.txt       # Python dependencies
+   +-- Dockerfile             # Backend container image
+   +-- setup_platform.py      # Cross-platform setup script
+   +-- .env.example           # Environment variables template
+
 +-- frontend/                  # React Native mobile app
-¦   +-- src/
-¦   ¦   +-- screens/
-¦   ¦   ¦   +-- LoginScreen.tsx         # Authentication screen
-¦   ¦   ¦   +-- BookLibraryScreen.tsx   # Book list view
-¦   ¦   ¦   +-- BookCreationScreen.tsx  # Create new book form
-¦   ¦   ¦   +-- BookStatusScreen.tsx    # Job progress tracker
-¦   ¦   ¦   +-- BookViewerScreen.tsx    # Read book interface
-¦   ¦   ¦   +-- HomeScreen.tsx          # Legacy home screen
-¦   ¦   +-- api/
-¦   ¦   ¦   +-- client.ts      # Axios HTTP client configuration
-¦   ¦   ¦   +-- books.ts       # Book API calls
-¦   ¦   ¦   +-- jobs.ts        # Job API calls
-¦   ¦   +-- context/
-¦   ¦       +-- AuthContext.tsx # Global auth state
-¦   +-- assets/                # Images, fonts
-¦   +-- App.tsx                # Root component with navigation
-¦   +-- package.json           # NPM dependencies
-¦   +-- tsconfig.json          # TypeScript configuration
-¦   +-- .env                   # Frontend environment variables
-¦
+   +-- src/
+      +-- screens/
+         +-- LoginScreen.tsx         # Authentication screen
+         +-- BookLibraryScreen.tsx   # Book list view
+         +-- BookCreationScreen.tsx  # Create new book form
+         +-- BookStatusScreen.tsx    # Job progress tracker
+         +-- BookViewerScreen.tsx    # Read book interface
+         +-- HomeScreen.tsx          # Legacy home screen
+      +-- api/
+         +-- client.ts      # Axios HTTP client configuration
+         +-- books.ts       # Book API calls
+         +-- jobs.ts        # Job API calls
+      +-- context/
+          +-- AuthContext.tsx # Global auth state
+   +-- assets/                # Images, fonts
+   +-- App.tsx                # Root component with navigation
+   +-- package.json           # NPM dependencies
+   +-- tsconfig.json          # TypeScript configuration
+   +-- .env                   # Frontend environment variables
+
 +-- infra/                     # Docker infrastructure
-¦   +-- docker-compose.local-comfyui.yml  # Docker services config
-¦   +-- monitor.sh             # Container monitoring script
-¦   +-- .env                   # Docker environment variables
-¦
+   +-- docker-compose.local-comfyui.yml  # Docker services config
+   +-- monitor.sh             # Container monitoring script
+   +-- .env                   # Docker environment variables
+
 +-- scripts/                   # Utility scripts
-¦   +-- cleanup.py             # Delete old files (>3 days)
-¦
+   +-- cleanup.py             # Delete old files (>3 days)
+
 +-- comfyui/                   # ComfyUI installation directory
-¦
+
 +-- CHILDBOOK_SETUP.md         # Children's book feature guide
 +-- CROSS_PLATFORM_SETUP.md    # macOS/Windows setup instructions
 +-- DOCKER_SETUP.md            # Docker deployment guide
@@ -572,8 +572,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=43200
 EXPO_PUBLIC_API_URL=http://localhost:8000
 
 # Google OAuth (optional)
-EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=your-expo-go-client-id
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-client-id
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
 ```
@@ -1094,7 +1093,7 @@ ORDER BY page_number;
 - Templates are stored in `story_templates` and `story_template_pages` (seeded by `backend/app/default_stories.py`).
 - Each page captures `story_text`, `image_prompt`, `positive_prompt` (InstantID / node?39) and `pose_prompt` (ControlNet / node?80).
 - Supported placeholders inside those fields: `{Name}`, `{name}`, `{gender}`, `{Gender}`, `{they}`, `{them}`, `{their}`, `{theirs}` (plus capitalised variants). Values come from the mobile creation form.
-- Manage templates from the admin portal ? **Stories**. Paste updated JSON into the “Pages” textarea to tweak narratives and prompts without redeploying.
+- Manage templates from the admin portal ? **Stories**. Paste updated JSON into the Pages textarea to tweak narratives and prompts without redeploying.
 
 ---
 

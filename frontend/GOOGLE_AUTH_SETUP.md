@@ -1,63 +1,51 @@
 # Google Authentication Setup
 
-To enable Google authentication, you need to set up Google OAuth credentials:
+The mobile app now uses [`@react-native-google-signin/google-signin`](https://react-native-google-signin.github.io/docs/install), so you authenticate through the native Google SDKs instead of the Expo browser flow. Follow the steps below to provision the correct credentials and wire them into the Android/iOS projects.
 
-## 1. Create a Google Cloud Project
+## 1. Create OAuth 2.0 credentials
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google+ API and Google OAuth2 API
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → select your project → **APIs & Services → Credentials**.
+2. Create (or reuse) the following OAuth clients:
+   - **Web client** – required. Use it for server-side verification and when calling `GoogleSignin.getTokens()`. Add any deployed domains that will talk to Google on your behalf (no redirect URIs are needed for mobile).
+   - **Android client** – choose *Android*, set the package name to `com.arnie.animapp`, and provide the SHA-1 fingerprint of the keystore you build with (current debug keystore: `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`). If you sign releases with another keystore, register that SHA-1 as well.
+   - **iOS client (optional)** – choose *iOS*, set the bundle ID to `com.arnie.animapp`, and download the `GoogleService-Info.plist` if you plan to ship on iOS later.
 
-## 2. Create OAuth 2.0 Credentials
+## 2. Update environment variables
 
-You will need multiple credentials so that Google login works on Expo Go, EAS builds, and the web.
+Populate `frontend/.env` with the client IDs you just created. The Expo-specific client ID is no longer used, but the existing env naming works with Metro/dev builds.
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth client ID" for each platform:
-   - **Expo Go / Web preview**: choose **Web application** and add `https://auth.expo.io/@your-username/anim-app` as an authorized redirect URI.
-   - **iOS**: choose **iOS** and enter your bundle identifier (`com.arnie.animapp` in `app.json`).
-   - **Android**: choose **Android** and enter your package name (`com.arnie.animapp`). Download and keep the generated `google-services.json` if you plan to use the native Google SDK later.
-   - **Production Web (optional)**: add `http://localhost:19006` plus any deployed domain you will serve from.
-3. For native/EAS builds, also add the custom scheme `animapp://oauthredirect` to the list of authorized redirect URIs inside each credential.
-
-## 3. Configure the App
-
-1. Update `frontend/.env` with every client ID you created:
-   ```env
-   EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=your-expo-go-client-id.apps.googleusercontent.com
-   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com
-   EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
-   ```
-2. The app already declares the `animapp` scheme in `app.json`. This lets EAS builds perform the OAuth redirect without relying on the Expo proxy.
-3. Restart the Expo dev server (`npx expo start -c`) so the new environment variables are picked up.
-
-## 4. Backend Integration (Optional)
-
-Currently, the app uses a mock JWT token. To integrate with your backend:
-
-1. Update `handleGoogleSignIn` in `LoginScreen.tsx` to send the Google access token to your backend
-2. Your backend should verify the Google token and return your own JWT token
-3. Update the `uploadImage` function to use the real authentication token
-
-## EAS Build Tips
-
-- When running through `expo run:ios`/`expo run:android` or EAS Build, the app bypasses the Expo proxy. Make sure **both** iOS and Android client IDs are populated; otherwise the OAuth screen will fail to open.
-- Keep the `animapp://` redirect URI in every credential. Google must be able to redirect back to your native scheme after the user authorises.
-- If you rotate bundle identifiers, regenerate the native OAuth credentials and update the env vars accordingly.
-
-## Example Backend Integration
-
-```javascript
-const handleGoogleSignIn = async (accessToken) => {
-  // Send to your backend
-  const response = await fetch('YOUR_BACKEND_URL/auth/google', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ google_token: accessToken })
-  });
-  
-  const { token, user } = await response.json();
-  await login(token, user);
-};
+```env
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com   # optional
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
 ```
+
+Restart Metro/Gradle after editing the file so the new IDs are compiled into the app.
+
+## 3. Android configuration
+
+1. The Gradle project already includes `implementation("com.google.android.gms:play-services-auth:21.2.0")`. When you run `npx react-native run-android`, the Google Sign-In native module is linked automatically.
+2. Ensure the OAuth **Android** client in Google Cloud lists **every** SHA-1 you plan to sign with (debug + release). Mismatched SHA-1 fingerprints are the most common “App Not Authorized” error.
+3. No additional manifest entries are needed—the library wires up the required activities via autolinking.
+
+## 4. iOS configuration (when you add the iOS project)
+
+1. Place the downloaded `GoogleService-Info.plist` inside `ios/AnimApp/`.
+2. In Xcode, open `Info.plist` and add a `URL Type` whose `URL Schemes` value is the `REVERSED_CLIENT_ID` from the plist. This lets the Google SDK redirect back into your app after authentication.
+3. Run `cd ios && pod install` so the `RNGoogleSignin` pod is integrated.
+
+## 5. Backend integration (optional)
+
+`LoginScreen.tsx` currently uses the native SDK to fetch `GoogleSignin.getTokens()`, builds a mock JWT, and signs in locally. To connect it to your backend:
+
+1. Send the `tokens.accessToken` or `tokens.idToken` to your API.
+2. Verify the token server-side using Google’s libraries.
+3. Respond with your own JWT/session payload and swap out the mock login in `handleGoogleSignIn`.
+
+## Troubleshooting
+
+- `16: SignInFailedError` usually means the SHA-1 or client ID on Google Cloud does not match the build you are running.
+- `12501: user cancelled` bubbles through as `statusCodes.SIGN_IN_CANCELLED`.
+- If Google Play Services is missing or outdated, the SDK throws `statusCodes.PLAY_SERVICES_NOT_AVAILABLE`. Prompt the user to update Play Services or install them on emulators.
+
+With these steps complete, tapping “Continue with Google” inside the app will trigger the native Google Sign-In UI and return control directly to your React Native screens—no browser tabs or Expo proxy required.

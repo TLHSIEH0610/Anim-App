@@ -1,11 +1,8 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin, statusCodes, User } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing } from "../styles/theme";
-
-WebBrowser.maybeCompleteAuthSession();
 
 const featureHighlights = [
   "Save characters & prompts for every adventure",
@@ -22,7 +19,7 @@ const LoginScreen = () => {
     const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim();
     const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
     const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
-    const fallback = androidClientId || iosClientId || webClientId;
+    const fallback = webClientId || androidClientId || iosClientId;
 
     return {
       androidClientId,
@@ -32,77 +29,77 @@ const LoginScreen = () => {
     };
   }, []);
 
-  const hasGoogleConfig = Boolean(googleClientConfig.clientId);
+  const hasGoogleConfig = Boolean(
+    googleClientConfig.webClientId || googleClientConfig.androidClientId || googleClientConfig.iosClientId
+  );
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    ...googleClientConfig,
-    scopes: ["openid", "profile", "email"],
-  });
+  useEffect(() => {
+    if (!hasGoogleConfig) {
+      return;
+    }
+
+    GoogleSignin.configure({
+      webClientId: googleClientConfig.webClientId || googleClientConfig.clientId,
+      iosClientId: googleClientConfig.iosClientId,
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+      profileImageSize: 120,
+      scopes: ["profile", "email"],
+    });
+  }, [googleClientConfig, hasGoogleConfig]);
 
   const handleGoogleSignIn = useCallback(
-    async (accessToken?: string | null) => {
-      if (!accessToken) {
-        setIsLoading(false);
-        setAuthError("Missing access token from Google. Please try again.");
+    async () => {
+      if (!hasGoogleConfig) {
+        setAuthError("Google Sign-In is not configured. Please try again later.");
         return;
       }
       try {
-        const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const userInfo = await userInfoResponse.json();
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const signInResult = await GoogleSignin.signIn();
+        const tokens = await GoogleSignin.getTokens();
 
-        if (!userInfo?.email) {
+        const googleUser: User["user"] | undefined = signInResult?.user;
+        if (!googleUser?.email) {
           throw new Error("Unable to read Google profile");
         }
 
         const user = {
-          id: userInfo.id,
-          email: userInfo.email,
-          name: userInfo.name || userInfo.email,
+          id: googleUser.id,
+          email: googleUser.email,
+          name: googleUser.name || googleUser.email,
         };
 
-        // TODO: exchange the Google token with your backend for a real JWT
-        const mockJwtToken = `mock-jwt-${userInfo.id}`;
+        // TODO: exchange Google tokens with your backend for a real JWT
+        const mockJwtToken = `mock-jwt-${googleUser.id}`;
+        if (!tokens?.accessToken) {
+          console.warn("Google Sign-In completed without an access token. Using mock JWT only.");
+        }
         await login(mockJwtToken, user);
         setAuthError(null);
       } catch (error: any) {
-        console.error("Google sign-in error", error);
-        setAuthError("We couldn't finish Google sign-in. Please try again.");
-      } finally {
-        setIsLoading(false);
+        if (error?.code === statusCodes.SIGN_IN_CANCELLED) {
+          setAuthError("Sign-in was cancelled. Please try again.");
+        } else if (error?.code === statusCodes.IN_PROGRESS) {
+          setAuthError("Google sign-in is already in progress.");
+        } else if (error?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          setAuthError("Google Play Services are unavailable or out of date.");
+        } else {
+          console.error("Google sign-in error", error);
+          setAuthError("We couldn't finish Google sign-in. Please try again.");
+        }
       }
     },
-    [login]
+    [hasGoogleConfig, login]
   );
 
-  React.useEffect(() => {
-    if (!response) {
-      return;
-    }
-    if (response.type === "success") {
-      handleGoogleSignIn(response.authentication?.accessToken);
-    } else {
-      setIsLoading(false);
-      if (response.type === "dismiss") {
-        setAuthError("Sign-in was cancelled. Please try again.");
-      } else if (response.type === "error") {
-        setAuthError(response.error?.message || "Google sign-in failed. Please try again.");
-      }
-    }
-  }, [response, handleGoogleSignIn]);
-
   const handleGoogleLogin = () => {
-    if (!request || isLoading || !hasGoogleConfig) {
+    if (isLoading || !hasGoogleConfig) {
       return;
     }
     setAuthError(null);
     setIsLoading(true);
-    promptAsync().catch((error) => {
-      console.error("Google prompt error", error);
-      setIsLoading(false);
-      setAuthError("Unable to open Google sign-in. Please try again.");
-    });
+    handleGoogleSignIn().finally(() => setIsLoading(false));
   };
 
   return (
@@ -132,10 +129,10 @@ const LoginScreen = () => {
           <TouchableOpacity
             style={[
               styles.googleButton,
-              (!request || isLoading || !hasGoogleConfig) && styles.googleButtonDisabled,
+              (isLoading || !hasGoogleConfig) && styles.googleButtonDisabled,
             ]}
             onPress={handleGoogleLogin}
-            disabled={!request || isLoading || !hasGoogleConfig}
+            disabled={isLoading || !hasGoogleConfig}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />

@@ -41,7 +41,7 @@ export const ServerStatusProvider = ({ children }: ServerStatusProviderProps) =>
   const checkBackend = useCallback(async () => {
     setIsChecking(true);
     try {
-      await api.get("/health", { timeout: 4000 });
+      await api.get("/health", { timeout: 10000 });
       setIsBackendReachable(true);
       setLastError(null);
     } catch (error: any) {
