@@ -58,7 +58,8 @@ const LoginScreen = () => {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         const signInResult = await GoogleSignin.signIn();
         const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
-        const googleUser: User["user"] | undefined = signInResult?.user;
+        const nativeResult: any = signInResult;
+        const googleUser: User["user"] | undefined = signInResult?.user || nativeResult?.data?.user;
         if (!googleUser?.email) {
           throw new Error("Unable to read Google profile");
         }
