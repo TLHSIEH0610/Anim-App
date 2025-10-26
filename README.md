@@ -572,6 +572,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=43200
 EXPO_PUBLIC_API_URL=http://localhost:8000
 
 # Google OAuth (optional)
+EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=your-expo-go-client-id
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-client-id
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id

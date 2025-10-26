@@ -11,6 +11,8 @@ import BookViewerScreen from "./src/screens/BookViewerScreen";
 import BillingHistoryScreen from "./src/screens/BillingHistoryScreen";
 import { StripeProvider, isStripeAvailable } from "./src/lib/stripe";
 import { AppStackParamList } from "./src/navigation/types";
+import { ServerStatusProvider, useServerStatus } from "./src/context/ServerStatusContext";
+import ServerUnavailableScreen from "./src/screens/ServerUnavailableScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -44,13 +46,42 @@ function AppContent() {
   );
 }
 
+const ServerStatusGate = ({ children }: { children: React.ReactNode }) => {
+  const { isBackendReachable, isChecking, lastChecked, lastError, refresh } = useServerStatus();
+
+  if (isBackendReachable === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  if (!isBackendReachable) {
+    return (
+      <ServerUnavailableScreen
+        isChecking={isChecking}
+        onRetry={refresh}
+        lastChecked={lastChecked}
+        lastError={lastError}
+      />
+    );
+  }
+
+  return <>{children}</>;
+};
+
 export default function App() {
   const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
   const cardPaymentsEnabled = Boolean(publishableKey && publishableKey.length > 0 && isStripeAvailable);
 
   const appTree = (
     <AuthProvider>
-      <AppContent />
+      <ServerStatusProvider>
+        <ServerStatusGate>
+          <AppContent />
+        </ServerStatusGate>
+      </ServerStatusProvider>
     </AuthProvider>
   );
 
@@ -80,5 +111,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
 });
-
 

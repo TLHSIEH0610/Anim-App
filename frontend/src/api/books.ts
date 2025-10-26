@@ -20,12 +20,18 @@ export interface BookCreationData {
 }
 
 
+export interface StorylinePageSummary {
+  page_number: number;
+  image_prompt: string;
+}
+
 export interface StoryTemplateSummary {
   slug: string;
   name: string;
   description?: string | null;
   default_age?: string | null;
   page_count: number;
+  storyline_pages?: StorylinePageSummary[];
 }
 
 export async function getStoryTemplates(): Promise<{ stories: StoryTemplateSummary[] }> {

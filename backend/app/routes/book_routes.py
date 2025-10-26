@@ -440,6 +440,17 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
     stories = []
     for template in templates:
         quote = resolve_story_price(user, template)
+        storyline_pages = []
+        for page in template.pages:
+            if not page.image_prompt:
+                continue
+            storyline_pages.append(
+                {
+                    "page_number": page.page_number,
+                    "image_prompt": page.image_prompt,
+                }
+            )
+
         stories.append(
             {
                 "slug": template.slug,
@@ -457,10 +468,10 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 "free_trial_consumed": quote.free_trial_consumed,
                 "credits_required": quote.credits_required,
                 "credits_balance": user.credits,
+                "storyline_pages": storyline_pages,
             }
         )
     return {"stories": stories}
-
 
 
 

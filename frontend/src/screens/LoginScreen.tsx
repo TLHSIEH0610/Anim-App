@@ -1,252 +1,278 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import React, { useState, useCallback, useMemo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native";
 import * as AuthSession from "expo-auth-session";
+import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api/client";
-
-const DEV_GOOGLE_BYPASS =
-  (__DEV__ &&
-    (process.env.EXPO_PUBLIC_DEV_GOOGLE_BYPASS || "true").toLowerCase() !== "false") ||
-  false;
+import { colors, radii, shadow, spacing } from "../styles/theme";
 
 WebBrowser.maybeCompleteAuthSession();
+
+const featureHighlights = [
+  "Save characters & prompts for every adventure",
+  "Follow book creation progress in real time",
+  "Checkout quickly with credits or cards",
+];
 
 const LoginScreen = () => {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Google OAuth configuration - use explicit Expo auth proxy without encoding
-  const redirectUri = 'https://auth.expo.io/@anonymous/anim-app-8c0b6f22-a823-4cf7-8612-08607e64927a';
-  console.log("Redirect URI being used:", redirectUri);
+  const isExpoGo = Constants.appOwnership === "expo";
 
-  const googleAuthConfig: AuthSession.AuthRequestConfig = {
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID!,
-    scopes: ["openid", "profile", "email"],
-    extraParams: {},
-    responseType: AuthSession.ResponseType.Token,
+  const googleAuthConfig = useMemo(() => {
+    const expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    const fallbackClientId = androidClientId || iosClientId || expoClientId || webClientId;
+
+    return {
+      expoClientId,
+      iosClientId,
+      androidClientId,
+      webClientId,
+      clientId: fallbackClientId,
+    };
+  }, []);
+
+  const hasGoogleConfig = Boolean(googleAuthConfig.clientId);
+
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "animapp",
+    path: "oauthredirect",
+  });
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    ...googleAuthConfig,
     redirectUri,
-    usePKCE: false, // Disable PKCE
-  };
-  console.log("Full OAuth config:", googleAuthConfig);
-  
-  // Use manual endpoints for more control
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    googleAuthConfig,
-    {
-      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-      tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    }
+    responseType: AuthSession.ResponseType.Token,
+    scopes: ["openid", "profile", "email"],
+    usePKCE: false,
+  });
+
+  const handleGoogleSignIn = useCallback(
+    async (accessToken?: string | null) => {
+      if (!accessToken) {
+        setIsLoading(false);
+        setAuthError("Missing access token from Google. Please try again.");
+        return;
+      }
+      try {
+        const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const userInfo = await userInfoResponse.json();
+
+        if (!userInfo?.email) {
+          throw new Error("Unable to read Google profile");
+        }
+
+        const user = {
+          id: userInfo.id,
+          email: userInfo.email,
+          name: userInfo.name || userInfo.email,
+        };
+
+        // TODO: exchange the Google token with your backend for a real JWT
+        const mockJwtToken = `mock-jwt-${userInfo.id}`;
+        await login(mockJwtToken, user);
+        setAuthError(null);
+      } catch (error: any) {
+        console.error("Google sign-in error", error);
+        setAuthError("We couldn't finish Google sign-in. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [login]
   );
 
   React.useEffect(() => {
-    if (response?.type === "success") {
-      handleGoogleSignIn(response.authentication?.accessToken);
-    }
-  }, [response]);
-
-  const handleGoogleSignIn = async (accessToken?: string) => {
-    if (!accessToken) return;
-
-    setIsLoading(true);
-    try {
-      // Get user info from Google
-      const userInfoResponse = await fetch(
-        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`
-      );
-      const userInfo = await userInfoResponse.json();
-
-      // Extract user data
-      const user = {
-        id: userInfo.id,
-        email: userInfo.email,
-        name: userInfo.name,
-      };
-
-      // In a real app, you'd get a JWT token from your backend here
-      const mockJwtToken = `mock-jwt-${userInfo.id}`;
-
-      await login(mockJwtToken, user);
-    } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      Alert.alert("Error", "Failed to sign in with Google");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const performMockLogin = async (reason: string) => {
-    setIsLoading(true);
-
-    try {
-      console.log(`[auth] ${reason}: hitting`, api.defaults.baseURL, "/auth/mock");
-      const { data } = await api.post("/auth/mock", {
-        email: "test@example.com",
-      });
-
-      console.log("[auth] mock response", data);
-
-      const user = data.user || {
-        id: "1",
-        email: "test@example.com",
-        name: "Test User",
-      };
-
-      await login(data.token, {
-        id: String(user.id ?? "1"),
-        email: user.email ?? "test@example.com",
-        name: user.name ?? "Test User",
-      });
-    } catch (error: any) {
-      console.error("[auth] mock login error", error);
-      Alert.alert("Error", "Mock login failed. Make sure backend is running.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMockLogin = () => performMockLogin("manual mock button");
-
-  const handleGoogleLogin = () => {
-    if (DEV_GOOGLE_BYPASS) {
-      performMockLogin("dev Google bypass");
+    if (!response) {
       return;
     }
+    if (response.type === "success") {
+      handleGoogleSignIn(response.authentication?.accessToken);
+    } else {
+      setIsLoading(false);
+      if (response.type === "dismiss") {
+        setAuthError("Sign-in was cancelled. Please try again.");
+      } else if (response.type === "error") {
+        setAuthError(response.error?.message || "Google sign-in failed. Please try again.");
+      }
+    }
+  }, [response, handleGoogleSignIn]);
 
-    promptAsync();
+  const handleGoogleLogin = () => {
+    if (!request || isLoading || !hasGoogleConfig) {
+      return;
+    }
+    setAuthError(null);
+    setIsLoading(true);
+    promptAsync().catch((error) => {
+      console.error("Google prompt error", error);
+      setIsLoading(false);
+      setAuthError("Unable to open Google sign-in. Please try again.");
+    });
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.heroSection}>
+          <View style={styles.brandBadge}>
+            <Text style={styles.brandBadgeText}>AnimApp</Text>
+          </View>
+          <Text style={styles.heroTitle}>Bring their imagination to life</Text>
+          <Text style={styles.heroSubtitle}>
+            Design personalised picture books in minutes. Sign in with Google to pick up where you left
+            off.
+          </Text>
+          <View style={styles.featureList}>
+            {featureHighlights.map((feature) => (
+              <View key={feature} style={styles.featureItem}>
+                <View style={styles.featureBullet} />
+                <Text style={styles.featureText}>{feature}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.mockButton, isLoading && styles.disabledButton]}
-          onPress={handleMockLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Mock Login (Test)</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Sign in to continue</Text>
+          <TouchableOpacity
+            style={[
+              styles.googleButton,
+              (!request || isLoading || !hasGoogleConfig) && styles.googleButtonDisabled,
+            ]}
+            onPress={handleGoogleLogin}
+            disabled={!request || isLoading || !hasGoogleConfig}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            )}
+          </TouchableOpacity>
 
-        <Text style={styles.orText}>OR</Text>
-
-        <TouchableOpacity
-          style={[
-            styles.googleButton,
-            (!request || isLoading) && styles.disabledButton,
-          ]}
-          onPress={handleGoogleLogin}
-          disabled={!request || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
-          )}
-        </TouchableOpacity>
-
-        {!request && (
-          <Text style={styles.errorText}>
-            Google OAuth not configured. Check your .env file.
+          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+        {!hasGoogleConfig ? (
+          <Text style={styles.helperText}>
+            Add your Google OAuth client IDs to `frontend/.env` to enable sign in.
+          </Text>
+        ) : (
+          <Text style={styles.helperText}>
+            {isExpoGo
+              ? "Google sign-in requires a dev client or EAS build. Run `npx expo run` to test locally."
+              : "We only use Google to verify your identity. No passwords."}
           </Text>
         )}
-        
-        <Text style={styles.infoText}>
-          Mock login available for quick testing
-        </Text>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    paddingHorizontal: spacing(6),
+    paddingVertical: spacing(8),
+    justifyContent: "space-between",
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 30,
+  heroSection: {
+    marginTop: spacing(6),
   },
-  title: {
+  brandBadge: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing(1.5),
+    paddingHorizontal: spacing(4),
+    borderRadius: radii.pill,
+    backgroundColor: colors.primarySoft,
+  },
+  brandBadgeText: {
+    color: colors.primary,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  heroTitle: {
     fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginTop: spacing(4),
+    marginBottom: spacing(2),
   },
-  subtitle: {
+  heroSubtitle: {
     fontSize: 16,
-    color: "#666",
-    marginBottom: 40,
-    textAlign: "center",
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  featureList: {
+    marginTop: spacing(5),
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing(3),
+  },
+  featureBullet: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    marginRight: spacing(2),
+  },
+  featureText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing(6),
+    ...shadow.card,
+  },
+  cardLabel: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: spacing(4),
   },
   googleButton: {
     backgroundColor: "#4285f4",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    width: "100%",
+    borderRadius: radii.lg,
+    paddingVertical: spacing(4),
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 50,
   },
-  googleButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  disabledButton: {
-    backgroundColor: "#cccccc",
+  googleButtonDisabled: {
     opacity: 0.6,
   },
-  errorText: {
-    color: "#ff4444",
-    fontSize: 14,
-    marginTop: 10,
+  googleButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  helperText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: spacing(4),
+    lineHeight: 18,
     textAlign: "center",
   },
-  mockButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    width: "100%",
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-    marginTop: 15,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  orText: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 15,
-  },
-  infoText: {
-    color: '#666',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 10,
+  errorText: {
+    fontSize: 13,
+    color: colors.danger,
+    marginTop: spacing(4),
+    textAlign: "center",
   },
 });
 

@@ -32,10 +32,16 @@ import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/types";
 
+interface TemplateStorylinePage {
+  pageNumber: number;
+  imagePrompt: string;
+}
+
 interface TemplateDisplay extends StoryTemplateSummary {
   description?: string | null;
   defaultAge?: string | null;
   storyText?: string;
+  storylinePages: TemplateStorylinePage[];
 }
 
 interface TemplateInput {
@@ -103,6 +109,18 @@ const formatCurrency = (amount: number | null | undefined, currency: string | un
     return `${fallbackCurrency} ${safeAmount.toFixed(2)}`;
   }
 };
+
+const injectCharacterName = (text: string | null | undefined, rawName: string) => {
+  if (!text) {
+    return "";
+  }
+  const fallbackName = rawName.trim() || "your character";
+  return text
+    .replace(/\{\{\s*name\s*\}\}/gi, fallbackName)
+    .replace(/\{name\}/gi, fallbackName)
+    .replace(/\[name\]/gi, fallbackName)
+    .replace(/<name>/gi, fallbackName);
+};
 type BookCreationScreenProps = NativeStackScreenProps<AppStackParamList, "BookCreation">;
 
 export default function BookCreationScreen({ navigation }: BookCreationScreenProps) {
@@ -157,16 +175,21 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
     if (!selectedTemplate) {
       return "";
     }
-    const characterName = form.templateInput.name.trim() || "your character";
-    const text = selectedTemplate.storyText?.trim() || selectedTemplate.description?.trim();
-    if (!text) {
-      return "";
+    const text =
+      selectedTemplate.storyText?.trim() ||
+      selectedTemplate.description?.trim() ||
+      selectedTemplate.storylinePages?.[0]?.imagePrompt?.trim();
+    return injectCharacterName(text, form.templateInput.name);
+  }, [selectedTemplate, form.templateInput.name]);
+
+  const storylinePagesDetailed = useMemo(() => {
+    if (!selectedTemplate?.storylinePages?.length) {
+      return [];
     }
-    return text
-      .replace(/\{\{\s*name\s*\}\}/gi, characterName)
-      .replace(/\{name\}/gi, characterName)
-      .replace(/\[name\]/gi, characterName)
-      .replace(/<name>/gi, characterName);
+    return selectedTemplate.storylinePages.map((page) => ({
+      pageNumber: page.pageNumber,
+      text: injectCharacterName(page.imagePrompt, form.templateInput.name),
+    }));
   }, [selectedTemplate, form.templateInput.name]);
 
   const resetPaymentState = useCallback(() => {
@@ -235,10 +258,18 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
     try {
       const response = await getStoryTemplates();
       if (response.stories && response.stories.length) {
-        const mapped: TemplateDisplay[] = response.stories.map((story) => ({
-          ...story,
-          storyText: story.description || undefined,
-        }));
+        const mapped: TemplateDisplay[] = response.stories.map((story) => {
+          const { storyline_pages, ...rest } = story;
+          return {
+            ...rest,
+            storyText: rest.description || undefined,
+            storylinePages:
+              storyline_pages?.map((page) => ({
+                pageNumber: page.page_number,
+                imagePrompt: page.image_prompt,
+              })) ?? [],
+          };
+        });
         setTemplates(mapped);
         setForm((prev) => {
           const first = mapped[0];
@@ -854,6 +885,17 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
           <View style={styles.reviewStorylineWrapper}>
             <Text style={styles.reviewStorylineHeading}>Storyline Preview</Text>
             <Text style={styles.reviewStoryline}>{storylinePreview}</Text>
+          </View>
+        ) : null}
+        {storylinePagesDetailed.length > 0 ? (
+          <View style={[styles.reviewStorylineWrapper, styles.storylinePagesContainer]}>
+            <Text style={styles.reviewStorylineHeading}>Full Storyline</Text>
+            {storylinePagesDetailed.map((page) => (
+              <View key={page.pageNumber} style={styles.storylinePageRow}>
+                <Text style={styles.storylinePageNumber}>Page {page.pageNumber}</Text>
+                <Text style={styles.storylinePageText}>{page.text}</Text>
+              </View>
+            ))}
           </View>
         ) : null}
       </View>
@@ -1598,6 +1640,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textPrimary,
     lineHeight: 20,
+  },
+  storylinePagesContainer: {
+    marginTop: spacing(3),
+  },
+  storylinePageRow: {
+    marginTop: spacing(2),
+    paddingBottom: spacing(2),
+    borderBottomWidth: 1,
+    borderBottomColor: "#c7d2fe",
+  },
+  storylinePageNumber: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primaryDark,
+    marginBottom: spacing(1),
+  },
+  storylinePageText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
   },
   reviewBackButton: {
     marginBottom: spacing(4),
