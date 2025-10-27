@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import quote_plus
 
@@ -21,8 +22,15 @@ serializer = URLSafeSerializer(SESSION_SECRET or "admin-session-secret", salt="a
 
 app = FastAPI(title="AnimApp Admin Portal")
 
-templates = Jinja2Templates(directory="app/templates")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Resolve template/static directories relative to this file to avoid CWD issues
+_BASE_DIR = Path(__file__).parent
+_TEMPLATES_DIR = _BASE_DIR / "templates"
+_STATIC_DIR = _BASE_DIR / "static"
+
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+# Mount static only if the directory exists to prevent startup errors
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 def _format_backend_error(exc: httpx.HTTPError) -> str:
