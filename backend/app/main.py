@@ -1,4 +1,11 @@
 import os
+import sentry_sdk
+from sentry_sdk.integrations.starlette import StarletteIntegration
+try:
+    # Prefer FastAPI-specific integration if available
+    from sentry_sdk.integrations.fastapi import FastApiIntegration as _FastApiIntegration
+except Exception:  # pragma: no cover
+    _FastApiIntegration = None
 from fastapi import FastAPI, Depends
 from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
@@ -14,6 +21,23 @@ Base.metadata.create_all(bind=engine)
 apply_schema_patches(engine)
 ensure_default_workflows(SessionLocal)
 ensure_default_stories(SessionLocal)
+
+# Initialize Sentry if DSN provided
+_SENTRY_DSN = os.getenv("SENTRY_DSN")
+if _SENTRY_DSN:
+    integrations = [StarletteIntegration()]
+    if _FastApiIntegration is not None:
+        try:
+            integrations.append(_FastApiIntegration())
+        except Exception:
+            pass
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENV", "local"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+        integrations=integrations,
+    )
 
 app = FastAPI(title="Children's Book Creator API")
 

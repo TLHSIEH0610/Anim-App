@@ -1,6 +1,11 @@
 import json
 import os
 from pathlib import Path
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+except Exception:
+    sentry_sdk = None
 from typing import Any, Dict
 from urllib.parse import quote_plus
 
@@ -20,6 +25,19 @@ SESSION_SECRET = os.getenv("ADMIN_SESSION_SECRET", ADMIN_API_KEY)
 
 serializer = URLSafeSerializer(SESSION_SECRET or "admin-session-secret", salt="animapp-admin")
 
+_SENTRY_DSN = os.getenv("SENTRY_DSN")
+if _SENTRY_DSN:
+    try:
+        sentry_sdk.init(
+            dsn=_SENTRY_DSN,
+            environment=os.getenv("SENTRY_ENV", "local"),
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+            profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+            integrations=[StarletteIntegration()],
+        )
+    except Exception:
+        pass
+
 app = FastAPI(title="AnimApp Admin Portal")
 
 # Resolve template/static directories relative to this file to avoid CWD issues
@@ -31,6 +49,7 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 # Mount static only if the directory exists to prevent startup errors
 if _STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 
 
 def _format_backend_error(exc: httpx.HTTPError) -> str:

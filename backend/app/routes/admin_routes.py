@@ -522,6 +522,7 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
     return {"users": items}
 
 
+
 @router.get("/controlnet-images")
 @router.get("/keypoint-images")
 def admin_list_controlnet_images(_: None = Depends(require_admin), db: Session = Depends(get_db)):
@@ -1224,6 +1225,4 @@ def admin_get_workflow(
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
     }
-
-
 
