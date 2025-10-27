@@ -1,0 +1,230 @@
+{
+  "summary": {
+    "total_jobs": 12,
+    "completed": 12,
+    "failed": 0,
+    "timeouts": 0,
+    "avg_duration_sec": 6.37,
+    "p95_duration_sec": 2.03,
+    "images_per_minute": 9.43,
+    "wall_clock_sec": 20.12
+  },
+  "results": [
+    {
+      "job_id": 0,
+      "prompt_id": "3f7275f5-4c3b-4b64-9a30-830be50eaba5",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 9,
+      "duration_sec": 16.04
+    },
+    {
+      "job_id": 2,
+      "prompt_id": "1b0ca1ad-279d-4777-bf8e-f307ffa384c0",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 9,
+      "duration_sec": 16.04
+    },
+    {
+      "job_id": 1,
+      "prompt_id": "88e70f52-4894-4a21-a4f6-52c1293ba13d",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 9,
+      "duration_sec": 16.05
+    },
+    {
+      "job_id": 3,
+      "prompt_id": "a5776be1-9fc2-4099-9381-529998f834c8",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 9,
+      "duration_sec": 16.05
+    },
+    {
+      "job_id": 6,
+      "prompt_id": "6722cd7c-0081-4985-8c3a-eb742dc11e25",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 1,
+      "duration_sec": 0.03
+    },
+    {
+      "job_id": 4,
+      "prompt_id": "81516c53-698f-4ba9-bd2a-4e238ffd4d18",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 1,
+      "duration_sec": 0.03
+    },
+    {
+      "job_id": 5,
+      "prompt_id": "d2ba5aaf-c751-4510-a251-dc3f5edfcf36",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.03
+    },
+    {
+      "job_id": 7,
+      "prompt_id": "8f3e8f36-2de9-4091-9c0c-02ef20d82c15",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.04
+    },
+    {
+      "job_id": 8,
+      "prompt_id": "167c49f2-ea53-4fe2-a963-04e4daf17d76",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.02
+    },
+    {
+      "job_id": 9,
+      "prompt_id": "8c967b8f-01e0-4d4a-bcfe-b1fe8a9ad358",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.02
+    },
+    {
+      "job_id": 10,
+      "prompt_id": "ac7751ee-b244-425c-b5e4-bcd6f199dee8",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.01
+    },
+    {
+      "job_id": 11,
+      "prompt_id": "ad0634b2-287c-4238-96be-a4c7f1bb5c5e",
+      "status": "completed",
+      "outputs": {
+        "15": {
+          "images": [
+            {
+              "filename": "ComfyUI_temp_ksjkd_00005_.png",
+              "subfolder": "",
+              "type": "temp"
+            }
+          ]
+        }
+      },
+      "polls": 2,
+      "duration_sec": 2.03
+    }
+  ]
+}

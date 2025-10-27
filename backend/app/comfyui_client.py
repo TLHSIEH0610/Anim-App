@@ -11,6 +11,8 @@ import os
 from datetime import datetime
 import urllib3
 
+from app.monitoring import record_comfy_stage, log_comfy_poll
+
 # Disable SSL warnings when using verify=False
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -49,9 +51,18 @@ class ComfyUIClient:
         """Queue a prompt and return the prompt ID"""
         url = self._build_url("prompt")
         request_kwargs = self._get_request_kwargs()
-        response = requests.post(url, json={"prompt": prompt, "client_id": self.client_id}, **request_kwargs)
-        response.raise_for_status()
-        return response.json()["prompt_id"]
+        context = {"server": self.base_url}
+        with record_comfy_stage("comfyui.queue_prompt", context) as event:
+            response = requests.post(
+                url,
+                json={"prompt": prompt, "client_id": self.client_id},
+                **request_kwargs,
+            )
+            response.raise_for_status()
+            prompt_id = response.json()["prompt_id"]
+            event["context"]["prompt_id"] = prompt_id
+            event["context"]["workflow_nodes"] = len(prompt)
+            return prompt_id
     
     def get_history(self, prompt_id: str) -> Optional[Dict]:
         """Get the history/results for a prompt"""
@@ -79,40 +90,55 @@ class ComfyUIClient:
         poll_interval = 2  # Check every 2 seconds
         
         print(f"Waiting for ComfyUI completion (prompt_id: {prompt_id})")
-        
-        while (time.time() - start_time) < timeout:
-            try:
-                # Poll the history endpoint instead of using WebSocket
-                history = self.get_history(prompt_id)
-                
-                if history and prompt_id in history:
-                    prompt_data = history[prompt_id]
+        attempts = 0
+        context = {"prompt_id": prompt_id, "poll_interval": poll_interval, "timeout": timeout}
+
+        with record_comfy_stage("comfyui.wait_for_completion", context) as event:
+            while (time.time() - start_time) < timeout:
+                try:
+                    attempts += 1
+                    # Poll the history endpoint instead of using WebSocket
+                    history = self.get_history(prompt_id)
                     
-                    # Check if completed successfully
-                    if "outputs" in prompt_data and prompt_data["outputs"]:
-                        result["status"] = "completed"
-                        result["outputs"] = prompt_data["outputs"]
-                        print(f"✅ ComfyUI processing completed for {prompt_id}")
-                        return result
+                    if history and prompt_id in history:
+                        prompt_data = history[prompt_id]
+                        
+                        # Check if completed successfully
+                        if "outputs" in prompt_data and prompt_data["outputs"]:
+                            result["status"] = "completed"
+                            result["outputs"] = prompt_data["outputs"]
+                            event["context"]["attempts"] = attempts
+                            event["context"]["result"] = "completed"
+                            print(f"✅ ComfyUI processing completed for {prompt_id}")
+                            log_comfy_poll(prompt_id, "completed", attempts)
+                            return result
+                        
+                        # Check for errors in status
+                        if "status" in prompt_data and "error" in prompt_data["status"]:
+                            result["status"] = "failed" 
+                            result["error"] = prompt_data["status"]["error"]
+                            event["context"]["attempts"] = attempts
+                            event["context"]["result"] = "error"
+                            print(f"❌ ComfyUI processing failed: {result['error']}")
+                            log_comfy_poll(prompt_id, "error", attempts, {"message": result["error"]})
+                            return result
                     
-                    # Check for errors in status
-                    if "status" in prompt_data and "error" in prompt_data["status"]:
-                        result["status"] = "failed" 
-                        result["error"] = prompt_data["status"]["error"]
-                        print(f"❌ ComfyUI processing failed: {result['error']}")
-                        return result
-                
-                # Still processing, wait and check again
-                time.sleep(poll_interval)
-                
-            except Exception as e:
-                print(f"Error polling ComfyUI status: {e}")
-                time.sleep(poll_interval)
-        
-        # Timeout reached
-        result["error"] = f"Timeout after {timeout}s waiting for ComfyUI completion"
-        print(f"⏰ ComfyUI processing timed out after {timeout}s")
-        return result
+                    # Still processing, wait and check again
+                    log_comfy_poll(prompt_id, "pending", attempts)
+                    time.sleep(poll_interval)
+                    
+                except Exception as e:
+                    print(f"Error polling ComfyUI status: {e}")
+                    log_comfy_poll(prompt_id, "exception", attempts, {"message": str(e)})
+                    time.sleep(poll_interval)
+            
+            # Timeout reached
+            result["error"] = f"Timeout after {timeout}s waiting for ComfyUI completion"
+            event["context"]["attempts"] = attempts
+            event["context"]["result"] = "timeout"
+            print(f"⏰ ComfyUI processing timed out after {timeout}s")
+            log_comfy_poll(prompt_id, "timeout", attempts)
+            return result
     
     def prepare_dynamic_workflow(self, workflow: Dict[str, Any], image_filenames: list) -> Dict[str, Any]:
         """
@@ -183,92 +209,112 @@ class ComfyUIClient:
         Returns:
             Dict with status, output_path, and error info
         """
-        try:
-            # Ensure input_image_paths is a list
-            if isinstance(input_image_paths, str):
-                input_image_paths = [input_image_paths]
-
-            # Validate number of images
-            if not input_image_paths or len(input_image_paths) > 4:
-                return {
-                    "status": "failed",
-                    "error": f"Invalid number of images: {len(input_image_paths)}. Must be 1-4 images."
-                }
-
-            print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")
-
-            # Upload all images to ComfyUI
-            image_filenames = []
-            for i, image_path in enumerate(input_image_paths):
-                print(f"Uploading image {i+1}/{len(input_image_paths)}: {image_path}")
-                filename = self._upload_image(image_path)
-                print(f"[ComfyUI] Uploaded image stored as: {filename}")
-                image_filenames.append(filename)
-
-            # Prepare workflow with dynamic adjustments based on number of images
-            import copy
-            workflow = copy.deepcopy(workflow_json)
-            workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
-
-            if keypoint_filename and "100" in workflow and "inputs" in workflow["100"]:
-                workflow["100"]["inputs"]["image"] = keypoint_filename
-                workflow["100"]["inputs"]["load_from_upload"] = True
-                print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
-
-            # Debug log: surface the filenames wired into each LoadImage node
+        with record_comfy_stage(
+            "comfyui.process_image_to_animation",
+            {
+                "reference_images": len(input_image_paths) if isinstance(input_image_paths, list) else 1,
+                "custom_prompt": bool(custom_prompt),
+            },
+        ) as event:
             try:
-                load_nodes = [node_id for node_id in ["13", "94", "98", "100"] if node_id in workflow]
-                resolved_inputs = {
-                    node_id: workflow[node_id]["inputs"].get("image")
-                    for node_id in load_nodes
-                    if isinstance(workflow[node_id].get("inputs"), dict)
-                }
-                print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
-            except Exception as debug_error:
-                print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
+                # Ensure input_image_paths is a list
+                if isinstance(input_image_paths, str):
+                    input_image_paths = [input_image_paths]
 
-            # Update workflow with custom prompt if provided
-            if custom_prompt or control_prompt:
-                workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
+                # Validate number of images
+                if not input_image_paths or len(input_image_paths) > 4:
+                    event["status"] = "error"
+                    event["context"]["reason"] = "invalid_image_count"
+                    return {
+                        "status": "failed",
+                        "error": f"Invalid number of images: {len(input_image_paths)}. Must be 1-4 images."
+                    }
 
-            # Log workflow snapshot before queueing
-            self._log_workflow_snapshot(workflow)
+                print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")
 
-            # Queue the prompt
-            prompt_id = self.queue_prompt(workflow)
+                # Upload all images to ComfyUI
+                image_filenames = []
+                for i, image_path in enumerate(input_image_paths):
+                    print(f"Uploading image {i+1}/{len(input_image_paths)}: {image_path}")
+                    filename = self._upload_image(image_path)
+                    print(f"[ComfyUI] Uploaded image stored as: {filename}")
+                    image_filenames.append(filename)
 
-            # Wait for completion
-            result = self.wait_for_completion(prompt_id)
+                # Prepare workflow with dynamic adjustments based on number of images
+                import copy
+                workflow = copy.deepcopy(workflow_json)
+                workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
 
-            vae_preview_path = self._download_intermediate_image(result.get("outputs"), ["102", "83", "84", "91", "15"])
+                if keypoint_filename and "100" in workflow and "inputs" in workflow["100"]:
+                    workflow["100"]["inputs"]["image"] = keypoint_filename
+                    workflow["100"]["inputs"]["load_from_upload"] = True
+                    print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
 
-            if result["status"] == "completed" and result["outputs"]:
-                # Download the result
-                output_path = self._download_result(result["outputs"])
-                return {
-                    "status": "success",
-                    "output_path": output_path,
-                    "prompt_id": prompt_id,
-                    "workflow": workflow,
-                    "vae_preview_path": vae_preview_path,
-                }
-            else:
+                # Debug log: surface the filenames wired into each LoadImage node
+                try:
+                    load_nodes = [node_id for node_id in ["13", "94", "98", "100"] if node_id in workflow]
+                    resolved_inputs = {
+                        node_id: workflow[node_id]["inputs"].get("image")
+                        for node_id in load_nodes
+                        if isinstance(workflow[node_id].get("inputs"), dict)
+                    }
+                    print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
+                except Exception as debug_error:
+                    print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
+
+                # Update workflow with custom prompt if provided
+                if custom_prompt or control_prompt:
+                    workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
+
+                # Log workflow snapshot before queueing
+                self._log_workflow_snapshot(workflow)
+
+                # Queue the prompt
+                prompt_id = self.queue_prompt(workflow)
+                event["context"]["prompt_id"] = prompt_id
+
+                # Wait for completion
+                result = self.wait_for_completion(prompt_id)
+
+                vae_preview_path = self._download_intermediate_image(
+                    result.get("outputs"),
+                    ["102", "83", "84", "91", "15"],
+                )
+
+                if result["status"] == "completed" and result["outputs"]:
+                    # Download the result
+                    output_path = self._download_result(result["outputs"])
+                    event["context"]["result"] = "success"
+                    return {
+                        "status": "success",
+                        "output_path": output_path,
+                        "prompt_id": prompt_id,
+                        "workflow": workflow,
+                        "vae_preview_path": vae_preview_path,
+                    }
+                else:
+                    event["status"] = "error"
+                    event["context"]["result"] = "failed"
+                    event["context"]["error"] = result.get("error")
+                    return {
+                        "status": "failed",
+                        "error": result.get("error", "Unknown error"),
+                        "prompt_id": prompt_id,
+                        "workflow": workflow,
+                        "vae_preview_path": vae_preview_path,
+                    }
+
+            except Exception as e:
+                event["status"] = "error"
+                event["context"]["result"] = "exception"
+                event["context"]["error"] = str(e)
                 return {
                     "status": "failed",
-                    "error": result.get("error", "Unknown error"),
-                    "prompt_id": prompt_id,
-                    "workflow": workflow,
-                    "vae_preview_path": vae_preview_path,
+                    "error": str(e),
+                    "workflow": locals().get("workflow"),
+                    "prompt_id": locals().get("prompt_id"),
+                    "vae_preview_path": None,
                 }
-
-        except Exception as e:
-            return {
-                "status": "failed",
-                "error": str(e),
-                "workflow": locals().get("workflow"),
-                "prompt_id": locals().get("prompt_id"),
-                "vae_preview_path": None,
-            }
     
     def _upload_image(self, image_path: str) -> str:
         """Upload image to ComfyUI"""
@@ -277,14 +323,23 @@ class ComfyUIClient:
         request_kwargs = self._get_request_kwargs()
         # For upload, we need to update timeout separately
         request_kwargs['timeout'] = 60
-        
-        with open(image_path, 'rb') as f:
-            files = {'image': f}
-            response = requests.post(url, files=files, **request_kwargs)
-            response.raise_for_status()
-            data = response.json()
-            print(f"[ComfyUI] Upload response: {data}")
-            return data['name']
+        file_size = None
+        try:
+            file_size = os.path.getsize(image_path)
+        except OSError:
+            pass
+        with record_comfy_stage(
+            "comfyui.upload_image",
+            {"server": self.base_url, "file": image_path, "bytes": file_size},
+        ) as event:
+            with open(image_path, 'rb') as f:
+                files = {'image': f}
+                response = requests.post(url, files=files, **request_kwargs)
+                response.raise_for_status()
+                data = response.json()
+                event["context"]["response"] = data.get("name")
+                print(f"[ComfyUI] Upload response: {data}")
+                return data['name']
     
     def _update_prompt(
         self,
@@ -359,67 +414,78 @@ class ComfyUIClient:
         media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
         output_dir = Path(media_root) / "outputs"
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # First, try to find SaveImage node outputs (node 25 for advanced workflows, node 10 for simple workflows)
-        # These produce files with predictable names and are the intended final outputs
-        for node_id, node_outputs in outputs.items():
-            if node_id in ["25", "10"] and "images" in node_outputs:  # SaveImage nodes
-                image_info = node_outputs["images"][0]
-                filename = image_info["filename"]
-                subfolder = image_info.get("subfolder", "")
-                folder_type = image_info.get("type", "output")
-                print(f"Found SaveImage output from node {node_id}: {filename}")
+        with record_comfy_stage(
+            "comfyui.download_result",
+            {"server": self.base_url, "output_dir": str(output_dir)},
+        ) as event:
+            # First, try to find SaveImage node outputs (node 25 for advanced workflows, node 10 for simple workflows)
+            # These produce files with predictable names and are the intended final outputs
+            for node_id, node_outputs in outputs.items():
+                if node_id in ["25", "10"] and "images" in node_outputs:  # SaveImage nodes
+                    image_info = node_outputs["images"][0]
+                    filename = image_info["filename"]
+                    subfolder = image_info.get("subfolder", "")
+                    folder_type = image_info.get("type", "output")
+                    print(f"Found SaveImage output from node {node_id}: {filename}")
 
-                # Download the file
-                image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
-
-                # Save locally with cross-platform path
-                output_path = output_dir / f"result_{int(time.time())}_{filename}"
-                with open(output_path, 'wb') as f:
-                    f.write(image_data)
-
-                return str(output_path)
-
-        # If no SaveImage node found, look for any saved images (not temp files)
-        fallback_image = None
-        fallback_info = None
-
-        for node_id, node_outputs in outputs.items():
-            if "images" not in node_outputs:
-                continue
-
-            for image_info in node_outputs["images"]:
-                filename = image_info.get("filename")
-                if not filename:
-                    continue
-
-                subfolder = image_info.get("subfolder", "")
-                folder_type = image_info.get("type", "output")
-
-                # Prefer non-temp outputs but keep the first temp as fallback
-                if "temp" not in (filename or "").lower():
-                    print(f"Found non-temp output: {filename} from node {node_id}")
+                    # Download the file
                     image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+
+                    # Save locally with cross-platform path
                     output_path = output_dir / f"result_{int(time.time())}_{filename}"
                     with open(output_path, 'wb') as f:
                         f.write(image_data)
+
+                    event["context"]["filename"] = filename
+                    event["context"]["node_id"] = node_id
                     return str(output_path)
 
-                if fallback_image is None:
-                    fallback_image = (filename, subfolder, folder_type)
-                    fallback_info = (node_id, image_info)
+            # If no SaveImage node found, look for any saved images (not temp files)
+            fallback_image = None
+            fallback_info = None
 
-        if fallback_image:
-            filename, subfolder, folder_type = fallback_image
-            node_id, _ = fallback_info
-            print(f"Falling back to temp output {filename} from node {node_id}")
-            image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
-            output_path = output_dir / f"result_{int(time.time())}_{filename}"
-            with open(output_path, 'wb') as f:
-                f.write(image_data)
-            return str(output_path)
+            for node_id, node_outputs in outputs.items():
+                if "images" not in node_outputs:
+                    continue
 
-        raise Exception("No image outputs found in workflow result")
+                for image_info in node_outputs["images"]:
+                    filename = image_info.get("filename")
+                    if not filename:
+                        continue
+
+                    subfolder = image_info.get("subfolder", "")
+                    folder_type = image_info.get("type", "output")
+
+                    # Prefer non-temp outputs but keep the first temp as fallback
+                    if "temp" not in (filename or "").lower():
+                        print(f"Found non-temp output: {filename} from node {node_id}")
+                        image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+                        output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                        with open(output_path, 'wb') as f:
+                            f.write(image_data)
+                        event["context"]["filename"] = filename
+                        event["context"]["node_id"] = node_id
+                        return str(output_path)
+
+                    if fallback_image is None:
+                        fallback_image = (filename, subfolder, folder_type)
+                        fallback_info = (node_id, image_info)
+
+            if fallback_image:
+                filename, subfolder, folder_type = fallback_image
+                node_id, _ = fallback_info
+                print(f"Falling back to temp output {filename} from node {node_id}")
+                image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
+                output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                with open(output_path, 'wb') as f:
+                    f.write(image_data)
+                event["context"]["filename"] = filename
+                event["context"]["node_id"] = node_id
+                event["context"]["fallback"] = True
+                return str(output_path)
+
+            event["status"] = "error"
+            raise Exception("No image outputs found in workflow result")
 
     def _download_intermediate_image(self, outputs: Optional[Dict[str, Any]], node_ids) -> Optional[str]:
         """Download an intermediate image (e.g. VAE decode) for debugging/preview"""
