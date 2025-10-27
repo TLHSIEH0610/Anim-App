@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native";
-import { GoogleSignin, statusCodes, User } from "@react-native-google-signin/google-signin";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing } from "../styles/theme";
+import { loginWithGoogle } from "../api/auth";
 
 const featureHighlights = [
   "Save characters & prompts for every adventure",
@@ -59,24 +60,17 @@ const LoginScreen = () => {
         const signInResult = await GoogleSignin.signIn();
         const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
         const nativeResult: any = signInResult;
-        const googleUser: User["user"] | undefined = signInResult?.user || nativeResult?.data?.user;
-        if (!googleUser?.email) {
-          throw new Error("Unable to read Google profile");
+        const idToken = tokens?.idToken || nativeResult?.idToken || nativeResult?.data?.idToken;
+        if (!idToken) {
+          throw new Error("Unable to obtain a Google ID token");
         }
 
-        const user = {
-          id: googleUser.id,
-          email: googleUser.email,
-          name: googleUser.name || googleUser.email,
-          photo: googleUser.photo || null,
-        };
-
-        // TODO: exchange Google tokens with your backend for a real JWT
-        const mockJwtToken = `mock-jwt-${googleUser.id}`;
-        if (!tokens?.accessToken) {
-          console.warn("Google Sign-In completed without an access token. Using mock JWT only.");
-        }
-        await login(mockJwtToken, user);
+        const backendAuth = await loginWithGoogle(idToken);
+        await login(backendAuth.token, {
+          id: String(backendAuth.user.id),
+          email: backendAuth.user.email,
+          name: backendAuth.user.name || backendAuth.user.email,
+        });
         setAuthError(null);
       } catch (error: any) {
         if (error?.code === statusCodes.SIGN_IN_CANCELLED) {
@@ -85,6 +79,10 @@ const LoginScreen = () => {
           setAuthError("Google sign-in is already in progress.");
         } else if (error?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
           setAuthError("Google Play Services are unavailable or out of date.");
+        } else if (error?.response?.data?.detail) {
+          setAuthError(error.response.data.detail);
+        } else if (error?.message) {
+          setAuthError(error.message);
         } else {
           console.error("Google sign-in error", error);
           setAuthError("We couldn't finish Google sign-in. Please try again.");

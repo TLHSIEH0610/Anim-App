@@ -22,25 +22,27 @@ EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleuserconte
 
 Restart Metro/Gradle after editing the file so the new IDs are compiled into the app.
 
-## 3. Android configuration
+## 3. Backend configuration
+
+1. Add the same client IDs to your backend environment (either `backend/.env` or `infra/.env` when using Docker):
+   ```env
+   GOOGLE_OAUTH_CLIENT_IDS=your-android-client-id.apps.googleusercontent.com,your-web-client-id.apps.googleusercontent.com
+   ```
+   Multiple IDs can be comma-separated.
+2. The `/auth/google` endpoint verifies each ID token with Google’s `tokeninfo` API, ensures the audience matches one of the configured IDs, and auto-creates the user (random password) if they don’t already exist.
+3. The response payload includes a JWT and the user profile (`id`, `email`, `name`, `picture`). The frontend stores those values via `AuthContext`.
+
+## 4. Android configuration
 
 1. The Gradle project already includes `implementation("com.google.android.gms:play-services-auth:21.2.0")`. When you run `npx react-native run-android`, the Google Sign-In native module is linked automatically.
 2. Ensure the OAuth **Android** client in Google Cloud lists **every** SHA-1 you plan to sign with (debug + release). Mismatched SHA-1 fingerprints are the most common “App Not Authorized” error.
 3. No additional manifest entries are needed—the library wires up the required activities via autolinking.
 
-## 4. iOS configuration (when you add the iOS project)
+## 5. iOS configuration (when you add the iOS project)
 
 1. Place the downloaded `GoogleService-Info.plist` inside `ios/AnimApp/`.
 2. In Xcode, open `Info.plist` and add a `URL Type` whose `URL Schemes` value is the `REVERSED_CLIENT_ID` from the plist. This lets the Google SDK redirect back into your app after authentication.
 3. Run `cd ios && pod install` so the `RNGoogleSignin` pod is integrated.
-
-## 5. Backend integration (optional)
-
-`LoginScreen.tsx` currently uses the native SDK to fetch `GoogleSignin.getTokens()`, builds a mock JWT, and signs in locally. To connect it to your backend:
-
-1. Send the `tokens.accessToken` or `tokens.idToken` to your API.
-2. Verify the token server-side using Google’s libraries.
-3. Respond with your own JWT/session payload and swap out the mock login in `handleGoogleSignIn`.
 
 ## Troubleshooting
 
