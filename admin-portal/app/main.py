@@ -75,6 +75,8 @@ def get_admin_session(request: Request) -> Dict[str, Any] | None:
 async def backend_request(method: str, path: str, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
     headers["X-Admin-Secret"] = ADMIN_API_KEY
+    # identify admin caller; backend uses this to enforce superadmin-only actions
+    headers["X-Admin-Email"] = ADMIN_EMAIL
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
         response = await client.request(method, path, headers=headers, **kwargs)
     response.raise_for_status()
@@ -460,6 +462,13 @@ async def users_page(request: Request):
     message = request.query_params.get("message")
     error = request.query_params.get("error")
 
+    is_super = False
+    try:
+        status_resp = await backend_request("GET", "/admin/admin-status")
+        is_super = bool(status_resp.json().get("is_super"))
+    except httpx.HTTPError:
+        is_super = False
+
     try:
         resp = await backend_request("GET", "/admin/users")
         data = resp.json()
@@ -475,6 +484,7 @@ async def users_page(request: Request):
             "request": request,
             "admin_email": session.get("email"),
             "users": data.get("users", []),
+            "is_super_admin": is_super,
             "message": message,
             "error": error,
         },
@@ -491,6 +501,7 @@ async def users_update(user_id: int, request: Request):
     payload = {}
     email = form.get("email")
     credits = form.get("credits")
+    role = form.get("role")
     if email is not None:
         payload["email"] = email
     if credits is not None and credits != "":
@@ -501,6 +512,8 @@ async def users_update(user_id: int, request: Request):
                 f"/users?error={quote_plus('Credits must be numeric')}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
+    if role is not None and role.strip():
+        payload["role"] = role.strip()
 
     try:
         await backend_request("POST", f"/admin/users/{user_id}/update", json=payload)

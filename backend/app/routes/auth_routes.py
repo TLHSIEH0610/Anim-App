@@ -41,6 +41,7 @@ class AuthUser(BaseModel):
     email: str
     name: str | None = None
     picture: str | None = None
+    role: str | None = None
 
 
 class AuthResponse(BaseModel):
@@ -76,19 +77,41 @@ def _verify_google_id_token(id_token: str) -> dict[str, Any]:
 
     return data
 
-@router.post("/register")
+@router.post("/register", response_model=AuthResponse)
 def register(payload: RegisterIn, db: Session = Depends(get_db)):
     if get_user_by_email(db, payload.email):
         raise HTTPException(400, "Email already registered")
     u = create_user(db, payload.email, payload.password)
-    return {"token": create_access_token(u.id)}
+    token = create_access_token(u.id)
+    name = u.email.split("@")[0] if u.email else None
+    return AuthResponse(
+        token=token,
+        user=AuthUser(
+            id=u.id,
+            email=u.email,
+            name=name,
+            picture=None,
+            role=getattr(u, "role", None),
+        ),
+    )
 
-@router.post("/login")
+@router.post("/login", response_model=AuthResponse)
 def login(payload: LoginIn, db: Session = Depends(get_db)):
     u = get_user_by_email(db, payload.email)
     if not u or not verify_pw(payload.password, u.password_hash):
         raise HTTPException(401, "Invalid credentials")
-    return {"token": create_access_token(u.id)}
+    token = create_access_token(u.id)
+    name = u.email.split("@")[0] if u.email else None
+    return AuthResponse(
+        token=token,
+        user=AuthUser(
+            id=u.id,
+            email=u.email,
+            name=name,
+            picture=None,
+            role=getattr(u, "role", None),
+        ),
+    )
 
 
 @router.post("/mock")
@@ -103,6 +126,7 @@ def mock_login(payload: MockLoginIn | None = None, db: Session = Depends(get_db)
         "user": {
             "id": user.id,
             "email": user.email,
+            "role": getattr(user, "role", None),
         },
     }
 
@@ -128,5 +152,6 @@ def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
             email=user.email,
             name=name,
             picture=picture,
+            role=getattr(user, "role", None),
         ),
     )

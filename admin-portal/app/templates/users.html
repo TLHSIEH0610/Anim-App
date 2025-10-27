@@ -3,11 +3,13 @@
 {% block content %}
 <h2>User Management</h2>
 
+<div class="panel">
 <table>
   <thead>
     <tr>
       <th>ID</th>
       <th>Email</th>
+      <th>Role</th>
       <th>Credits</th>
       <th>Books</th>
       <th>Actions</th>
@@ -18,6 +20,16 @@
     <tr>
       <td>{{ user.id }}</td>
       <td>{{ user.email }}</td>
+      <td>
+        {% set role = (user.role or 'user') %}
+        {% if role == 'superadmin' %}
+          <span class="badge badge-danger">superadmin</span>
+        {% elif role == 'admin' %}
+          <span class="badge badge-warn">admin</span>
+        {% else %}
+          <span class="badge">user</span>
+        {% endif %}
+      </td>
       <td>{{ user.credits }}</td>
       <td>
         {% if user.books %}
@@ -39,6 +51,13 @@
         <form method="post" action="/users/{{ user.id }}/update" style="display:inline;">
           <label for="email-{{ user.id }}">Email</label>
           <input id="email-{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
+          {% if is_super_admin %}
+          <label for="role-{{ user.id }}">Role</label>
+          <select id="role-{{ user.id }}" name="role">
+            <option value="user" {% if user.role == 'user' %}selected{% endif %}>user</option>
+            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>admin</option>
+          </select>
+          {% endif %}
           <label for="credits-{{ user.id }}">Credits</label>
           <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0">
           <button type="submit" class="button">Update</button>
@@ -48,6 +67,8 @@
     {% endfor %}
   </tbody>
 </table>
+
+</div>
 
 <a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
 {% endblock %}

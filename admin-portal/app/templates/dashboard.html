@@ -4,6 +4,7 @@
 <h2>Books Overview</h2>
 
 {% if books %}
+<div class="panel">
 <table>
     <thead>
         <tr>
@@ -21,7 +22,18 @@
         <tr>
             <td>{{ book.id }}</td>
             <td>{{ book.title }}</td>
-            <td>{{ book.status }}</td>
+            <td>
+              {% set s = (book.status or '').lower() %}
+              {% if s in ['creating','generating_story','generating_images','composing'] %}
+                <span class="chip chip-amber">{{ book.status }}</span>
+              {% elif s == 'completed' %}
+                <span class="chip chip-green">completed</span>
+              {% elif s == 'failed' %}
+                <span class="chip chip-red">failed</span>
+              {% else %}
+                <span class="chip chip-slate">{{ book.status or 'unknown' }}</span>
+              {% endif %}
+            </td>
             <td>{{ '%.0f'|format(book.progress_percentage or 0) }}%</td>
             <td>
               {% if book.story_source == 'template' %}
@@ -54,6 +66,7 @@
     {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p>No books found.</p>
 {% endif %}

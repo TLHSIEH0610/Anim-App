@@ -70,6 +70,7 @@ const LoginScreen = () => {
           id: String(backendAuth.user.id),
           email: backendAuth.user.email,
           name: backendAuth.user.name || backendAuth.user.email,
+          role: backendAuth.user.role ?? null,
         });
         setAuthError(null);
       } catch (error: any) {
