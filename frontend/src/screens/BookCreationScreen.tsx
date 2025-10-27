@@ -1280,7 +1280,7 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
                   index <= currentStep && styles.stepNumberActive,
                 ]}
               >
-                {index < currentStep ? "?" : index + 1}
+                {index + 1}
               </Text>
             </View>
             <Text
