@@ -135,6 +135,10 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
     );
   };
 
+  const handleOpenBillingHistory = () => {
+    navigation.navigate("BillingHistory");
+  };
+
   const renderBookItem = ({ item: book }: { item: Book }) => (
     <TouchableOpacity 
       style={styles.bookItem}
@@ -260,9 +264,14 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
             <Text style={styles.userEmail}>{user?.email}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.historyButton} onPress={handleOpenBillingHistory}>
+            <Text style={styles.historyButtonText}>Billing History</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}
@@ -362,6 +371,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(4),
     paddingVertical: spacing(2.5),
     borderRadius: radii.md,
+  },
+  historyButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing(4),
+    paddingVertical: spacing(2.5),
+    borderRadius: radii.md,
+    marginRight: spacing(3),
+  },
+  historyButtonText: {
+    color: colors.surface,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   logoutButtonText: {
     color: colors.surface,
