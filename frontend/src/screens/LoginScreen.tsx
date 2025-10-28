@@ -1,15 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions , SafeAreaView, Image, Linking } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../context/AuthContext";
-import { colors, radii, shadow, spacing } from "../styles/theme";
-import { loginWithGoogle } from "../api/auth";
+import { LinearGradient } from 'expo-linear-gradient';
 
-const featureHighlights = [
-  "Save characters & prompts for every adventure",
-  "Follow book creation progress in real time",
-  "Checkout quickly with credits or cards",
-];
+import { loginWithGoogle } from "../api/auth";
+import { colors, spacing } from "../styles/theme";
+
+const { width, height } = Dimensions.get('window');
+
 
 const LoginScreen = () => {
   const { login } = useAuth();
@@ -103,144 +102,214 @@ const LoginScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.heroSection}>
-          <View style={styles.brandBadge}>
-            <Text style={styles.brandBadgeText}>AnimApp</Text>
-          </View>
-          <Text style={styles.heroTitle}>Bring their imagination to life</Text>
-          <Text style={styles.heroSubtitle}>
-            Design personalised picture books in minutes. Sign in with Google to pick up where you left
-            off.
-          </Text>
-          <View style={styles.featureList}>
-            {featureHighlights.map((feature) => (
-              <View key={feature} style={styles.featureItem}>
-                <View style={styles.featureBullet} />
-                <Text style={styles.featureText}>{feature}</Text>
-              </View>
-            ))}
-          </View>
+
+        <LinearGradient
+      colors={['#87CEEB', '#FFE4B5']} // Light sky blue to Moccasin (soft yellow/peach)
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }} // Gradient direction from top-left to bottom-right
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea}>
+
+        {/* Background Overlay for subtle illustrations */}
+        {/* These would be images you've prepared (e.g., castle_outline.png, stars.png) */}
+        {/* Ensure these images have transparent backgrounds */}
+        <Image
+          source={require('../../assets/castle_outline.png')} // Create this asset
+          style={styles.backgroundCastle}
+        />
+        <Image
+          source={require('../../assets/stars_scatter.png')} // Create this asset
+          style={styles.backgroundStars}
+        />
+        {/* Add more background elements here if needed */}
+
+        {/* App Branding */}
+        <View style={styles.brandingContainer}>
+          <Image
+            source={require('../../assets/icon.png')} // Use your actual chosen icon
+            style={styles.appIcon}
+          />
+          <Text style={styles.appName}>Kid to Story</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Sign in to continue</Text>
-          <TouchableOpacity
-            style={[
-              styles.googleButton,
-              (isLoading || !hasGoogleConfig) && styles.googleButtonDisabled,
-            ]}
-            onPress={handleGoogleLogin}
-            disabled={isLoading || !hasGoogleConfig}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            )}
-          </TouchableOpacity>
+        {/* Welcome & Call to Action */}
+        <View style={styles.welcomeContainer}>
+          <Text style={styles.welcomeMessage}>Welcome to your story adventure!</Text>
+          <Text style={styles.description}>Unlock personalized tales starring your little hero!</Text>
+        </View>
 
-          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-          {!hasGoogleConfig ? (
+        {/* Login Button Area (Styling only, no actual login logic here) */}
+        <View style={styles.buttonArea}>
+
+
+         
+  
+          <TouchableOpacity
+            style={[styles.genericButton, (isLoading || !hasGoogleConfig) && styles.googleButtonDisabled]}
+            onPress={handleGoogleLogin} 
+             disabled={isLoading || !hasGoogleConfig}
+          >
+            <Image
+              source={require('../../assets/google_logo.png')} // Add a small Google 'G' logo image
+              style={styles.buttonLogo}
+            />
+            <Text style={styles.buttonText}>Sign in with Google</Text>
+          </TouchableOpacity>
+           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+              {!hasGoogleConfig ? (
             <Text style={styles.helperText}>
               Add your Google OAuth client IDs to `frontend/.env` to enable sign in.
             </Text>
           ) : (
-            <Text style={styles.helperText}>We only use Google to verify your identity. No passwords.</Text>
+            <Text style={styles.helperText}>We use Google to keep your stories safe and sound.</Text>
           )}
         </View>
-      </View>
-    </SafeAreaView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://your_privacy_policy_url.com')}>
+            <Text style={styles.footerLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerSeparator}> | </Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://your_terms_of_service_url.com')}>
+            <Text style={styles.footerLink}>Terms of Service</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     flex: 1,
-    paddingHorizontal: spacing(6),
-    paddingVertical: spacing(8),
-    justifyContent: "space-between",
   },
-  heroSection: {
-    marginTop: spacing(6),
+  safeArea: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 40,
+    position: 'relative', // Needed for absolute positioning of background elements
   },
-  brandBadge: {
-    alignSelf: "flex-start",
-    paddingVertical: spacing(1.5),
-    paddingHorizontal: spacing(4),
-    borderRadius: radii.pill,
-    backgroundColor: colors.primarySoft,
+  // --- Background Illustrations ---
+  backgroundCastle: {
+    position: 'absolute',
+    width: width * 0.7, // 70% of screen width
+    height: height * 0.3, // 30% of screen height
+    resizeMode: 'contain',
+    opacity: 0.15, // Make it very subtle
+    top: height * 0.1, // Position from top
+    right: -width * 0.1, // Slightly off-screen to the right
   },
-  brandBadgeText: {
-    color: colors.primary,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+  backgroundStars: {
+    position: 'absolute',
+    width: width * 0.5,
+    height: height * 0.2,
+    resizeMode: 'contain',
+    opacity: 0.2,
+    bottom: height * 0.2, // Position from bottom
+    left: -width * 0.1, // Slightly off-screen to the left
+    transform: [{ rotate: '15deg' }], // Optional: add a slight rotation
   },
-  heroTitle: {
+  // --- End Background Illustrations ---
+
+  brandingContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 20,
+  },
+  appIcon: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+    marginBottom: 10,
+    borderRadius: 20, // Match your icon's actual design
+  },
+  appName: {
     fontSize: 32,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: spacing(4),
-    marginBottom: spacing(2),
+    fontWeight: 'bold',
+    color: '#333',
+    // fontFamily: 'System-Bold', // Replace with custom font if loaded
   },
-  heroSubtitle: {
+  welcomeContainer: {
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 40,
+  },
+  welcomeMessage: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#444',
+    textAlign: 'center',
+    marginBottom: 10,
+    // fontFamily: 'System-Semibold',
+  },
+  description: {
     fontSize: 16,
-    color: colors.textSecondary,
-    lineHeight: 22,
+    color: '#555',
+    textAlign: 'center',
+    // fontFamily: 'System',
   },
-  featureList: {
-    marginTop: spacing(5),
+  buttonArea: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing(3),
+  genericButton: { // Renamed from googleSignInButton for general use
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  featureBullet: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-    marginRight: spacing(2),
+  buttonLogo: { // Renamed from googleLogo
+    width: 24,
+    height: 24,
+    marginRight: 10,
   },
-  featureText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing(6),
-    ...shadow.card,
-  },
-  cardLabel: {
+  buttonText: { // Renamed from googleSignInButtonText
     fontSize: 18,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    marginBottom: spacing(4),
+    color: '#555',
+    fontWeight: '500',
+    // fontFamily: 'System-Medium',
   },
-  googleButton: {
-    backgroundColor: "#4285f4",
-    borderRadius: radii.lg,
-    paddingVertical: spacing(4),
-    alignItems: "center",
-    justifyContent: "center",
+  privacyHint: {
+    fontSize: 13,
+    color: '#777',
+    textAlign: 'center',
+    marginTop: 15,
+    marginHorizontal: 30,
+    // fontFamily: 'System',
   },
-  googleButtonDisabled: {
+  footer: {
+    flexDirection: 'row',
+    marginTop: 20,
+    marginBottom: 0,
+    justifyContent: 'center',
+  },
+  footerLink: {
+    fontSize: 12,
+    color: '#666',
+    textDecorationLine: 'underline',
+    // fontFamily: 'System',
+  },
+  footerSeparator: {
+    fontSize: 12,
+    color: '#666',
+    marginHorizontal: 5,
+  },
+    googleButtonDisabled: {
     opacity: 0.6,
   },
-  googleButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  helperText: {
+    helperText: {
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: spacing(4),
