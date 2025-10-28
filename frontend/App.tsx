@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -111,4 +111,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
 });
-

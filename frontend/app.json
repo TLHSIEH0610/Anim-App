@@ -29,9 +29,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "sentry-expo"
-    ],
     "extra": {
       "eas": {
         "projectId": "3e5696ec-5c50-4902-b144-2e6d80a7bf53"

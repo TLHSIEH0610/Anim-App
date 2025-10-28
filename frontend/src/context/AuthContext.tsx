@@ -6,7 +6,6 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Sentry from "sentry-expo";
 
 interface User {
   id: string;
@@ -69,14 +68,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await AsyncStorage.setItem("auth_user", JSON.stringify(userData));
       setToken(authToken);
       setUser(userData);
-      try {
-        Sentry.Native.setUser({
-          id: userData.id,
-          email: userData.email,
-          username: userData.name,
-          role: userData.role ?? undefined,
-        } as any);
-      } catch (_) {}
     } catch (error) {
       console.error("Error storing auth data:", error);
     }
@@ -88,7 +79,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await AsyncStorage.removeItem("auth_user");
       setToken(null);
       setUser(null);
-      try { Sentry.Native.setUser(null); } catch (_) {}
     } catch (error) {
       console.error("Error clearing auth data:", error);
     }

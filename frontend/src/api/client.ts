@@ -1,5 +1,4 @@
 import axios from "axios";
-import * as Sentry from "sentry-expo";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -41,19 +40,10 @@ api.interceptors.request.use(
   }
 );
 
-// Capture failed responses to correlate intermittent issues and business failures
+// Let callers inspect failures
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    try {
-      Sentry.Native.captureException(error, {
-        extra: {
-          url: error?.config?.url,
-          method: error?.config?.method,
-          status: error?.response?.status,
-        },
-      });
-    } catch (_) {}
     return Promise.reject(error);
   }
 );

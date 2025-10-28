@@ -4,7 +4,6 @@ import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-si
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing } from "../styles/theme";
 import { loginWithGoogle } from "../api/auth";
-import * as Sentry from "sentry-expo";
 
 const featureHighlights = [
   "Save characters & prompts for every adventure",
@@ -57,13 +56,6 @@ const LoginScreen = () => {
         return;
       }
       try {
-        try {
-          Sentry.Native.addBreadcrumb({
-            category: "auth",
-            message: "Google sign-in start",
-            level: "info",
-          });
-        } catch (_) {}
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         const signInResult = await GoogleSignin.signIn();
         const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
@@ -82,16 +74,6 @@ const LoginScreen = () => {
         });
         setAuthError(null);
       } catch (error: any) {
-        try {
-          Sentry.Native.captureException(error, {
-            extra: {
-              code: error?.code,
-              message: error?.message,
-              step: "google_signin",
-            },
-            tags: { feature: "auth" },
-          });
-        } catch (_) {}
         if (error?.code === statusCodes.SIGN_IN_CANCELLED) {
           setAuthError("Sign-in was cancelled. Please try again.");
         } else if (error?.code === statusCodes.IN_PROGRESS) {
