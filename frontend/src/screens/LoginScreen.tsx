@@ -122,12 +122,16 @@ const LoginScreen = () => {
           source={require('../../assets/stars_scatter.png')} // Create this asset
           style={styles.backgroundStars}
         />
+                <Image
+          source={require('../../assets/cloud.png')} // Create this asset
+          style={styles.backgroundCloud}
+        />
         {/* Add more background elements here if needed */}
 
         {/* App Branding */}
         <View style={styles.brandingContainer}>
           <Image
-            source={require('../../assets/icon.png')} // Use your actual chosen icon
+            source={require('../../assets/kid-knight.png')} // Use your actual chosen icon
             style={styles.appIcon}
           />
           <Text style={styles.appName}>Kid to Story</Text>
@@ -198,8 +202,8 @@ const styles = StyleSheet.create({
     width: width * 0.7, // 70% of screen width
     height: height * 0.3, // 30% of screen height
     resizeMode: 'contain',
-    opacity: 0.15, // Make it very subtle
-    top: height * 0.1, // Position from top
+    opacity: 0.3, // Make it very subtle
+    bottom: height * 0.3, // Position from top
     right: -width * 0.1, // Slightly off-screen to the right
   },
   backgroundStars: {
@@ -207,8 +211,19 @@ const styles = StyleSheet.create({
     width: width * 0.5,
     height: height * 0.2,
     resizeMode: 'contain',
-    opacity: 0.2,
+    opacity: 0.6,
     bottom: height * 0.2, // Position from bottom
+    left: -width * 0.1, // Slightly off-screen to the left
+    transform: [{ rotate: '15deg' }], // Optional: add a slight rotation
+  },
+
+    backgroundCloud: {
+    position: 'absolute',
+    width: width * 0.5,
+    height: height * 0.2,
+    resizeMode: 'contain',
+    opacity: 0.6,
+    top: height * 0.2, // Position from bottom
     left: -width * 0.1, // Slightly off-screen to the left
     transform: [{ rotate: '15deg' }], // Optional: add a slight rotation
   },
@@ -220,8 +235,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   appIcon: {
-    width: 120,
-    height: 120,
+    width: 300,
+    height: 300,
     resizeMode: 'contain',
     marginBottom: 10,
     borderRadius: 20, // Match your icon's actual design
@@ -230,12 +245,12 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#333',
-    // fontFamily: 'System-Bold', // Replace with custom font if loaded
+    
   },
   welcomeContainer: {
     alignItems: 'center',
     marginHorizontal: 20,
-    marginBottom: 40,
+    marginBottom: 10,
   },
   welcomeMessage: {
     fontSize: 24,
@@ -255,14 +270,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   genericButton: { // Renamed from googleSignInButton for general use
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: 6,
     paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -271,8 +286,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonLogo: { // Renamed from googleLogo
-    width: 24,
-    height: 24,
+    width: 54,
+    height: 54,
     marginRight: 10,
   },
   buttonText: { // Renamed from googleSignInButtonText
