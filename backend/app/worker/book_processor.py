@@ -1,4 +1,17 @@
 import os
+# Optional: Sentry error tracking for worker jobs
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.rq import RqIntegration
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=os.getenv("SENTRY_ENV", "local"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+        integrations=[RqIntegration()],
+    )
+except Exception:
+    pass
 import json
 import time
 import platform
@@ -60,6 +73,7 @@ _Session = sessionmaker(bind=_engine)
 # Configuration
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
 OLLAMA_SERVER = os.getenv("OLLAMA_SERVER", "http://localhost:11434")
+
 
 
 def _normalized_template_params(book: Book) -> Dict[str, str]:

@@ -12,6 +12,10 @@ from datetime import datetime
 import urllib3
 
 from app.monitoring import record_comfy_stage, log_comfy_poll
+try:
+    import sentry_sdk
+except Exception:
+    sentry_sdk = None
 
 # Disable SSL warnings when using verify=False
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -130,6 +134,8 @@ class ComfyUIClient:
                 except Exception as e:
                     print(f"Error polling ComfyUI status: {e}")
                     log_comfy_poll(prompt_id, "exception", attempts, {"message": str(e)})
+                    if sentry_sdk is not None:
+                        sentry_sdk.capture_exception(e)
                     time.sleep(poll_interval)
             
             # Timeout reached
@@ -308,6 +314,8 @@ class ComfyUIClient:
                 event["status"] = "error"
                 event["context"]["result"] = "exception"
                 event["context"]["error"] = str(e)
+                if sentry_sdk is not None:
+                    sentry_sdk.capture_exception(e)
                 return {
                     "status": "failed",
                     "error": str(e),

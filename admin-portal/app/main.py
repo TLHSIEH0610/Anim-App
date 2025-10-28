@@ -1,5 +1,11 @@
 import json
 import os
+from pathlib import Path
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+except Exception:
+    sentry_sdk = None
 from typing import Any, Dict
 from urllib.parse import quote_plus
 
@@ -19,10 +25,31 @@ SESSION_SECRET = os.getenv("ADMIN_SESSION_SECRET", ADMIN_API_KEY)
 
 serializer = URLSafeSerializer(SESSION_SECRET or "admin-session-secret", salt="animapp-admin")
 
+_SENTRY_DSN = os.getenv("SENTRY_DSN")
+if _SENTRY_DSN:
+    try:
+        sentry_sdk.init(
+            dsn=_SENTRY_DSN,
+            environment=os.getenv("SENTRY_ENV", "local"),
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+            profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+            integrations=[StarletteIntegration()],
+        )
+    except Exception:
+        pass
+
 app = FastAPI(title="AnimApp Admin Portal")
 
-templates = Jinja2Templates(directory="app/templates")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Resolve template/static directories relative to this file to avoid CWD issues
+_BASE_DIR = Path(__file__).parent
+_TEMPLATES_DIR = _BASE_DIR / "templates"
+_STATIC_DIR = _BASE_DIR / "static"
+
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+# Mount static only if the directory exists to prevent startup errors
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 
 
 def _format_backend_error(exc: httpx.HTTPError) -> str:
@@ -67,6 +94,8 @@ def get_admin_session(request: Request) -> Dict[str, Any] | None:
 async def backend_request(method: str, path: str, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
     headers["X-Admin-Secret"] = ADMIN_API_KEY
+    # identify admin caller; backend uses this to enforce superadmin-only actions
+    headers["X-Admin-Email"] = ADMIN_EMAIL
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
         response = await client.request(method, path, headers=headers, **kwargs)
     response.raise_for_status()
@@ -452,6 +481,13 @@ async def users_page(request: Request):
     message = request.query_params.get("message")
     error = request.query_params.get("error")
 
+    is_super = False
+    try:
+        status_resp = await backend_request("GET", "/admin/admin-status")
+        is_super = bool(status_resp.json().get("is_super"))
+    except httpx.HTTPError:
+        is_super = False
+
     try:
         resp = await backend_request("GET", "/admin/users")
         data = resp.json()
@@ -467,6 +503,7 @@ async def users_page(request: Request):
             "request": request,
             "admin_email": session.get("email"),
             "users": data.get("users", []),
+            "is_super_admin": is_super,
             "message": message,
             "error": error,
         },
@@ -483,6 +520,7 @@ async def users_update(user_id: int, request: Request):
     payload = {}
     email = form.get("email")
     credits = form.get("credits")
+    role = form.get("role")
     if email is not None:
         payload["email"] = email
     if credits is not None and credits != "":
@@ -493,6 +531,8 @@ async def users_update(user_id: int, request: Request):
                 f"/users?error={quote_plus('Credits must be numeric')}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
+    if role is not None and role.strip():
+        payload["role"] = role.strip()
 
     try:
         await backend_request("POST", f"/admin/users/{user_id}/update", json=payload)

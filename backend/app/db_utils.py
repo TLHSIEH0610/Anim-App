@@ -15,6 +15,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates ADD COLUMN discount_price NUMERIC(10,2)",
         "ALTER TABLE story_templates ADD COLUMN free_trial_slug VARCHAR(120)",
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",
+        "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'",
         dedent(
             """
             CREATE TABLE IF NOT EXISTS payments (
@@ -64,6 +65,7 @@ def apply_schema_patches(engine):
         "UPDATE book_workflow_snapshots SET workflow_version = COALESCE(workflow_version, 0)",
         "UPDATE story_templates SET price_dollars = COALESCE(price_dollars, 1.5)",
         "UPDATE users SET free_trials_used = '[]'::json WHERE free_trials_used IS NULL",
+        "UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''",
         "UPDATE users SET credits = COALESCE(credits, 0.00)",
         "UPDATE payments SET currency = 'aud' WHERE currency IS NULL OR currency = ''",
         "UPDATE payments SET credits_used = COALESCE(credits_used, 0.00)",

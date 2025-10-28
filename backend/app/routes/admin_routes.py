@@ -54,6 +54,25 @@ def require_admin(x_admin_secret: Optional[str] = Header(None)) -> None:
         raise HTTPException(status_code=403, detail="Admin access denied")
 
 
+def _is_super_admin(x_admin_email: Optional[str], db: Session) -> bool:
+    if not x_admin_email:
+        return False
+    admin = db.query(User).filter(func.lower(User.email) == x_admin_email.lower()).first()
+    return bool(admin and getattr(admin, "role", None) == "superadmin")
+
+
+@router.get("/admin-status")
+def admin_status(
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+    x_admin_email: Optional[str] = Header(None),
+):
+    return {
+        "admin_email": x_admin_email,
+        "is_super": _is_super_admin(x_admin_email, db),
+    }
+
+
 def _load_original_images(book: Book) -> list[str]:
     if not book.original_image_paths:
         return []
@@ -493,6 +512,7 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
             {
                 "id": user.id,
                 "email": user.email,
+                "role": getattr(user, "role", "user"),
                 "credits": user.credits,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "book_count": len(books),
@@ -500,6 +520,7 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
             }
         )
     return {"users": items}
+
 
 
 @router.get("/controlnet-images")
@@ -636,6 +657,7 @@ def admin_delete_controlnet_image(slug: str, _: None = Depends(require_admin), d
 class AdminUserUpdatePayload(BaseModel):
     email: Optional[str] = None
     credits: Optional[int] = None
+    role: Optional[str] = None
 
 
 @router.post("/users/{user_id}/update")
@@ -644,6 +666,7 @@ def admin_update_user(
     payload: AdminUserUpdatePayload,
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
+    x_admin_email: Optional[str] = Header(None),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -658,12 +681,23 @@ def admin_update_user(
     if payload.credits is not None:
         user.credits = payload.credits
 
+    if payload.role is not None:
+        # Only super admins (from DB) can change roles via API.
+        if not _is_super_admin(x_admin_email, db):
+            raise HTTPException(status_code=403, detail="Only super admin can modify roles")
+        role_value = payload.role.strip().lower()
+        # Do not allow granting superadmin via API; must be set directly in DB.
+        if role_value not in {"user", "admin"}:
+            raise HTTPException(status_code=400, detail="Invalid role; must be 'user' or 'admin'")
+        user.role = role_value
+
     db.commit()
     return {
         "message": "User updated",
         "user": {
             "id": user.id,
             "email": user.email,
+            "role": getattr(user, "role", "user"),
             "credits": user.credits,
         },
     }
@@ -1191,10 +1225,4 @@ def admin_get_workflow(
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
     }
-
-
-
-
-
-
 

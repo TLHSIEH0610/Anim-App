@@ -11,6 +11,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), default="user")
     credits = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     free_trials_used = Column(JSON, default=list)
