@@ -15,6 +15,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { fetchBillingHistory, BillingHistoryEntry } from "../api/billing";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { AppStackParamList } from "../navigation/types";
+import ScreenWrapper from "../components/ScreenWrapper";
 const formatCurrency = (amount: number, currency: string) => {
   try {
     return new Intl.NumberFormat(undefined, {
@@ -164,6 +165,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
   };
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -174,16 +176,15 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
       </View>
       {renderContent()}
     </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
-    paddingTop: spacing(12),
     paddingBottom: spacing(4),
     paddingHorizontal: spacing(4),
     backgroundColor: colors.surface,

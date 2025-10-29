@@ -31,6 +31,7 @@ import { useAuth } from "../context/AuthContext";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/types";
+import ScreenWrapper from "../components/ScreenWrapper";
 
 interface TemplateStorylinePage {
   pageNumber: number;
@@ -123,7 +124,7 @@ const injectCharacterName = (text: string | null | undefined, rawName: string) =
 };
 type BookCreationScreenProps = NativeStackScreenProps<AppStackParamList, "BookCreation">;
 
-export default function BookCreationScreen({ navigation }: BookCreationScreenProps) {
+export default function BookCreationScreen({ navigation, route }: BookCreationScreenProps) {
   const { token } = useAuth();
   const stripe = useStripe();
   const cardPaymentsSupported = isStripeAvailable && !!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
@@ -272,8 +273,10 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
         });
         setTemplates(mapped);
         setForm((prev) => {
+          const initialSlug = route?.params?.templateSlug;
           const first = mapped[0];
-          const templateKey = first?.slug ?? null;
+          const chosen = mapped.find(t => t.slug === initialSlug) || first;
+          const templateKey = chosen?.slug ?? null;
           const generatedTitle = buildAutoTitle(first?.name, prev.templateInput.name);
           setAutoTitle(generatedTitle);
           setTitleManuallyEdited(false);
@@ -284,8 +287,9 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
             title: generatedTitle,
           };
         });
-        if (mapped[0]) {
-          await loadPricing(mapped[0].slug);
+        const priceSlug = route?.params?.templateSlug || mapped[0]?.slug || null;
+        if (priceSlug) {
+          await loadPricing(priceSlug);
         }
       } else {
         setTemplates([]);
@@ -784,73 +788,88 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
     </View>
   );
 
-  const renderStep1 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Story Setup</Text>
+  const renderStep1 = () => {
+    const readonlyTemplate = Boolean(route?.params?.templateSlug);
+    return (
+      <View style={styles.stepContent}>
+        <Text style={styles.stepTitle}>Story Setup</Text>
 
-      {isLoadingTemplates ? (
-        <View style={styles.loaderRow}>
-          <ActivityIndicator color={colors.primary} />
-          <Text style={styles.loaderText}>Loading templates-</Text>
+        {isLoadingTemplates ? (
+          <View style={styles.loaderRow}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.loaderText}>Loading templates-</Text>
+          </View>
+        ) : null}
+
+        {templatesError ? (
+          <Text style={styles.errorTextInline}>{templatesError}</Text>
+        ) : null}
+
+        {readonlyTemplate ? (
+          selectedTemplate ? (
+            <View style={styles.paymentSummaryCard}>
+              <Text style={styles.paymentSummaryHeading}>Selected Template</Text>
+              <Text style={styles.reviewDetail}>{selectedTemplate.name} • {selectedTemplate.page_count} pages</Text>
+              {selectedTemplate.description ? (
+                <Text style={styles.helperText}>{selectedTemplate.description}</Text>
+              ) : null}
+            </View>
+          ) : null
+        ) : (
+          <View style={styles.templateList}>
+            {templates.map((template) => renderTemplateCard(template))}
+          </View>
+        )}
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Character Name</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Enter a character name"
+            value={form.templateInput.name}
+            onChangeText={(text) => updateTemplateInput("name", text)}
+            onBlur={() => {
+              if (!form.templateInput.name.trim()) {
+                setNameError("Character name is required.");
+              }
+            }}
+          />
+          {nameError ? <Text style={styles.errorTextInline}>{nameError}</Text> : null}
         </View>
-      ) : null}
 
-      {templatesError ? (
-        <Text style={styles.errorTextInline}>{templatesError}</Text>
-      ) : null}
-
-      <View style={styles.templateList}>
-        {templates.map((template) => renderTemplateCard(template))}
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Character Name</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Enter a character name"
-          value={form.templateInput.name}
-          onChangeText={(text) => updateTemplateInput("name", text)}
-          onBlur={() => {
-            if (!form.templateInput.name.trim()) {
-              setNameError("Character name is required.");
-            }
-          }}
-        />
-        {nameError ? <Text style={styles.errorTextInline}>{nameError}</Text> : null}
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Character Pronouns</Text>
-        <View style={styles.optionGroup}>
-          {GENDER_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.optionPill,
-                form.templateInput.gender === option.value && styles.optionPillActive,
-              ]}
-              onPress={() => updateTemplateInput("gender", option.value)}
-            >
-              <View
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Character Pronouns</Text>
+          <View style={styles.optionGroup}>
+            {GENDER_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.value}
                 style={[
-                  styles.optionRadio,
-                  form.templateInput.gender === option.value && styles.optionRadioActive,
+                  styles.optionPill,
+                  form.templateInput.gender === option.value && styles.optionPillActive,
                 ]}
-              />
-              <Text
-                style={[
-                  styles.optionLabel,
-                  form.templateInput.gender === option.value && styles.optionLabelActive,
-                ]}
+                onPress={() => updateTemplateInput("gender", option.value)}
               >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <View
+                  style={[
+                    styles.optionRadio,
+                    form.templateInput.gender === option.value && styles.optionRadioActive,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.optionLabel,
+                    form.templateInput.gender === option.value && styles.optionLabelActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
   const renderStep2 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Review & Personalize</Text>
@@ -1258,6 +1277,7 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
     }
   };
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Create Children-s Book</Text>
@@ -1328,17 +1348,15 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
         )}
       </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: spacing(6),
-    paddingTop: spacing(14),
     paddingBottom: spacing(6),
     backgroundColor: colors.surface,
     borderBottomWidth: 1,

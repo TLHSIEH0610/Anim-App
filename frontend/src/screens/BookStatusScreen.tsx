@@ -12,6 +12,7 @@ import { getBookStatus, retryBookCreation, Book } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
+import ScreenWrapper from '../components/ScreenWrapper';
 
 const STATUS_MESSAGES: Record<string, string> = {
   creating: "🚀 Starting your book creation...",
@@ -140,6 +141,7 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
   };
 
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📚 {book.title}</Text>
@@ -279,13 +281,13 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
         </View>
       </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9ff',
   },
   loadingContainer: {
     flex: 1,
@@ -312,7 +314,6 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingTop: 60,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e7ff',

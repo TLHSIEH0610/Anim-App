@@ -5,6 +5,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import BookLibraryScreen from "./src/screens/BookLibraryScreen";
+import AllBooksScreen from "./src/screens/AllBooksScreen";
+import AccountScreen from "./src/screens/AccountScreen";
 import BookCreationScreen from "./src/screens/BookCreationScreen";
 import BookStatusScreen from "./src/screens/BookStatusScreen";
 import BookViewerScreen from "./src/screens/BookViewerScreen";
@@ -29,10 +31,12 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="AllBooks">
         {user ? (
           <>
+            <Stack.Screen name="AllBooks" component={AllBooksScreen} />
             <Stack.Screen name="BookLibrary" component={BookLibraryScreen} />
+            <Stack.Screen name="Account" component={AccountScreen} />
             <Stack.Screen name="BookCreation" component={BookCreationScreen} />
             <Stack.Screen name="BookStatus" component={BookStatusScreen} />
             <Stack.Screen name="BookViewer" component={BookViewerScreen} />

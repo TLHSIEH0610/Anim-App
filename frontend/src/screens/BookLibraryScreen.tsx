@@ -14,6 +14,9 @@ import { useAuth } from '../context/AuthContext';
 import { colors, radii, shadow, spacing, statusColors, typography } from '../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
+import ScreenWrapper from '../components/ScreenWrapper';
+import BottomNav from '../components/BottomNav';
+import Card from '../components/Card';
 
 const STATUS_COLORS: Record<string, string> = {
   ...statusColors,
@@ -58,9 +61,7 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
     }
   };
 
-  const handleCreateNewBook = () => {
-    navigation.navigate('BookCreation');
-  };
+  // Creation now starts from Books list
 
   const handleBookPress = (book: Book) => {
     if (book.status === 'completed') {
@@ -124,90 +125,78 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
     );
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: logout },
-      ]
-    );
-  };
+  // Logout moved to Account tab
 
-  const handleOpenBillingHistory = () => {
-    navigation.navigate("BillingHistory");
-  };
+  // Billing moved to Account screen
 
   const renderBookItem = ({ item: book }: { item: Book }) => (
-    <TouchableOpacity 
-      style={styles.bookItem}
-      onPress={() => handleBookPress(book)}
-    >
-      <View style={styles.bookHeader}>
-        <View style={styles.bookTitleContainer}>
-          <Text style={styles.bookTitle}>{book.title}</Text>
-          <Text style={styles.bookDetails}>
-            {book.story_source === 'template' ? `Template (${book.template_key || 'story'})` : 'Custom Story'} • {book.target_age || 'n/a'} years • {book.page_count} pages
-          </Text>
-        </View>
-        
-        <TouchableOpacity
-          style={styles.regenerateButton}
-          onPress={() => handleRegenerateBook(book)}
-        >
-          <Text style={styles.regenerateButtonText}>🔄</Text>
+    <Card style={styles.bookItem}>
+        <TouchableOpacity onPress={() => handleBookPress(book)}>
+            <View style={styles.bookHeader}>
+                <View style={styles.bookTitleContainer}>
+                <Text style={styles.bookTitle}>{book.title}</Text>
+                <Text style={styles.bookDetails}>
+                    {book.story_source === 'template' ? `Template (${book.template_key || 'story'})` : 'Custom Story'} • {book.target_age || 'n/a'} years • {book.page_count} pages
+                </Text>
+                </View>
+                
+                <TouchableOpacity
+                style={styles.regenerateButton}
+                onPress={() => handleRegenerateBook(book)}
+                >
+                <Text style={styles.regenerateButtonText}>🔄</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleDeleteBook(book)}
+                >
+                <Text style={styles.deleteButtonText}>🗑️</Text>
+                </TouchableOpacity>
+            </View>
+            
+            <View style={styles.bookStatus}>
+                <View style={[
+                styles.statusBadge, 
+                { backgroundColor: STATUS_COLORS[book.status] || '#6b7280' }
+                ]}>
+                <Text style={styles.statusText}>
+                    {STATUS_LABELS[book.status] || book.status}
+                </Text>
+                </View>
+                
+                {book.status !== 'completed' && book.status !== 'failed' && (
+                <View style={styles.progressBar}>
+                    <View 
+                    style={[
+                        styles.progressFill, 
+                        { 
+                        width: `${book.progress_percentage || 0}%`,
+                        backgroundColor: STATUS_COLORS[book.status] || '#6b7280'
+                        }
+                    ]} 
+                    />
+                </View>
+                )}
+            </View>
+            
+            <Text style={styles.bookDate}>
+                Created: {new Date(book.created_at).toLocaleDateString()}
+            </Text>
+            
+            {book.status === 'completed' && (
+                <View style={styles.completedIndicator}>
+                <Text style={styles.completedText}>📖 Tap to read</Text>
+                </View>
+            )}
+            
+            {book.status === 'failed' && book.error_message && (
+                <Text style={styles.errorText} numberOfLines={2}>
+                Error: {book.error_message}
+                </Text>
+            )}
         </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteBook(book)}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.bookStatus}>
-        <View style={[
-          styles.statusBadge, 
-          { backgroundColor: STATUS_COLORS[book.status] || '#6b7280' }
-        ]}>
-          <Text style={styles.statusText}>
-            {STATUS_LABELS[book.status] || book.status}
-          </Text>
-        </View>
-        
-        {book.status !== 'completed' && book.status !== 'failed' && (
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${book.progress_percentage || 0}%`,
-                  backgroundColor: STATUS_COLORS[book.status] || '#6b7280'
-                }
-              ]} 
-            />
-          </View>
-        )}
-      </View>
-      
-      <Text style={styles.bookDate}>
-        Created: {new Date(book.created_at).toLocaleDateString()}
-      </Text>
-      
-      {book.status === 'completed' && (
-        <View style={styles.completedIndicator}>
-          <Text style={styles.completedText}>📖 Tap to read</Text>
-        </View>
-      )}
-      
-      {book.status === 'failed' && book.error_message && (
-        <Text style={styles.errorText} numberOfLines={2}>
-          Error: {book.error_message}
-        </Text>
-      )}
-    </TouchableOpacity>
+    </Card>
   );
 
   const renderEmptyState = () => (
@@ -215,18 +204,14 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
       <Text style={styles.emptyIcon}>📚</Text>
       <Text style={styles.emptyTitle}>No Books Yet</Text>
       <Text style={styles.emptySubtitle}>
-        Create your first children's book by uploading a photo and adding your story ideas!
+        Your purchased books will appear here once created.
       </Text>
-      <TouchableOpacity style={styles.createFirstBookButton} onPress={handleCreateNewBook}>
-        <Text style={styles.createFirstBookText}>✨ Create Your First Book</Text>
-      </TouchableOpacity>
     </View>
   );
 
   useEffect(() => {
     loadBooks();
     
-    // Set up auto-refresh for in-progress books
     const interval = setInterval(() => {
       const hasInProgressBooks = books.some(book => 
         !['completed', 'failed'].includes(book.status)
@@ -242,40 +227,18 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
 
   if (loading && books.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading your library...</Text>
-      </View>
+        <ScreenWrapper>
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={styles.loadingText}>Loading your library...</Text>
+            </View>
+        </ScreenWrapper>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View style={styles.userDetails}>
-            <Text style={styles.userName}>{user?.name || 'User'}</Text>
-            <Text style={styles.userEmail}>{user?.email}</Text>
-          </View>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.historyButton} onPress={handleOpenBillingHistory}>
-            <Text style={styles.historyButtonText}>Billing History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <ScreenWrapper>
 
-      {/* Content */}
-      <View style={styles.content}>
         <View style={styles.titleSection}>
           <Text style={styles.libraryTitle}>📚 My Books</Text>
           <Text style={styles.librarySubtitle}>
@@ -283,57 +246,43 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
           </Text>
         </View>
 
-        <FlatList
-          data={books}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderBookItem}
-          contentContainerStyle={books.length === 0 ? styles.emptyListContainer : styles.listContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => loadBooks(true)}
-              colors={['#3b82f6']}
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-
-      {/* Create New Book Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateNewBook}>
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-    </View>
+      <FlatList
+        data={books}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderBookItem}
+        contentContainerStyle={books.length === 0 ? styles.emptyListContainer : styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadBooks(true)}
+            colors={['#3b82f6']}
+          />
+        }
+        ListEmptyComponent={renderEmptyState}
+        showsVerticalScrollIndicator={false}
+      />
+      <BottomNav active="purchased" />
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: spacing(2.5),
     ...typography.body,
     textAlign: 'center',
+    color: '#333',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing(6),
-    paddingTop: spacing(14),
-    paddingBottom: spacing(6),
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
+    paddingBottom: spacing(4),
   },
   userInfo: {
     flexDirection: 'row',
@@ -344,13 +293,13 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: radii.pill,
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing(3),
   },
   avatarText: {
-    color: colors.surface,
+    color: '#333',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -360,27 +309,28 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#333',
     marginBottom: spacing(1),
   },
   userEmail: {
     ...typography.caption,
+    color: '#666',
   },
   logoutButton: {
-    backgroundColor: colors.danger,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: spacing(4),
     paddingVertical: spacing(2.5),
     borderRadius: radii.md,
   },
   historyButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: spacing(4),
     paddingVertical: spacing(2.5),
     borderRadius: radii.md,
     marginRight: spacing(3),
   },
   historyButtonText: {
-    color: colors.surface,
+    color: '#1e88e5',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -389,42 +339,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutButtonText: {
-    color: colors.surface,
+    color: '#dd2c00',
     fontWeight: '600',
     fontSize: 14,
   },
-  content: {
-    flex: 1,
-  },
   titleSection: {
-    paddingHorizontal: spacing(6),
     paddingVertical: spacing(5),
+    alignItems: 'center',
   },
   libraryTitle: {
     ...typography.headingXL,
-    color: colors.primaryDark,
+    color: '#333',
     marginBottom: spacing(2),
   },
   librarySubtitle: {
     ...typography.body,
+    color: '#555',
   },
   listContainer: {
-    paddingHorizontal: spacing(6),
     paddingBottom: spacing(28),
   },
   emptyListContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing(6),
   },
   bookItem: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing(4),
     marginBottom: spacing(3),
-    borderWidth: 1,
-    borderColor: colors.neutral200,
-    ...shadow.subtle,
   },
   bookHeader: {
     flexDirection: 'row',
@@ -439,9 +379,11 @@ const styles = StyleSheet.create({
   bookTitle: {
     ...typography.headingM,
     marginBottom: spacing(1),
+    color: '#333',
   },
   bookDetails: {
     ...typography.caption,
+    color: '#666',
   },
   regenerateButton: {
     padding: spacing(1.5),
@@ -476,7 +418,7 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: colors.neutral200,
+    backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: radii.pill,
     overflow: 'hidden',
   },
@@ -487,9 +429,10 @@ const styles = StyleSheet.create({
   bookDate: {
     ...typography.caption,
     marginBottom: spacing(2),
+    color: '#666',
   },
   completedIndicator: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(2),
     borderRadius: radii.md,
@@ -503,11 +446,9 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.caption,
     color: colors.danger,
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239, 83, 80, 0.1)',
     padding: spacing(2),
     borderRadius: radii.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.danger,
   },
   emptyContainer: {
     flex: 1,
@@ -524,22 +465,24 @@ const styles = StyleSheet.create({
     ...typography.headingL,
     textAlign: 'center',
     marginBottom: spacing(2),
+    color: '#333',
   },
   emptySubtitle: {
     ...typography.body,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing(5),
+    color: '#555',
   },
   createFirstBookButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     paddingHorizontal: spacing(5),
     paddingVertical: spacing(3),
     borderRadius: radii.pill,
     ...shadow.subtle,
   },
   createFirstBookText: {
-    color: colors.surface,
+    color: '#333',
     fontWeight: '600',
   },
   fab: {

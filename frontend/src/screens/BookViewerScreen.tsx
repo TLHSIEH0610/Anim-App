@@ -19,6 +19,7 @@ import { PDFDocument } from 'pdf-lib';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
+import ScreenWrapper from '../components/ScreenWrapper';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -239,6 +240,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const currentPageData = bookData.pages[currentPage];
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -385,13 +387,13 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         </TouchableOpacity>
       </View>
     </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9ff',
   },
   loadingContainer: {
     flex: 1,
@@ -422,7 +424,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 50,
     paddingBottom: 15,
     backgroundColor: 'white',
     borderBottomWidth: 1,

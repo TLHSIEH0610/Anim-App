@@ -1,8 +1,11 @@
+
 import React, { useState } from "react";
 import { Button, Image, Text, View, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadImage, getJobStatus, getJobList, getJobImageUrl, getJobImageData } from "../api/jobs";
 import { useAuth } from "../context/AuthContext";
+import ScreenWrapper from "../components/ScreenWrapper";
+import Card from "../components/Card";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
@@ -54,33 +57,25 @@ export default function HomeScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.8, // Reduce quality to help with file size
+      quality: 0.8,
       allowsMultipleSelection: false,
     });
 
     if (!result.canceled) {
       const asset = result.assets[0];
       
-      // Check file size (10MB limit)
       if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-        Alert.alert(
-          "File Too Large", 
-          "Please select an image smaller than 10MB"
-        );
+        Alert.alert("File Too Large", "Please select an image smaller than 10MB");
         return;
       }
       
-      // Check file type
       const isValidType = asset.type === 'image' && 
         (asset.uri.toLowerCase().includes('.jpg') || 
          asset.uri.toLowerCase().includes('.jpeg') || 
          asset.uri.toLowerCase().includes('.png'));
          
       if (!isValidType) {
-        Alert.alert(
-          "Invalid File Type", 
-          "Please select a JPG or PNG image"
-        );
+        Alert.alert("Invalid File Type", "Please select a JPG or PNG image");
         return;
       }
       
@@ -96,11 +91,7 @@ export default function HomeScreen() {
     try {
       const res = await uploadImage(token, image);
       setStatus(`✅ Job queued: #${res.job_id}`);
-      
-      // Clear image after successful upload
       setImage(null);
-      
-      // Reload jobs to show the new one
       await loadJobs();
       console.log('Upload successful:', res);
     } catch (err: any) {
@@ -116,18 +107,14 @@ export default function HomeScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: logout },
-      ]
-    );
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: logout },
+    ]);
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper showIllustrations={true}>
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
@@ -144,35 +131,36 @@ export default function HomeScreen() {
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
+      <ScrollView>
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Image Animation</Text>
+          <Text style={styles.subtitle}>Upload an image to convert it into an animation</Text>
+          
+          <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
+            <Text style={styles.pickButtonText}>📷 Pick an Image</Text>
+          </TouchableOpacity>
+          
+          {image && (
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: image }} style={styles.image} />
+              <TouchableOpacity 
+                style={[styles.uploadButton, !image && styles.disabledButton]} 
+                onPress={upload} 
+                disabled={!image}
+              >
+                <Text style={styles.uploadButtonText}>🚀 Upload & Process</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {status && (
+            <View style={styles.statusContainer}>
+              <Text style={styles.status}>{status}</Text>
+            </View>
+          )}
+        </Card>
 
-      <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Image Animation</Text>
-        <Text style={styles.subtitle}>Upload an image to convert it into an animation</Text>
-        
-        <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
-          <Text style={styles.pickButtonText}>📷 Pick an Image</Text>
-        </TouchableOpacity>
-        
-        {image && (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: image }} style={styles.image} />
-            <TouchableOpacity 
-              style={[styles.uploadButton, !image && styles.disabledButton]} 
-              onPress={upload} 
-              disabled={!image}
-            >
-              <Text style={styles.uploadButtonText}>🚀 Upload & Process</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {status && (
-          <View style={styles.statusContainer}>
-            <Text style={styles.status}>{status}</Text>
-          </View>
-        )}
-
-        <View style={styles.jobSection}>
+        <Card style={styles.card}>
           <TouchableOpacity 
             style={styles.jobToggleButton} 
             onPress={() => {
@@ -211,14 +199,6 @@ export default function HomeScreen() {
                           <Image 
                             source={{ uri: imageData[job.job_id] }}
                             style={styles.resultImage}
-                            onLoad={() => {
-                              console.log('Image loaded successfully for job', job.job_id);
-                              setImageLoading(prev => ({...prev, [job.job_id]: false}));
-                            }}
-                            onError={(e) => {
-                              console.log('Image load error for job', job.job_id, ':', e.nativeEvent.error);
-                              setImageLoading(prev => ({...prev, [job.job_id]: false}));
-                            }}
                           />
                         ) : (
                           <TouchableOpacity 
@@ -231,7 +211,6 @@ export default function HomeScreen() {
                             </Text>
                           </TouchableOpacity>
                         )}
-                        <Text style={styles.resultText}>🎉 Your animated image is ready!</Text>
                       </View>
                     )}
                     
@@ -248,41 +227,26 @@ export default function HomeScreen() {
               )}
             </ScrollView>
           )}
-        </View>
-        
-        <View style={styles.infoBox}>
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={styles.infoTitle}>ℹ️ Information</Text>
           <Text style={styles.infoText}>• Free: 2 conversions per day</Text>
           <Text style={styles.infoText}>• Max file size: 10MB</Text>
           <Text style={styles.infoText}>• Supported: JPG, PNG</Text>
-        </View>
-      </View>
-    </View>
+        </Card>
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
   userInfo: {
     flexDirection: 'row',
@@ -293,13 +257,13 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: '#4285f4',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: 'white',
+    color: '#333',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -317,28 +281,18 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   logoutButton: {
-    backgroundColor: '#ff4444',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
-    shadowColor: '#ff4444',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
   },
   logoutButtonText: {
-    color: 'white',
+    color: '#dd2c00',
     fontWeight: '600',
     fontSize: 14,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-    alignItems: 'center',
+  card: {
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 24,
@@ -359,6 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 12,
     marginBottom: 20,
+    alignSelf: 'center',
   },
   pickButtonText: {
     color: 'white',
@@ -391,7 +346,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   statusContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
@@ -401,12 +356,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     color: '#333',
-  },
-  infoBox: {
-    backgroundColor: '#e3f2fd',
-    padding: 15,
-    borderRadius: 8,
-    width: '100%',
   },
   infoTitle: {
     fontSize: 16,
@@ -418,9 +367,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     marginBottom: 5,
-  },
-  jobSection: {
-    marginTop: 20,
   },
   jobToggleButton: {
     backgroundColor: '#2196F3',
@@ -436,21 +382,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   jobList: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
     maxHeight: 400,
   },
   jobItem: {
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   jobHeader: {
     flexDirection: 'row',
@@ -481,12 +419,6 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     marginBottom: 10,
-  },
-  resultText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-    textAlign: 'center',
   },
   loadingText: {
     fontSize: 14,
