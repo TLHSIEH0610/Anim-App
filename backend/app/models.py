@@ -157,6 +157,7 @@ class StoryTemplate(Base):
     version = Column(Integer, nullable=False, default=1)
     workflow_slug = Column(String(100), nullable=False, default="base")
     is_active = Column(Boolean, default=True)
+    cover_image_url = Column(Text)
     free_trial_slug = Column(String(120))
     price_dollars = Column(Numeric(10, 2), nullable=False, default=Decimal("1.50"))
     discount_price = Column(Numeric(10, 2))

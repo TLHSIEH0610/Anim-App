@@ -6,6 +6,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
 from typing import List, Optional
 from fastapi.responses import FileResponse
+from pathlib import Path
 from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
 from app.db import get_db
@@ -459,6 +460,7 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 "age": template.age,
                 "version": template.version,
                 "page_count": len(template.pages) or 0,
+                "cover_path": template.cover_image_url,
                 "currency": quote.currency,
                 "price_dollars": _decimal_to_float(template.price_dollars),
                 "discount_price": _decimal_to_float(template.discount_price),
@@ -474,6 +476,23 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
         )
     return {"stories": stories}
 
+
+def _resolve_media_path(raw_path: str) -> Path:
+    media_root = Path(os.getenv("MEDIA_ROOT", "/data/media")).resolve()
+    candidate = Path(raw_path).expanduser().resolve()
+    if not str(candidate).startswith(str(media_root)):
+        raise HTTPException(status_code=400, detail="Path outside media root")
+    if not candidate.exists() or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return candidate
+
+
+@router.get("/stories/cover")
+def get_story_cover(path: str, user = Depends(current_user)):
+    if not path:
+        raise HTTPException(status_code=400, detail="Missing path")
+    file_path = _resolve_media_path(path)
+    return FileResponse(file_path)
 
 
 

@@ -1,11 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { getStoryTemplates, StoryTemplateSummary } from '../api/books';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { getStoryTemplates, StoryTemplateSummary, getStoryCoverUrl } from '../api/books';
 import ScreenWrapper from '../components/ScreenWrapper';
 import BottomNav from '../components/BottomNav';
 import Card from '../components/Card';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
+
+const fallbackCover = require('../../assets/icon.png');
+
+function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose: (slug: string) => void }) {
+  const [failed, setFailed] = useState(false);
+  const coverUrl = getStoryCoverUrl(item.cover_path);
+  const source = !coverUrl || failed ? fallbackCover : { uri: coverUrl };
+  return (
+    <Card style={styles.card}>
+      <View style={styles.coverWrap}>
+        <Image source={source as any} style={styles.coverImg} onError={() => setFailed(true)} />
+      </View>
+      <Text style={styles.title}>{item.name}</Text>
+      {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
+      <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
+      <TouchableOpacity style={styles.cta} onPress={() => onChoose(item.slug)}>
+        <Text style={styles.ctaText}>Make this book</Text>
+      </TouchableOpacity>
+    </Card>
+  );
+}
 
 export default function AllBooksScreen() {
   const navigation = useNavigation<any>();
@@ -34,14 +55,7 @@ export default function AllBooksScreen() {
   };
 
   const renderItem = ({ item }: { item: StoryTemplateSummary }) => (
-    <Card style={styles.card}>
-      <Text style={styles.title}>{item.name}</Text>
-      {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
-      <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
-      <TouchableOpacity style={styles.cta} onPress={() => handleChoose(item.slug)}>
-        <Text style={styles.ctaText}>Make this book</Text>
-      </TouchableOpacity>
-    </Card>
+    <TemplateItem item={item} onChoose={handleChoose} />
   );
 
   return (
@@ -93,6 +107,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     ...shadow.subtle,
   },
+  coverWrap: {
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    marginBottom: spacing(3),
+  },
+  coverImg: { width: '100%', height: 180, resizeMode: 'cover' },
   title: {
     ...typography.headingM,
     color: '#333',

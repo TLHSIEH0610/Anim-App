@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Edit Story Template</h2>
 
-<form method="post" action="/stories/{{ story.slug }}">
+<form method="post" action="/stories/{{ story.slug }}" enctype="multipart/form-data">
   <label for="name">Name</label>
   <input id="name" name="name" value="{{ story.name }}" required>
 
@@ -21,6 +21,17 @@
 
   <label for="workflow_slug">Workflow Slug</label>
   <input id="workflow_slug" name="workflow_slug" value="{{ story.workflow_slug }}">
+
+  <label for="cover_image_url">Cover Image Path (optional)</label>
+  <input id="cover_image_url" name="cover_image_url" value="{{ story.cover_image_url or '' }}" placeholder="/data/media/covers/winter_wish.png">
+  <div class="form-help">Provide a file path within MEDIA_ROOT so it can be served via the file proxy.</div>
+
+  <label for="cover_file">Or upload a new cover image</label>
+  <input id="cover_file" name="cover_file" type="file" accept="image/*">
+  {% if story.cover_image_url %}
+    <div class="form-help">Current cover preview:</div>
+    <img src="/files-proxy?path={{ story.cover_image_url }}" alt="Cover preview" style="max-width: 320px; display:block; margin-bottom: 1rem;" onerror="this.style.display='none'">
+  {% endif %}
 
   <label for="price_dollars">Base Price (AUD)</label>
   <input
