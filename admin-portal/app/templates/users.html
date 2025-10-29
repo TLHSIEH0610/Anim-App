@@ -62,6 +62,9 @@
           <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0">
           <button type="submit" class="button">Update</button>
         </form>
+        <form method="post" action="/users/{{ user.id }}/export" style="display:block; margin-top:0.75rem;">
+          <button type="submit" class="button-outline">Export</button>
+        </form>
       </td>
     </tr>
     {% endfor %}

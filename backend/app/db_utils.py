@@ -4,6 +4,11 @@ from textwrap import dedent
 
 def apply_schema_patches(engine):
     statements = [
+        "ALTER TABLE story_templates RENAME COLUMN default_age TO age",
+        "ALTER TABLE story_templates ADD COLUMN age VARCHAR(10)",
+        "ALTER TABLE story_templates ADD COLUMN version INTEGER DEFAULT 1",
+        "ALTER TABLE story_templates ALTER COLUMN version SET DEFAULT 1",
+        "ALTER TABLE story_templates ALTER COLUMN version SET NOT NULL",
         "ALTER TABLE book_workflow_snapshots ADD COLUMN workflow_version INTEGER",
         "ALTER TABLE book_workflow_snapshots ADD COLUMN workflow_slug VARCHAR(100)",
         "ALTER TABLE story_template_pages ADD COLUMN controlnet_image VARCHAR(150)",
@@ -14,6 +19,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates ADD COLUMN price_dollars NUMERIC(10,2) DEFAULT 1.5",
         "ALTER TABLE story_templates ADD COLUMN discount_price NUMERIC(10,2)",
         "ALTER TABLE story_templates ADD COLUMN free_trial_slug VARCHAR(120)",
+        "ALTER TABLE story_templates DROP COLUMN IF EXISTS illustration_style",
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",
         "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'",
         dedent(
@@ -56,7 +62,12 @@ def apply_schema_patches(engine):
             except Exception as exc:
                 trans.rollback()
                 message = str(exc).lower()
-                if "already exists" in message or "duplicate" in message or "duplicate column" in message:
+                if (
+                    "already exists" in message
+                    or "duplicate" in message
+                    or "duplicate column" in message
+                    or ("does not exist" in message and "default_age" in message)
+                ):
                     continue
                 raise
 
@@ -69,6 +80,7 @@ def apply_schema_patches(engine):
         "UPDATE users SET credits = COALESCE(credits, 0.00)",
         "UPDATE payments SET currency = 'aud' WHERE currency IS NULL OR currency = ''",
         "UPDATE payments SET credits_used = COALESCE(credits_used, 0.00)",
+        "UPDATE story_templates SET version = COALESCE(version, 1)",
     ]
 
     with engine.connect() as conn:

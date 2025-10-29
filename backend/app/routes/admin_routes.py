@@ -36,6 +36,12 @@ from ..worker.book_processor import (
     _build_story_from_template,
 )
 from ..storage import save_upload, move_to
+from ..fixtures import (
+    export_all_fixtures,
+    export_story_fixture,
+    export_user_fixture,
+    export_workflow_fixture,
+)
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -140,8 +146,8 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "slug": template.slug,
         "name": template.name,
         "description": template.description,
-        "default_age": template.default_age,
-        "illustration_style": template.illustration_style,
+        "age": template.age,
+        "version": template.version,
         "workflow_slug": template.workflow_slug,
         "is_active": template.is_active,
         "free_trial_slug": template.free_trial_slug,
@@ -383,7 +389,7 @@ def _legacy_admin_get_workflow(
                 page_count=book.page_count,
                 story_source=book.story_source,
                 template_params=book.template_params,
-                target_age=book.target_age or story_template.default_age,
+                target_age=book.target_age or story_template.age,
                 character_description=book.character_description,
             )
             _, overrides = _build_story_from_template(temp_book, story_template)
@@ -741,8 +747,8 @@ def admin_create_story_template(
         slug=payload.slug,
         name=payload.name,
         description=payload.description,
-        default_age=payload.default_age,
-        illustration_style=payload.illustration_style,
+        age=payload.age,
+        version=payload.version or 1,
         workflow_slug=payload.workflow_slug or "base",
         is_active=payload.is_active if payload.is_active is not None else True,
         free_trial_slug=(payload.free_trial_slug or None),
@@ -777,7 +783,6 @@ def admin_create_story_template(
     return _story_template_to_dict(template)
 
 
-@router.put("/story-templates/{slug}")
 @router.delete("/story-templates/{slug}")
 def admin_delete_story_template(
     slug: str,
@@ -800,6 +805,7 @@ def admin_delete_story_template(
     return {"message": "Story template deleted", "slug": slug, "page_count": page_count}
 
 
+@router.put("/story-templates/{slug}")
 def admin_update_story_template(
     slug: str,
     payload: StoryTemplatePayload,
@@ -818,8 +824,9 @@ def admin_update_story_template(
     template.slug = payload.slug
     template.name = payload.name
     template.description = payload.description
-    template.default_age = payload.default_age
-    template.illustration_style = payload.illustration_style
+    template.age = payload.age
+    if payload.version is not None:
+        template.version = payload.version
     template.workflow_slug = payload.workflow_slug or "base"
     template.free_trial_slug = payload.free_trial_slug or None
     template.price_dollars = _to_decimal(payload.price_dollars) or Decimal("1.50")
@@ -854,6 +861,54 @@ def admin_update_story_template(
     return _story_template_to_dict(template)
 
 
+@router.post("/story-templates/{slug}/export")
+def admin_export_story_template(
+    slug: str,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        info = export_story_fixture(db, slug)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"message": "Story template exported", **info}
+
+
+@router.post("/fixtures/export")
+def admin_export_fixtures(
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    summary = export_all_fixtures(db)
+    return {"message": "Fixtures exported", **summary}
+
+
+@router.post("/workflows/{workflow_id}/export")
+def admin_export_workflow(
+    workflow_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        info = export_workflow_fixture(db, workflow_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"message": "Workflow exported", **info}
+
+
+@router.post("/users/{user_id}/export")
+def admin_export_user(
+    user_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        info = export_user_fixture(db, user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"message": "User exported", **info}
+
+
 class AdminRegeneratePayload(BaseModel):
     new_prompt: Optional[str] = None
 
@@ -881,8 +936,8 @@ class StoryTemplatePayload(BaseModel):
     slug: str
     name: str
     description: Optional[str] = None
-    default_age: Optional[str] = None
-    illustration_style: Optional[str] = None
+    age: Optional[str] = None
+    version: Optional[int] = 1
     workflow_slug: Optional[str] = "base"
     is_active: Optional[bool] = True
     free_trial_slug: Optional[str] = None
@@ -1193,7 +1248,7 @@ def admin_get_workflow(
                 page_count=book.page_count,
                 story_source=book.story_source,
                 template_params=book.template_params,
-                target_age=book.target_age or story_template.default_age,
+                target_age=book.target_age or story_template.age,
                 character_description=book.character_description,
             )
             _, overrides = _build_story_from_template(temp_book, story_template)

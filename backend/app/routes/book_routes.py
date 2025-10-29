@@ -104,7 +104,7 @@ async def create_book(
         if not story_template:
             raise HTTPException(400, "Unknown template key")
         if not target_age:
-            target_age = story_template.default_age
+            target_age = story_template.age
         theme_value = story_template.slug
 
         pricing_quote = resolve_story_price(user, story_template)
@@ -456,7 +456,8 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 "slug": template.slug,
                 "name": template.name,
                 "description": template.description,
-                "default_age": template.default_age,
+                "age": template.age,
+                "version": template.version,
                 "page_count": len(template.pages) or 0,
                 "currency": quote.currency,
                 "price_dollars": _decimal_to_float(template.price_dollars),
@@ -472,7 +473,6 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
             }
         )
     return {"stories": stories}
-
 
 
 

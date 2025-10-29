@@ -29,7 +29,8 @@ export interface StoryTemplateSummary {
   slug: string;
   name: string;
   description?: string | null;
-  default_age?: string | null;
+  age?: string | null;
+  version?: number;
   page_count: number;
   storyline_pages?: StorylinePageSummary[];
 }

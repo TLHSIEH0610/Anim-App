@@ -174,7 +174,7 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
     age_value = (
         params.get("age")
         or book.target_age
-        or template.default_age
+        or template.age
         or ""
     )
     age_value = str(age_value) if age_value is not None else ""
@@ -222,7 +222,7 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
     story_data = {
         "title": book.title,
         "pages": pages,
-        "age_group": book.target_age or template.default_age,
+        "age_group": book.target_age or template.age,
         "theme": template.name,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generator": "template",
@@ -457,7 +457,7 @@ def create_childbook(book_id: int):
             if not template_obj:
                 raise Exception("Story template not found or inactive")
             if not book.target_age:
-                book.target_age = template_obj.default_age
+                book.target_age = template_obj.age
             story_data, template_prompt_overrides = _build_story_from_template(book, template_obj)
             workflow_slug = template_obj.workflow_slug or "base"
         else:

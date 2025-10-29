@@ -1,0 +1,279 @@
+{
+  "content": {
+    "100": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "keypoint_default.png"
+      }
+    },
+    "11": {
+      "_meta": {
+        "title": "Load InstantID Model"
+      },
+      "class_type": "InstantIDModelLoader",
+      "inputs": {
+        "instantid_file": "ip-adapter.bin"
+      }
+    },
+    "13": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "character_0.png"
+      }
+    },
+    "15": {
+      "_meta": {
+        "title": "Preview Image"
+      },
+      "class_type": "PreviewImage",
+      "inputs": {
+        "images": [
+          "8",
+          0
+        ]
+      }
+    },
+    "16": {
+      "_meta": {
+        "title": "Load ControlNet Model"
+      },
+      "class_type": "ControlNetLoader",
+      "inputs": {
+        "control_net_name": "diffusion_pytorch_model.safetensors"
+      }
+    },
+    "3": {
+      "_meta": {
+        "title": "KSampler"
+      },
+      "class_type": "KSampler",
+      "inputs": {
+        "cfg": 4.5,
+        "denoise": 1,
+        "latent_image": [
+          "5",
+          0
+        ],
+        "model": [
+          "60",
+          0
+        ],
+        "negative": [
+          "60",
+          2
+        ],
+        "positive": [
+          "60",
+          1
+        ],
+        "sampler_name": "ddpm",
+        "scheduler": "karras",
+        "seed": 498060263730812,
+        "steps": 25
+      }
+    },
+    "38": {
+      "_meta": {
+        "title": "InstantID Face Analysis"
+      },
+      "class_type": "InstantIDFaceAnalysis",
+      "inputs": {
+        "provider": "CPU"
+      }
+    },
+    "39": {
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      },
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "99",
+          1
+        ],
+        "text": "masterpiece, best quality, adventure illustration"
+      }
+    },
+    "4": {
+      "_meta": {
+        "title": "Load Checkpoint"
+      },
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors"
+      }
+    },
+    "40": {
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      },
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "99",
+          1
+        ],
+        "text": "text, watermark, low quality, blurry, distorted"
+      }
+    },
+    "5": {
+      "_meta": {
+        "title": "Empty Latent Image"
+      },
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "batch_size": 1,
+        "height": 960,
+        "width": 960
+      }
+    },
+    "60": {
+      "_meta": {
+        "title": "Apply InstantID"
+      },
+      "class_type": "ApplyInstantID",
+      "inputs": {
+        "control_net": [
+          "16",
+          0
+        ],
+        "end_at": 1,
+        "image": [
+          "95",
+          0
+        ],
+        "image_kps": [
+          "100",
+          0
+        ],
+        "insightface": [
+          "38",
+          0
+        ],
+        "instantid": [
+          "11",
+          0
+        ],
+        "model": [
+          "99",
+          0
+        ],
+        "negative": [
+          "40",
+          0
+        ],
+        "positive": [
+          "39",
+          0
+        ],
+        "start_at": 0,
+        "weight": 0.8
+      }
+    },
+    "75": {
+      "_meta": {
+        "title": "Batch Images"
+      },
+      "class_type": "ImageBatch",
+      "inputs": {
+        "image1": [
+          "13",
+          0
+        ],
+        "image2": [
+          "94",
+          0
+        ]
+      }
+    },
+    "77": {
+      "_meta": {
+        "title": "Load ControlNet Model"
+      },
+      "class_type": "ControlNetLoader",
+      "inputs": {
+        "control_net_name": "control-lora-depth-rank256.safetensors"
+      }
+    },
+    "8": {
+      "_meta": {
+        "title": "VAEDecode"
+      },
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "3",
+          0
+        ],
+        "vae": [
+          "4",
+          2
+        ]
+      }
+    },
+    "94": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "character_1.png"
+      }
+    },
+    "95": {
+      "_meta": {
+        "title": "Batch Images"
+      },
+      "class_type": "ImageBatch",
+      "inputs": {
+        "image1": [
+          "75",
+          0
+        ],
+        "image2": [
+          "98",
+          0
+        ]
+      }
+    },
+    "98": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "character_2.png"
+      }
+    },
+    "99": {
+      "_meta": {
+        "title": "Load LoRA"
+      },
+      "class_type": "LoraLoader",
+      "inputs": {
+        "clip": [
+          "4",
+          1
+        ],
+        "lora_name": "picbookXLloraV1.safetensors",
+        "model": [
+          "4",
+          0
+        ],
+        "strength_clip": 1,
+        "strength_model": 0.64
+      }
+    }
+  },
+  "is_active": true,
+  "name": "Base Keypoint Workflow",
+  "slug": "base",
+  "type": "template",
+  "version": 1
+}

@@ -625,7 +625,7 @@ export default function BookCreationScreen({ navigation }: BookCreationScreenPro
           <Text style={styles.templateDescription}>{template.description}</Text>
         ) : null}
         <Text style={styles.templateMeta}>
-          Suggested Age: {template.default_age || "n/a"} - {template.page_count || 0} pages
+          Suggested Age: {template.age || "n/a"} - {template.page_count || 0} pages
         </Text>
         {quote ? (
           <View style={styles.pricingRow}>

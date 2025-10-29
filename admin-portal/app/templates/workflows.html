@@ -24,6 +24,9 @@
       <td>{{ workflow.is_active }}</td>
       <td>
         <a href="/workflows/{{ workflow.id }}">Edit</a>
+        <form method="post" action="/workflows/{{ workflow.id }}/export" style="display:inline; margin-left:0.5rem;">
+          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Export</button>
+        </form>
         <form method="post" action="/workflows/{{ workflow.id }}/delete" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
           <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Delete</button>
         </form>

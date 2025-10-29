@@ -13,11 +13,11 @@
   <label for="description">Description</label>
   <textarea id="description" name="description">{{ story.description }}</textarea>
 
-  <label for="default_age">Default Age</label>
-  <input id="default_age" name="default_age" value="{{ story.default_age }}">
+  <label for="age">Age</label>
+  <input id="age" name="age" value="{{ story.age }}">
 
-  <label for="illustration_style">Illustration Style</label>
-  <textarea id="illustration_style" name="illustration_style">{{ story.illustration_style }}</textarea>
+  <label for="version">Version</label>
+  <input id="version" name="version" type="number" min="1" value="{{ story.version or 1 }}" required>
 
   <label for="workflow_slug">Workflow Slug</label>
   <input id="workflow_slug" name="workflow_slug" value="{{ story.workflow_slug }}">
@@ -71,6 +71,10 @@
   </div>
 
   <button type="submit" class="button button-primary">Save Story Template</button>
+</form>
+
+<form method="post" action="/stories/{{ story.slug }}/export" style="margin-top: 1rem;">
+  <button type="submit" class="button-outline">Export story fixture</button>
 </form>
 
 <a href="/stories" style="margin-top: 2rem; display: inline-block;">Back to stories</a>

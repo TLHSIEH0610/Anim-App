@@ -544,6 +544,36 @@ async def users_update(user_id: int, request: Request):
         )
 
 
+@app.post("/users/{user_id}/export")
+async def export_user(user_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("POST", f"/admin/users/{user_id}/export")
+        data = resp.json()
+        message = data.get("message", "User exported")
+        path = data.get("path")
+        if path:
+            message = f"{message} -> {path}"
+        return RedirectResponse(
+            f"/users?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/users?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/users?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
 @app.get("/stories", response_class=HTMLResponse)
 async def stories_page(request: Request):
     session = get_admin_session(request)
@@ -600,12 +630,23 @@ async def create_story_template(request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    version_raw = (form.get("version") or "").strip()
+    try:
+        version_value = int(version_raw or "1")
+        if version_value < 1:
+            raise ValueError
+    except ValueError:
+        return RedirectResponse(
+            f"/stories?error={quote_plus('Version must be a positive integer')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     payload = {
         "slug": form.get("slug", "").strip(),
         "name": form.get("name", "").strip(),
         "description": form.get("description", "").strip() or None,
-        "default_age": form.get("default_age", "").strip() or None,
-        "illustration_style": form.get("illustration_style", "").strip() or None,
+        "age": form.get("age", "").strip() or None,
+        "version": version_value,
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
@@ -681,12 +722,23 @@ async def update_story_template(slug: str, request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    version_raw = (form.get("version") or "").strip()
+    try:
+        version_value = int(version_raw or "1")
+        if version_value < 1:
+            raise ValueError
+    except ValueError:
+        return RedirectResponse(
+            f"/stories/{slug}?error={quote_plus('Version must be a positive integer')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     payload = {
         "slug": form.get("slug", slug).strip() or slug,
         "name": form.get("name", "").strip(),
         "description": form.get("description", "").strip() or None,
-        "default_age": form.get("default_age", "").strip() or None,
-        "illustration_style": form.get("illustration_style", "").strip() or None,
+        "age": form.get("age", "").strip() or None,
+        "version": version_value,
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
@@ -748,6 +800,36 @@ async def delete_story_template(slug: str, request: Request):
     try:
         await backend_request("DELETE", f"/admin/story-templates/{slug}")
         return RedirectResponse("/stories?message=Story%20template%20deleted", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/stories?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/stories/{slug}/export")
+async def export_story_template(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("POST", f"/admin/story-templates/{slug}/export")
+        data = resp.json()
+        message = data.get("message", "Story template exported")
+        path = data.get("path")
+        if path:
+            message = f"{message} -> {path}"
+        return RedirectResponse(
+            f"/stories?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     except httpx.HTTPStatusError as exc:
         detail = _format_backend_error(exc)
         return RedirectResponse(
@@ -879,6 +961,36 @@ async def delete_workflow(workflow_id: int, request: Request):
         await backend_request("DELETE", f"/admin/workflows/{workflow_id}")
         return RedirectResponse(
             "/workflows?message=Workflow%20deleted",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/workflows?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/workflows/{workflow_id}/export")
+async def export_workflow(workflow_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("POST", f"/admin/workflows/{workflow_id}/export")
+        data = resp.json()
+        message = data.get("message", "Workflow exported")
+        path = data.get("path")
+        if path:
+            message = f"{message} -> {path}"
+        return RedirectResponse(
+            f"/workflows?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/workflows?error={quote_plus(detail)}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except httpx.HTTPError as exc:

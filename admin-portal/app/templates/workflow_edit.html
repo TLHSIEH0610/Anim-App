@@ -29,5 +29,9 @@
   <button type="submit" class="button button-primary">Save</button>
 </form>
 
+<form method="post" action="/workflows/{{ workflow.id }}/export" style="margin-top: 1rem;">
+  <button type="submit" class="button-outline">Export workflow fixture</button>
+</form>
+
 <a href="/workflows" style="margin-top: 2rem; display: inline-block;">Back to workflows</a>
 {% endblock %}

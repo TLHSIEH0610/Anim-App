@@ -36,6 +36,7 @@ Curated pointers for working on AnimApp without re-reading every guide. Update t
 ## 5. Story Template Administration (from `CHILDBOOK_SETUP.md`)
 - Templates & workflow definitions live entirely in Postgres; edit them through the admin portal (`/stories`, `/workflows` tabs).
 - Placeholders `{Name}`, `{gender}`, `{they}`, etc. get filled per book before ComfyUI runs.
+- Illustration styling is driven by the selected workflow; the old `illustration_style` field has been removed from story templates.
 - Reseed defaults by invoking `ensure_default_stories`/`ensure_default_workflows` if the DB was wiped.
 
 ## 6. Payments (from `PAYMENT_ARCHITECTURE.md`)

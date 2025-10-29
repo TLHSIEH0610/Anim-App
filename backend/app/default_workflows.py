@@ -144,21 +144,35 @@ DEFAULT_WORKFLOWS = [
 
 
 def ensure_default_workflows(session_factory):
+    from app.fixtures import load_workflow_fixtures
     from app.models import WorkflowDefinition  # local import to avoid circular
+
+    fixture_records = load_workflow_fixtures()
+    payloads = [record for _, record in fixture_records]
+    if not payloads:
+        payloads = DEFAULT_WORKFLOWS
 
     session = session_factory()
     try:
-        session.query(WorkflowDefinition).delete()
-        session.commit()
-
-        for wf in DEFAULT_WORKFLOWS:
+        for wf in payloads:
+            slug = wf.get("slug")
+            if not slug:
+                continue
+            version = wf.get("version") or 1
+            exists = (
+                session.query(WorkflowDefinition)
+                .filter(WorkflowDefinition.slug == slug, WorkflowDefinition.version == version)
+                .first()
+            )
+            if exists:
+                continue
             definition = WorkflowDefinition(
-                slug=wf["slug"],
-                name=wf["name"],
-                type=wf["type"],
-                version=wf["version"],
-                content=wf["content"],
-                is_active=True,
+                slug=slug,
+                name=wf.get("name") or slug,
+                type=wf.get("type") or "template",
+                version=version,
+                content=wf.get("content") or {},
+                is_active=bool(wf.get("is_active", True)),
             )
             session.add(definition)
         session.commit()

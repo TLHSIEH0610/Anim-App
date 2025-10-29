@@ -13,6 +13,7 @@ from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_
 from fastapi.middleware.cors import CORSMiddleware
 from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
+from .default_users import ensure_default_users
 from .db_utils import apply_schema_patches
 from sqlalchemy import text
 
@@ -21,6 +22,7 @@ Base.metadata.create_all(bind=engine)
 apply_schema_patches(engine)
 ensure_default_workflows(SessionLocal)
 ensure_default_stories(SessionLocal)
+ensure_default_users(SessionLocal)
 
 # Initialize Sentry if DSN provided
 _SENTRY_DSN = os.getenv("SENTRY_DSN")

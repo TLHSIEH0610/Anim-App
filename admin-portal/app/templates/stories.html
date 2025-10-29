@@ -8,7 +8,8 @@
     <tr>
       <th>Slug</th>
       <th>Name</th>
-      <th>Default Age</th>
+      <th>Age</th>
+      <th>Version</th>
       <th>Workflow</th>
       <th>Active</th>
       <th>Pages</th>
@@ -20,12 +21,16 @@
     <tr>
       <td>{{ story.slug }}</td>
       <td>{{ story.name }}</td>
-      <td>{{ story.default_age }}</td>
+      <td>{{ story.age }}</td>
+      <td>{{ story.version }}</td>
       <td>{{ story.workflow_slug }}</td>
       <td>{{ story.is_active }}</td>
       <td>{{ story.page_count }}</td>
       <td>
         <a href="/stories/{{ story.slug }}">Edit</a>
+        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
+          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Export</button>
+        </form>
         <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
           <button type="submit" class="button button-danger">Delete</button>
         </form>
@@ -47,8 +52,11 @@
     <label for="description">Description</label>
     <textarea id="description" name="description" placeholder="Short summary"></textarea>
 
-    <label for="default_age">Default Age</label>
-    <input id="default_age" name="default_age" placeholder="6-8">
+    <label for="age">Age</label>
+    <input id="age" name="age" placeholder="6-8">
+
+    <label for="version">Version</label>
+    <input id="version" name="version" type="number" min="1" value="1" required>
 
     <label for="workflow_slug">Workflow Slug</label>
     <input id="workflow_slug" name="workflow_slug" value="base">
