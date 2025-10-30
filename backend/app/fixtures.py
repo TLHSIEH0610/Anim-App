@@ -76,6 +76,8 @@ def _story_to_payload(story) -> Dict[str, Any]:
                 "pose_prompt": page.pose_prompt,
                 "keypoint_image": page.keypoint_image,
                 "controlnet_image": page.controlnet_image,
+                "workflow": getattr(page, "workflow_slug", None),
+                "seed": getattr(page, "seed", None),
             }
         )
     return payload

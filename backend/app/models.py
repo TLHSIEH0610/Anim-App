@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float, JSON, Numeric
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, ForeignKey, Text, Float, JSON, Numeric
 from sqlalchemy.orm import relationship, foreign
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -184,6 +184,8 @@ class StoryTemplatePage(Base):
     pose_prompt = Column(Text, nullable=False)
     controlnet_image = Column(String(150))
     keypoint_image = Column(String(150))
+    workflow_slug = Column(String(100))
+    seed = Column(BigInteger)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

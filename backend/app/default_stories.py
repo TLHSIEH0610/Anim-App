@@ -34,7 +34,6 @@ def ensure_default_stories(session_factory):
             slug = (payload.get("slug") or "").strip()
             if not slug:
                 continue
-
             existing = session.query(StoryTemplate).filter(StoryTemplate.slug == slug).first()
             if existing:
                 continue
@@ -68,6 +67,20 @@ def ensure_default_stories(session_factory):
 
             pages: list[Dict[str, Any]] = payload.get("pages") or []
             for page in sorted(pages, key=lambda p: p.get("page_number", 0)):
+                raw_seed = page.get("seed")
+                if raw_seed in ("", None):
+                    seed_int = None
+                else:
+                    try:
+                        seed_int = int(raw_seed)
+                    except (TypeError, ValueError):
+                        seed_int = None
+                workflow_value = page.get("workflow")
+                if isinstance(workflow_value, str):
+                    workflow_value = workflow_value.strip() or None
+                elif workflow_value is not None:
+                    workflow_value = str(workflow_value).strip() or None
+
                 page_row = StoryTemplatePage(
                     story_template_id=template.id,
                     page_number=page.get("page_number") or 0,
@@ -78,6 +91,8 @@ def ensure_default_stories(session_factory):
                     pose_prompt=page.get("pose_prompt") or "",
                     controlnet_image=page.get("controlnet_image"),
                     keypoint_image=page.get("keypoint_image"),
+                    workflow_slug=workflow_value,
+                    seed=seed_int,
                 )
                 session.add(page_row)
 

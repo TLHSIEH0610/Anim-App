@@ -199,16 +199,30 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         pose_prompt = _format_template_text(page_template.pose_prompt, replacements) if page_template.pose_prompt else ""
         keypoint_slug = page_template.keypoint_image
 
+        workflow_override_slug = getattr(page_template, "workflow_slug", None)
+        if isinstance(workflow_override_slug, str):
+            workflow_override_slug = workflow_override_slug.strip() or None
+        elif workflow_override_slug is not None:
+            workflow_override_slug = str(workflow_override_slug).strip() or None
+
+        raw_seed = getattr(page_template, "seed", None)
+        try:
+            seed_value = int(raw_seed) if raw_seed not in (None, "") else None
+        except (TypeError, ValueError):
+            seed_value = None
+
         pages.append(
             {
                 "page": page_number,
                 "text": story_text,
                 "image_description": image_prompt,
                 "image_kp": keypoint_slug,
+                "workflow": workflow_override_slug,
+                "seed": seed_value,
             }
         )
 
-        override: Dict[str, str] = {}
+        override: Dict[str, Any] = {}
         if positive_prompt.strip():
             override["positive"] = positive_prompt.strip()
         if negative_prompt.strip():
@@ -217,6 +231,10 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             override["keypoint"] = keypoint_slug
         if pose_prompt and pose_prompt.strip():
             override["pose"] = pose_prompt.strip()
+        if workflow_override_slug:
+            override["workflow"] = workflow_override_slug
+        if seed_value is not None:
+            override["seed"] = seed_value
         overrides[page_number] = override
 
     story_data = {
@@ -232,8 +250,17 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
     return story_data, overrides
 
 
-def _randomize_k_sampler_seeds(workflow: Dict[str, Any]) -> None:
-    """Assign fresh 64-bit seeds to every KSampler node for variability."""
+def _randomize_k_sampler_seeds(workflow: Dict[str, Any], seed: Optional[int] = None) -> None:
+    """Assign deterministic or random seeds to every KSampler node."""
+    if seed is not None:
+        fixed_seed = int(seed)
+        for node in workflow.values():
+            if node.get("class_type") == "KSampler":
+                inputs = node.get("inputs", {})
+                if "seed" in inputs:
+                    inputs["seed"] = fixed_seed
+        return
+
     rng = secrets.SystemRandom()
     for node in workflow.values():
         if node.get("class_type") == "KSampler":
@@ -447,7 +474,7 @@ def create_childbook(book_id: int):
     try:
         comfyui_client = ComfyUIClient(COMFYUI_SERVER)
         book_composer = BookComposer()
-        template_prompt_overrides: Dict[int, Dict[str, str]] = {}
+        template_prompt_overrides: Dict[int, Dict[str, Any]] = {}
         template_obj: Optional[StoryTemplate] = None
         workflow_slug = "base"
         story_generator: Optional[OllamaStoryGenerator] = None
@@ -552,9 +579,13 @@ def create_childbook(book_id: int):
                 # Try to generate image with ComfyUI
                 try:
                     # Load appropriate workflow
-                    workflow, workflow_version, workflow_slug_active = get_childbook_workflow(workflow_slug)
+                    workflow_override_slug = prompt_override.get("workflow")
+                    effective_workflow_slug = (workflow_override_slug or workflow_slug)
+                    workflow, workflow_version, workflow_slug_active = get_childbook_workflow(effective_workflow_slug)
                     print(f"🔍 Debug ComfyUI workflow for page {page.page_number}:")
                     print(f"   Theme: {book.theme}")
+                    if workflow_override_slug:
+                        print(f"   Workflow override: {workflow_override_slug}")
                     print(f"   Workflow slug: {workflow_slug_active}")
                     print(f"   Workflow version: {workflow_version}")
                     print(f"   Workflow loaded successfully with {len(workflow)} nodes")
@@ -591,7 +622,8 @@ def create_childbook(book_id: int):
                     print(f"Starting ComfyUI processing for page {page.page_number}...")
                     print(f"Using enhanced prompt: {page.enhanced_prompt}")
 
-                    _randomize_k_sampler_seeds(workflow)
+                    seed_override = prompt_override.get("seed")
+                    _randomize_k_sampler_seeds(workflow, seed_override)
 
                     result = comfyui_client.process_image_to_animation(
                         image_paths,

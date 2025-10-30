@@ -68,6 +68,7 @@
     </ul>
     <p>Each page object may include <code>"image_kp"</code> to reference a keypoint image slug (from the Keypoint Images section). Leave it blank for automatic pose detection.</p>
     <p><code>"positive_prompt"</code> feeds the CLIPText node used for guidance (node 40 in your workflow).</p>
+    <p>Include an optional <code>"seed"</code> on each page object (e.g. <code>239971716923143</code>) when you want deterministic ComfyUI renders; omit it to keep random seeds.</p>
   </div>
 
   <button type="submit" class="button button-primary">Save Story Template</button>

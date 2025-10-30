@@ -165,34 +165,47 @@ class ComfyUIClient:
             if i < len(image_nodes) and image_nodes[i] in workflow:
                 workflow[image_nodes[i]]["inputs"]["image"] = filename
 
+        # Resolve ApplyInstantID node dynamically (node id may shift between workflow versions)
+        apply_node_id = None
+        for node_id, node in workflow.items():
+            if node.get("class_type") == "ApplyInstantID" or (
+                node.get("class_type") == "ApplyInstantIDAdvanced"
+                or "apply instantid" in node.get("_meta", {}).get("title", "").lower()
+            ):
+                apply_node_id = node_id
+                break
+
+        if not apply_node_id:
+            raise KeyError("ApplyInstantID node not found in workflow; cannot configure reference images")
+
         # Modify workflow structure based on number of images
         if num_images == 1:
-            # Single image: Connect node 13 directly to ApplyInstantID (node 60)
-            workflow["60"]["inputs"]["image"] = ["13", 0]
+            # Single image: Connect node 13 directly to ApplyInstantID
+            workflow[apply_node_id]["inputs"]["image"] = ["13", 0]
             # Remove unused nodes
             for node_id in ["75", "94", "95", "98", "101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
         elif num_images == 2:
-            # Two images: Use node 75 (batch 13+94), connect to node 60
-            workflow["60"]["inputs"]["image"] = ["75", 0]
+            # Two images: Use node 75 (batch 13+94) and feed ApplyInstantID
+            workflow[apply_node_id]["inputs"]["image"] = ["75", 0]
             # Remove unused nodes
             for node_id in ["95", "98", "101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
         elif num_images == 3:
-            # Three images: Use nodes 75 (13+94) and 95 (75+98), connect 95 to node 60
-            workflow["60"]["inputs"]["image"] = ["95", 0]
+            # Three images: Use nodes 75 (13+94) and 95 (75+98), feed ApplyInstantID
+            workflow[apply_node_id]["inputs"]["image"] = ["95", 0]
             # Remove unused nodes
             for node_id in ["101"]:
                 if node_id in workflow:
                     del workflow[node_id]
 
         else:  # num_images == 4
-            # Four images: Use all batch nodes (75, 95, 101), connect 101 to node 60
-            workflow["60"]["inputs"]["image"] = ["101", 0]
+            # Four images: Use all batch nodes (75, 95, 101) before ApplyInstantID
+            workflow[apply_node_id]["inputs"]["image"] = ["101", 0]
 
         return workflow
 
@@ -405,7 +418,7 @@ class ComfyUIClient:
                         "class_type": class_type,
                         "text": node.get("inputs", {}).get("text")
                     }
-                elif class_type == "ApplyInstantID":
+                elif class_type in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
                     snapshot["nodes"][node_id] = {
                         "class_type": class_type,
                         "image": node.get("inputs", {}).get("image"),

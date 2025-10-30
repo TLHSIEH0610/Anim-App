@@ -137,6 +137,8 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
             "negative_prompt": page.negative_prompt or "",
             "pose_prompt": page.pose_prompt or "",
             "image_kp": page.keypoint_image,
+            "workflow": page.workflow_slug,
+            "seed": page.seed,
         }
         for page in sorted(template.pages, key=lambda p: p.page_number)
     ]
@@ -765,6 +767,26 @@ def admin_create_story_template(
                 status_code=400,
                 detail=f"Page {page.page_number} requires an 'image_kp' slug",
             )
+        workflow_value = None
+        if page.workflow is not None:
+            try:
+                workflow_value = str(page.workflow).strip()
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Page {page.page_number} workflow must be text",
+                ) from exc
+            if not workflow_value:
+                workflow_value = None
+        seed_value = None
+        if page.seed is not None:
+            try:
+                seed_value = int(page.seed)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Page {page.page_number} seed must be an integer",
+                ) from None
         page_row = StoryTemplatePage(
             story_template_id=template.id,
             page_number=page.page_number,
@@ -775,6 +797,8 @@ def admin_create_story_template(
             pose_prompt=page.pose_prompt or "",
             controlnet_image=None,
             keypoint_image=keypoint_slug,
+            workflow_slug=workflow_value,
+            seed=seed_value,
         )
         db.add(page_row)
 
@@ -843,6 +867,26 @@ def admin_update_story_template(
                 status_code=400,
                 detail=f"Page {page.page_number} requires an 'image_kp' slug",
             )
+        workflow_value = None
+        if page.workflow is not None:
+            try:
+                workflow_value = str(page.workflow).strip()
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Page {page.page_number} workflow must be text",
+                ) from exc
+            if not workflow_value:
+                workflow_value = None
+        seed_value = None
+        if page.seed is not None:
+            try:
+                seed_value = int(page.seed)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Page {page.page_number} seed must be an integer",
+                ) from None
         page_row = StoryTemplatePage(
             story_template_id=template.id,
             page_number=page.page_number,
@@ -853,6 +897,8 @@ def admin_update_story_template(
             pose_prompt=page.pose_prompt or "",
             controlnet_image=None,
             keypoint_image=keypoint_slug,
+            workflow_slug=workflow_value,
+            seed=seed_value,
         )
         db.add(page_row)
 
@@ -930,6 +976,8 @@ class StoryTemplatePagePayload(BaseModel):
     negative_prompt: Optional[str] = None
     pose_prompt: Optional[str] = None
     image_kp: str
+    workflow: Optional[str] = None
+    seed: Optional[int] = None
 
 
 class StoryTemplatePayload(BaseModel):
