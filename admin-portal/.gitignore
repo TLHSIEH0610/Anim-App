@@ -1,0 +1,29 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache and artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local env files
+*.env
+*.env.local
+infra/.env
+backend/.env
+frontend/.env
+
+# Logs
+*.log
+

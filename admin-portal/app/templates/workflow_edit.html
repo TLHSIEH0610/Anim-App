@@ -1,37 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Edit Workflow</h2>
+<h2 class="mdc-typography--headline5">Edit Workflow</h2>
 
-<p><strong>Slug:</strong> {{ workflow.slug }}</p>
-<p><strong>Current Version:</strong> {{ workflow.version }}</p>
+<p class="mb-2"><strong>Slug:</strong> {{ workflow.slug }} &nbsp; | &nbsp; <strong>Current Version:</strong> {{ workflow.version }}</p>
 
-<form method="post" action="/workflows/{{ workflow.id }}">
+<form method="post" action="/workflows/{{ workflow.id }}" class="form-grid one-col mt-3">
   <input type="hidden" name="slug" value="{{ workflow.slug }}">
-  <label for="name">Name</label>
-  <input id="name" name="name" value="{{ workflow.name }}" required>
 
-  <label for="type">Type</label>
-  <input id="type" name="type" value="{{ workflow.type }}" required>
+  <div class="full">
+    <div class="mdc-text-field mdc-text-field--filled w-100">
+      <input id="name" name="name" value="{{ workflow.name }}" class="mdc-text-field__input" required>
+      <label for="name" class="mdc-floating-label">Name</label>
+      <div class="mdc-line-ripple"></div>
+    </div>
+  </div>
 
-  <label for="version">Version</label>
-  <input id="version" name="version" type="number" value="{{ workflow.version }}" min="1" required>
+  <div class="full">
+    <div class="mdc-text-field mdc-text-field--filled w-100">
+      <input id="type" name="type" value="{{ workflow.type }}" class="mdc-text-field__input" required>
+      <label for="type" class="mdc-floating-label">Type</label>
+      <div class="mdc-line-ripple"></div>
+    </div>
+  </div>
 
-  <label for="is_active">Active</label>
-  <select id="is_active" name="is_active">
-    <option value="true" {% if workflow.is_active %}selected{% endif %}>True</option>
-    <option value="false" {% if not workflow.is_active %}selected{% endif %}>False</option>
-  </select>
+  <div class="full">
+    <div class="mdc-text-field mdc-text-field--filled w-100">
+      <input id="version" name="version" type="number" value="{{ workflow.version }}" min="1" class="mdc-text-field__input" required>
+      <label for="version" class="mdc-floating-label">Version</label>
+      <div class="mdc-line-ripple"></div>
+    </div>
+  </div>
 
-  <label for="content">Workflow JSON</label>
-  <textarea id="content" name="content" style="min-height:320px;">{{ workflow.content | tojson(indent=2) }}</textarea>
+  <div class="full">
+    <label for="is_active">Active</label>
+    <select id="is_active" name="is_active">
+      <option value="true" {% if workflow.is_active %}selected{% endif %}>True</option>
+      <option value="false" {% if not workflow.is_active %}selected{% endif %}>False</option>
+    </select>
+  </div>
 
-  <button type="submit" class="button button-primary">Save</button>
+  <div class="full">
+    <label for="content">Workflow JSON</label>
+    <textarea id="content" name="content" style="min-height:320px;">{{ workflow.content | tojson(indent=2) }}</textarea>
+  </div>
+
+  <div class="form-actions full">
+    <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Save</span></button>
+  </div>
 </form>
 
-<form method="post" action="/workflows/{{ workflow.id }}/export" style="margin-top: 1rem;">
-  <button type="submit" class="button-outline">Export workflow fixture</button>
+<form method="post" action="/workflows/{{ workflow.id }}/export" class="mt-3">
+  <button type="submit" class="mdc-button mdc-button--outlined"><span class="mdc-button__label">Export workflow fixture</span></button>
 </form>
 
-<a href="/workflows" style="margin-top: 2rem; display: inline-block;">Back to workflows</a>
+<a href="/workflows" class="mdc-button mt-4"><span class="mdc-button__label">Back to workflows</span></a>
 {% endblock %}

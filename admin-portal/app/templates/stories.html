@@ -29,13 +29,15 @@
                     <td class="mdc-data-table__cell">{{ story.is_active }}</td>
                     <td class="mdc-data-table__cell">{{ story.page_count }}</td>
                     <td class="mdc-data-table__cell">
-                        <a href="/stories/{{ story.slug }}" class="mdc-button">Edit</a>
-                        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
-                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
-                        </form>
-                        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
-                            <button type="submit" class="mdc-button mdc-button--outlined">Delete</button>
-                        </form>
+                        <div class="actions-wrap">
+                          <a href="/stories/{{ story.slug }}" class="mdc-button btn-sm"><span class="mdc-button__label">Edit</span></a>
+                          <form method="post" action="/stories/{{ story.slug }}/export">
+                            <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Export</span></button>
+                          </form>
+                          <form method="post" action="/stories/{{ story.slug }}/delete" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
+                            <button type="submit" class="mdc-button btn-sm btn-danger"><span class="mdc-button__label">Delete</span></button>
+                          </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -44,47 +46,91 @@
     </div>
 </div>
 
-<section style="margin-top:2rem;">
-  <h3>Create New Story Template</h3>
-  <form method="post" action="/stories/create">
-    <label for="slug">Slug</label>
-    <input id="slug" name="slug" placeholder="space_explorer" required>
+<section class="mt-4">
+  <h3 class="mdc-typography--headline6 mb-2">Create New Story Template</h3>
+  <form method="post" action="/stories/create" class="form-grid one-col">
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="slug" name="slug" class="mdc-text-field__input" required>
+        <label for="slug" class="mdc-floating-label">Slug</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="name" name="name" class="mdc-text-field__input" required>
+        <label for="name" class="mdc-floating-label">Name</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
 
-    <label for="name">Name</label>
-    <input id="name" name="name" placeholder="Space Explorer" required>
+    <div class="full">
+      <label for="description">Description</label>
+      <textarea id="description" name="description" placeholder="Short summary"></textarea>
+    </div>
 
-    <label for="description">Description</label>
-    <textarea id="description" name="description" placeholder="Short summary"></textarea>
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="age" name="age" class="mdc-text-field__input">
+        <label for="age" class="mdc-floating-label">Age</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="version" name="version" type="number" min="1" value="1" class="mdc-text-field__input" required>
+        <label for="version" class="mdc-floating-label">Version</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
 
-    <label for="age">Age</label>
-    <input id="age" name="age" placeholder="6-8">
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="workflow_slug" name="workflow_slug" value="base" class="mdc-text-field__input">
+        <label for="workflow_slug" class="mdc-floating-label">Workflow Slug</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
+    <div class="full">
+      <label for="is_active">Active</label>
+      <select id="is_active" name="is_active">
+        <option value="true" selected>True</option>
+        <option value="false">False</option>
+      </select>
+    </div>
 
-    <label for="version">Version</label>
-    <input id="version" name="version" type="number" min="1" value="1" required>
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" class="mdc-text-field__input" required>
+        <label for="price_dollars" class="mdc-floating-label">Base Price (AUD)</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" class="mdc-text-field__input">
+        <label for="discount_price" class="mdc-floating-label">Discount Price (AUD)</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
 
-    <label for="workflow_slug">Workflow Slug</label>
-    <input id="workflow_slug" name="workflow_slug" value="base">
+    <div class="full">
+      <div class="mdc-text-field mdc-text-field--filled w-100">
+        <input id="free_trial_slug" name="free_trial_slug" class="mdc-text-field__input">
+        <label for="free_trial_slug" class="mdc-floating-label">Free Trial Slug</label>
+        <div class="mdc-line-ripple"></div>
+      </div>
+    </div>
 
-    <label for="price_dollars">Base Price (AUD)</label>
-    <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" required>
+    <div class="full">
+      <label for="pages">Pages JSON</label>
+      <p style="margin-top:-0.25rem; font-size:0.9rem; opacity:.75">Include optional <code>"seed"</code> per page to force deterministic ComfyUI outputs.</p>
+      <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required></textarea>
+    </div>
 
-    <label for="discount_price">Discount Price (AUD)</label>
-    <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" placeholder="Optional">
-
-    <label for="free_trial_slug">Free Trial Slug</label>
-    <input id="free_trial_slug" name="free_trial_slug" placeholder="winter_free_trial">
-
-    <label for="is_active">Active</label>
-    <select id="is_active" name="is_active">
-      <option value="true" selected>True</option>
-      <option value="false">False</option>
-    </select>
-
-    <label for="pages">Pages JSON</label>
-    <p style="margin-top:-0.5rem; font-size:0.9rem; color:#555;">Include optional <code>"seed"</code> per page to force deterministic ComfyUI outputs.</p>
-    <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required></textarea>
-
-    <button type="submit" class="button button-primary">Create Story Template</button>
+    <div class="form-actions full">
+      <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Create Story Template</span></button>
+    </div>
   </form>
 </section>
 
