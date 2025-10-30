@@ -1,44 +1,48 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Story Templates</h2>
+<h2 class="mdc-typography--headline5">Story Templates</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Slug</th>
-      <th>Name</th>
-      <th>Age</th>
-      <th>Version</th>
-      <th>Workflow</th>
-      <th>Active</th>
-      <th>Pages</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for story in stories %}
-    <tr>
-      <td>{{ story.slug }}</td>
-      <td>{{ story.name }}</td>
-      <td>{{ story.age }}</td>
-      <td>{{ story.version }}</td>
-      <td>{{ story.workflow_slug }}</td>
-      <td>{{ story.is_active }}</td>
-      <td>{{ story.page_count }}</td>
-      <td>
-        <a href="/stories/{{ story.slug }}">Edit</a>
-        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
-          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Export</button>
-        </form>
-        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
-          <button type="submit" class="button button-danger">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="mdc-data-table">
+    <div class="mdc-data-table__table-container">
+        <table class="mdc-data-table__table">
+            <thead>
+                <tr class="mdc-data-table__header-row">
+                    <th class="mdc-data-table__header-cell">Slug</th>
+                    <th class="mdc-data-table__header-cell">Name</th>
+                    <th class="mdc-data-table__header-cell">Age</th>
+                    <th class="mdc-data-table__header-cell">Version</th>
+                    <th class="mdc-data-table__header-cell">Workflow</th>
+                    <th class="mdc-data-table__header-cell">Active</th>
+                    <th class="mdc-data-table__header-cell">Pages</th>
+                    <th class="mdc-data-table__header-cell">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="mdc-data-table__content">
+                {% for story in stories %}
+                <tr class="mdc-data-table__row">
+                    <td class="mdc-data-table__cell">{{ story.slug }}</td>
+                    <td class="mdc-data-table__cell">{{ story.name }}</td>
+                    <td class="mdc-data-table__cell">{{ story.age }}</td>
+                    <td class="mdc-data-table__cell">{{ story.version }}</td>
+                    <td class="mdc-data-table__cell">{{ story.workflow_slug }}</td>
+                    <td class="mdc-data-table__cell">{{ story.is_active }}</td>
+                    <td class="mdc-data-table__cell">{{ story.page_count }}</td>
+                    <td class="mdc-data-table__cell">
+                        <a href="/stories/{{ story.slug }}" class="mdc-button">Edit</a>
+                        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
+                        </form>
+                        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <section style="margin-top:2rem;">
   <h3>Create New Story Template</h3>
@@ -84,5 +88,5 @@
   </form>
 </section>
 
-<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+<a href="/dashboard" class="mdc-button" style="margin-top: 2rem;">Back to dashboard</a>
 {% endblock %}

@@ -4,102 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or 'AnimApp Admin' }}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
     <style>
         :root {
-            --bg: #f8fafc;
-            --panel: #ffffff;
-            --text: #0f172a;
-            --muted: #475569;
-            --border: #e2e8f0;
-            --primary: #2563eb;
-            --success: #10b981;
-            --error: #ef4444;
-            --warning: #f59e0b;
+            --mdc-theme-primary: #6200ee;
+            --mdc-theme-secondary: #03dac6;
+            --mdc-theme-background: #fff;
+            --mdc-theme-surface: #fff;
+            --mdc-theme-on-primary: #fff;
+            --mdc-theme-on-secondary: #000;
+            --mdc-theme-on-surface: #000;
+            --mdc-typography-font-family: 'Roboto', sans-serif;
         }
-        /* Dark theme variables */
         .dark {
-            --bg: #0b1220;
-            --panel: #0f172a;
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --border: #1f2937;
-            --primary: #60a5fa;
-            --success: #34d399;
-            --error: #f87171;
-            --warning: #fbbf24;
+            --mdc-theme-primary: #bb86fc;
+            --mdc-theme-secondary: #03dac6;
+            --mdc-theme-background: #121212;
+            --mdc-theme-surface: #121212;
+            --mdc-theme-on-primary: #000;
+            --mdc-theme-on-secondary: #000;
+            --mdc-theme-on-surface: #fff;
         }
-        html, body { height: 100%; }
         body {
+            background-color: var(--mdc-theme-background);
+            color: var(--mdc-theme-on-surface);
+            font-family: var(--mdc-typography-font-family);
             margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
-        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem; }
-        nav {
-            position: sticky; top: 0; z-index: 10;
-            display: flex; gap: 1rem; align-items: center;
-            padding: 0.75rem 1.25rem; background: var(--panel);
-            border-bottom: 1px solid var(--border);
-            box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+        .container {
+            padding: 16px;
         }
-        nav a { color: var(--muted); text-decoration: none; font-weight: 500; }
-        nav a:hover { color: var(--primary); }
-        nav strong { margin-right: 0.5rem; }
-        .spacer { flex: 1 1 auto; }
-        .toggle { border: 1px solid var(--border); background: transparent; color: var(--muted); padding: 0.35rem 0.6rem; border-radius: 8px; }
-        .toggle:hover { color: var(--text); border-color: #cbd5e1; }
-
-        h1, h2, h3 { color: #0b1220; margin-top: 0; }
-        p { color: var(--muted); }
-
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
-        .grid { display: grid; gap: 1rem; }
-        .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
-        .card { border: 1px solid var(--border); border-radius: 10px; padding: 1rem; background: var(--panel); }
-        .actions form { display: inline-block; margin-right: 0.5rem; }
-
-        table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-        thead th { background: #f1f5f9; color: #111827; font-weight: 600; }
-        .dark thead th { background: #0b1220; color: #e5e7eb; }
-        th, td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-        tbody tr:hover { background: #f9fafb; }
-        .dark tbody tr:hover { background: #0f172a; }
-        tbody tr:last-child td { border-bottom: 0; }
-
-        label { font-weight: 600; color: #0b1220; }
-        input[type="text"], input[type="email"], input[type="number"], select, textarea {
-            width: 100%;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: #fff;
-        }
-        textarea { min-height: 120px; }
-
-        .button, button, [type="submit"] { cursor: pointer; }
-        .button-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-        .button-outline { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-        .button-outline:hover { color: #111827; border-color: #cbd5e1; }
-
-        .alert { padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid; margin-bottom: 1rem; }
-        .alert-success { background: #ecfdf5; color: #065f46; border-color: #34d399; }
-        .alert-error { background: #fef2f2; color: #991b1b; border-color: #f87171; }
-        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; border: 1px solid var(--border); color: var(--muted); background: transparent; }
-        .badge-info { color: var(--primary); border-color: var(--primary); }
-        .badge-warn { color: var(--warning); border-color: var(--warning); }
-        .badge-ok { color: var(--success); border-color: var(--success); }
-        .badge-danger { color: var(--error); border-color: var(--error); }
-        .chip { display:inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.76rem; font-weight: 600; }
-        .chip-blue { background: rgba(37, 99, 235, 0.12); color: var(--primary); }
-        .chip-green { background: rgba(16, 185, 129, 0.12); color: var(--success); }
-        .chip-amber { background: rgba(245, 158, 11, 0.16); color: var(--warning); }
-        .chip-red { background: rgba(239, 68, 68, 0.12); color: var(--error); }
-        .chip-slate { background: rgba(100,116,139,0.16); color: var(--muted); }
-        pre { background: #0b1220; color: #f1f5f9; padding: 1rem; border-radius: 10px; overflow-x: auto; }
     </style>
     <script>
       // Apply saved theme early to avoid flash
@@ -112,20 +48,26 @@
     </script>
 </head>
 <body>
-    <nav>
-        <strong>AnimApp Admin Portal</strong>
-        {% if admin_email %}
-            <span>| Logged in as {{ admin_email }}</span>
-            <a href="/dashboard">Dashboard</a>
-            <a href="/stories">Stories</a>
-            <a href="/users">Users</a>
-            <a href="/workflows">Workflows</a>
-            <a href="/keypoint-images">Keypoint Images</a>
-            <a href="/logout">Logout</a>
-            <span class="spacer"></span>
-            <button id="theme-toggle" class="toggle" type="button">Toggle Theme</button>
-        {% endif %}
-    </nav>
+    <header class="mdc-top-app-bar">
+        <div class="mdc-top-app-bar__row">
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                <span class="mdc-top-app-bar__title">AnimApp Admin</span>
+            </section>
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end" role="toolbar">
+                {% if admin_email %}
+                    <a href="/dashboard" class="mdc-button mdc-button--unelevated">Dashboard</a>
+                    <a href="/stories" class="mdc-button mdc-button--unelevated">Stories</a>
+                    <a href="/users" class="mdc-button mdc-button--unelevated">Users</a>
+                    <a href="/workflows" class="mdc-button mdc-button--unelevated">Workflows</a>
+                    <a href="/keypoint-images" class="mdc-button mdc-button--unelevated">Keypoint Images</a>
+                    <a href="/logout" class="mdc-button mdc-button--unelevated">Logout</a>
+                    <button id="theme-toggle" class="mdc-icon-button" aria-label="Toggle theme">
+                        <i class="material-icons">brightness_4</i>
+                    </button>
+                {% endif %}
+            </section>
+        </div>
+    </header>
 
     <div class="container">
         {% if message %}
@@ -138,20 +80,22 @@
 
         {% block content %}{% endblock %}
     </div>
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
     <script>
-      (function(){
-        const btn = document.getElementById('theme-toggle');
-        if (!btn) return;
-        function apply(next) {
-          const el = document.documentElement;
-          if (next === 'dark') el.classList.add('dark'); else el.classList.remove('dark');
-          try { localStorage.setItem('animapp_admin_theme', next); } catch(_) {}
-        }
-        btn.addEventListener('click', () => {
-          const isDark = document.documentElement.classList.contains('dark');
-          apply(isDark ? 'light' : 'dark');
-        });
-      })();
+        mdc.autoInit();
+        (function(){
+            const btn = document.getElementById('theme-toggle');
+            if (!btn) return;
+            function apply(next) {
+                const el = document.documentElement;
+                if (next === 'dark') el.classList.add('dark'); else el.classList.remove('dark');
+                try { localStorage.setItem('animapp_admin_theme', next); } catch(_) {}
+            }
+            btn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.contains('dark');
+                apply(isDark ? 'light' : 'dark');
+            });
+        })();
     </script>
 </body>
 </html>

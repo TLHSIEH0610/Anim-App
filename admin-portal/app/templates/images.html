@@ -1,60 +1,76 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Images for Book {{ book_id }}</h2>
+<h2 class="mdc-typography--headline5">Images for Book {{ book_id }}</h2>
 
-<h3>Original Uploads</h3>
-<div class="image-grid">
+<h3 class="mdc-typography--headline6">Original Uploads</h3>
+<ul class="mdc-image-list mdc-image-list--masonry">
     {% for image in original_images %}
-    <div class="card">
-        <p><strong>Path:</strong><br><code>{{ image.path }}</code></p>
-        {% if image.data_uri %}
-        <img src="{{ image.data_uri }}" alt="Original image" style="max-width:100%; border-radius:4px;">
-        {% elif image.path %}
-        <img src="/files-proxy?path={{ image.path | urlencode }}" alt="Original image" style="max-width:100%; border-radius:4px;">
-        {% else %}
-        <p><em>File unavailable</em></p>
-        {% endif %}
-    </div>
+    <li class="mdc-image-list__item">
+        <div class="mdc-card">
+            <div class="mdc-card__media mdc-card__media--16-9">
+                {% if image.data_uri %}
+                <img class="mdc-image-list__image" src="{{ image.data_uri }}">
+                {% elif image.path %}
+                <img class="mdc-image-list__image" src="/files-proxy?path={{ image.path | urlencode }}">
+                {% endif %}
+            </div>
+            <div class="mdc-card__primary">
+                <h3 class="mdc-typography--subtitle1">{{ image.path }}</h3>
+            </div>
+        </div>
+    </li>
     {% endfor %}
-</div>
+</ul>
 
-<h3 style="margin-top:2rem;">Generated Pages</h3>
-<div class="image-grid">
+<h3 class="mdc-typography--headline6" style="margin-top:2rem;">Generated Pages</h3>
+<ul class="mdc-image-list mdc-image-list--masonry">
     {% for page in page_images %}
-    <div class="card">
-        <p><strong>Page {{ page.page_number }}</strong></p>
-        <p>Status: {{ page.status }}</p>
-        <p><code>{{ page.path }}</code></p>
-        {% if page.data_uri %}
-        <img src="{{ page.data_uri }}" alt="Page image" style="max-width:100%; border-radius:4px;">
-        {% elif page.path %}
-        <img src="/files-proxy?path={{ page.path | urlencode }}" alt="Page image" style="max-width:100%; border-radius:4px;">
-        {% else %}
-        <p><em>File unavailable</em></p>
-        {% endif %}
-    </div>
+    <li class="mdc-image-list__item">
+        <div class="mdc-card">
+            <div class="mdc-card__media mdc-card__media--16-9">
+                {% if page.data_uri %}
+                <img class="mdc-image-list__image" src="{{ page.data_uri }}">
+                {% elif page.path %}
+                <img class="mdc-image-list__image" src="/files-proxy?path={{ page.path | urlencode }}">
+                {% endif %}
+            </div>
+            <div class="mdc-card__primary">
+                <h3 class="mdc-typography--subtitle1">Page {{ page.page_number }}</h3>
+                <h4 class="mdc-typography--subtitle2">{{ page.status }}</h4>
+            </div>
+            <div class="mdc-card__secondary">
+                <code>{{ page.path }}</code>
+            </div>
+        </div>
+    </li>
     {% endfor %}
-</div>
+</ul>
 
 {% if control_images %}
-<h3 style="margin-top:2rem;">ControlNet Inputs</h3>
-<div class="image-grid">
+<h3 class="mdc-typography--headline6" style="margin-top:2rem;">ControlNet Inputs</h3>
+<ul class="mdc-image-list mdc-image-list--masonry">
     {% for item in control_images %}
-    <div class="card">
-        <p><strong>Page {{ item.page_number }}</strong></p>
-        <p><code>{{ item.path }}</code></p>
-        {% if item.data_uri %}
-        <img src="{{ item.data_uri }}" alt="Control image" style="max-width:100%; border-radius:4px;">
-        {% elif item.path %}
-        <img src="/files-proxy?path={{ item.path | urlencode }}" alt="Control image" style="max-width:100%; border-radius:4px;">
-        {% else %}
-        <p><em>File unavailable</em></p>
-        {% endif %}
-    </div>
+    <li class="mdc-image-list__item">
+        <div class="mdc-card">
+            <div class="mdc-card__media mdc-card__media--16-9">
+                {% if item.data_uri %}
+                <img class="mdc-image-list__image" src="{{ item.data_uri }}">
+                {% elif item.path %}
+                <img class="mdc-image-list__image" src="/files-proxy?path={{ item.path | urlencode }}">
+                {% endif %}
+            </div>
+            <div class="mdc-card__primary">
+                <h3 class="mdc-typography--subtitle1">Page {{ item.page_number }}</h3>
+            </div>
+            <div class="mdc-card__secondary">
+                <code>{{ item.path }}</code>
+            </div>
+        </div>
+    </li>
     {% endfor %}
-</div>
+</ul>
 {% endif %}
 
-<a href="/dashboard" style="margin-top:2rem; display:inline-block;">Back to dashboard</a>
+<a href="/dashboard" class="mdc-button" style="margin-top:2rem;">Back to dashboard</a>
 {% endblock %}
