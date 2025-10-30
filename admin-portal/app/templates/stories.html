@@ -1,87 +1,113 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Story Templates</h2>
+<h2 class="mdc-typography--headline5">Story Templates</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Slug</th>
-      <th>Name</th>
-      <th>Age</th>
-      <th>Version</th>
-      <th>Workflow</th>
-      <th>Active</th>
-      <th>Pages</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for story in stories %}
-    <tr>
-      <td>{{ story.slug }}</td>
-      <td>{{ story.name }}</td>
-      <td>{{ story.age }}</td>
-      <td>{{ story.version }}</td>
-      <td>{{ story.workflow_slug }}</td>
-      <td>{{ story.is_active }}</td>
-      <td>{{ story.page_count }}</td>
-      <td>
-        <a href="/stories/{{ story.slug }}">Edit</a>
-        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
-          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Export</button>
-        </form>
-        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
-          <button type="submit" class="button button-danger">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="mdc-data-table">
+    <div class="mdc-data-table__table-container">
+        <table class="mdc-data-table__table">
+            <thead>
+                <tr class="mdc-data-table__header-row">
+                    <th class="mdc-data-table__header-cell">Slug</th>
+                    <th class="mdc-data-table__header-cell">Name</th>
+                    <th class="mdc-data-table__header-cell">Age</th>
+                    <th class="mdc-data-table__header-cell">Version</th>
+                    <th class="mdc-data-table__header-cell">Workflow</th>
+                    <th class="mdc-data-table__header-cell">Active</th>
+                    <th class="mdc-data-table__header-cell">Pages</th>
+                    <th class="mdc-data-table__header-cell">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="mdc-data-table__content">
+                {% for story in stories %}
+                <tr class="mdc-data-table__row">
+                    <td class="mdc-data-table__cell">{{ story.slug }}</td>
+                    <td class="mdc-data-table__cell">{{ story.name }}</td>
+                    <td class="mdc-data-table__cell">{{ story.age }}</td>
+                    <td class="mdc-data-table__cell">{{ story.version }}</td>
+                    <td class="mdc-data-table__cell">{{ story.workflow_slug }}</td>
+                    <td class="mdc-data-table__cell">{{ story.is_active }}</td>
+                    <td class="mdc-data-table__cell">{{ story.page_count }}</td>
+                    <td class="mdc-data-table__cell">
+                        <a href="/stories/{{ story.slug }}" class="mdc-button">Edit</a>
+                        <form method="post" action="/stories/{{ story.slug }}/export" style="display:inline-block; margin-left:0.5rem;">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
+                        </form>
+                        <form method="post" action="/stories/{{ story.slug }}/delete" style="display:inline-block; margin-left:0.5rem;" onsubmit="return confirm('Delete story template {{ story.slug }}?');">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <section style="margin-top:2rem;">
-  <h3>Create New Story Template</h3>
-  <form method="post" action="/stories/create">
-    <label for="slug">Slug</label>
-    <input id="slug" name="slug" placeholder="space_explorer" required>
-
-    <label for="name">Name</label>
-    <input id="name" name="name" placeholder="Space Explorer" required>
-
-    <label for="description">Description</label>
-    <textarea id="description" name="description" placeholder="Short summary"></textarea>
-
-    <label for="age">Age</label>
-    <input id="age" name="age" placeholder="6-8">
-
-    <label for="version">Version</label>
-    <input id="version" name="version" type="number" min="1" value="1" required>
-
-    <label for="workflow_slug">Workflow Slug</label>
-    <input id="workflow_slug" name="workflow_slug" value="base">
-
-    <label for="price_dollars">Base Price (AUD)</label>
-    <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" required>
-
-    <label for="discount_price">Discount Price (AUD)</label>
-    <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" placeholder="Optional">
-
-    <label for="free_trial_slug">Free Trial Slug</label>
-    <input id="free_trial_slug" name="free_trial_slug" placeholder="winter_free_trial">
-
-    <label for="is_active">Active</label>
-    <select id="is_active" name="is_active">
-      <option value="true" selected>True</option>
-      <option value="false">False</option>
-    </select>
-
-    <label for="pages">Pages JSON</label>
-    <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose"}]' required></textarea>
-
-    <button type="submit" class="button button-primary">Create Story Template</button>
-  </form>
+    <h3 class="mdc-typography--headline6">Create New Story Template</h3>
+    <form method="post" action="/stories/create">
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="slug" name="slug" class="mdc-text-field__input" placeholder="space_explorer" required>
+            <label for="slug" class="mdc-floating-label">Slug</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="name" name="name" class="mdc-text-field__input" placeholder="Space Explorer" required>
+            <label for="name" class="mdc-floating-label">Name</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field mdc-text-field--textarea" style="width: 100%; margin-bottom: 16px;">
+            <textarea id="description" name="description" class="mdc-text-field__input" placeholder="Short summary"></textarea>
+            <label for="description" class="mdc-floating-label">Description</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="age" name="age" class="mdc-text-field__input" placeholder="6-8">
+            <label for="age" class="mdc-floating-label">Age</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="version" name="version" type="number" min="1" value="1" class="mdc-text-field__input" required>
+            <label for="version" class="mdc-floating-label">Version</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="workflow_slug" name="workflow_slug" value="base" class="mdc-text-field__input">
+            <label for="workflow_slug" class="mdc-floating-label">Workflow Slug</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" class="mdc-text-field__input" required>
+            <label for="price_dollars" class="mdc-floating-label">Base Price (AUD)</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" class="mdc-text-field__input" placeholder="Optional">
+            <label for="discount_price" class="mdc-floating-label">Discount Price (AUD)</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="free_trial_slug" name="free_trial_slug" class="mdc-text-field__input" placeholder="winter_free_trial">
+            <label for="free_trial_slug" class="mdc-floating-label">Free Trial Slug</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-select" style="width: 100%; margin-bottom: 16px;">
+            <select id="is_active" name="is_active" class="mdc-select__native-control">
+                <option value="true" selected>True</option>
+                <option value="false">False</option>
+            </select>
+            <label for="is_active" class="mdc-floating-label">Active</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field mdc-text-field--textarea" style="width: 100%; margin-bottom: 16px;">
+            <textarea id="pages" name="pages" style="min-height:260px;" class="mdc-text-field__input" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose"}]' required></textarea>
+            <label for="pages" class="mdc-floating-label">Pages JSON</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <button type="submit" class="mdc-button mdc-button--raised">Create Story Template</button>
+    </form>
 </section>
 
-<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+<a href="/dashboard" class="mdc-button" style="margin-top: 2rem;">Back to dashboard</a>
 {% endblock %}

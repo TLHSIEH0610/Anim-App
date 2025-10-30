@@ -1,59 +1,71 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Workflow Definitions</h2>
+<h2 class="mdc-typography--headline5">Workflow Definitions</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Slug</th>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Version</th>
-      <th>Active</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for workflow in workflows %}
-    <tr>
-      <td>{{ workflow.slug }}</td>
-      <td>{{ workflow.name }}</td>
-      <td>{{ workflow.type }}</td>
-      <td>{{ workflow.version }}</td>
-      <td>{{ workflow.is_active }}</td>
-      <td>
-        <a href="/workflows/{{ workflow.id }}">Edit</a>
-        <form method="post" action="/workflows/{{ workflow.id }}/export" style="display:inline; margin-left:0.5rem;">
-          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Export</button>
-        </form>
-        <form method="post" action="/workflows/{{ workflow.id }}/delete" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
-          <button type="submit" class="button-outline" style="padding:0.35rem 0.75rem;">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="mdc-data-table">
+    <div class="mdc-data-table__table-container">
+        <table class="mdc-data-table__table">
+            <thead>
+                <tr class="mdc-data-table__header-row">
+                    <th class="mdc-data-table__header-cell">Slug</th>
+                    <th class="mdc-data-table__header-cell">Name</th>
+                    <th class="mdc-data-table__header-cell">Type</th>
+                    <th class="mdc-data-table__header-cell">Version</th>
+                    <th class="mdc-data-table__header-cell">Active</th>
+                    <th class="mdc-data-table__header-cell">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="mdc-data-table__content">
+                {% for workflow in workflows %}
+                <tr class="mdc-data-table__row">
+                    <td class="mdc-data-table__cell">{{ workflow.slug }}</td>
+                    <td class="mdc-data-table__cell">{{ workflow.name }}</td>
+                    <td class="mdc-data-table__cell">{{ workflow.type }}</td>
+                    <td class="mdc-data-table__cell">{{ workflow.version }}</td>
+                    <td class="mdc-data-table__cell">{{ workflow.is_active }}</td>
+                    <td class="mdc-data-table__cell">
+                        <a href="/workflows/{{ workflow.id }}" class="mdc-button">Edit</a>
+                        <form method="post" action="/workflows/{{ workflow.id }}/export" style="display:inline; margin-left:0.5rem;">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
+                        </form>
+                        <form method="post" action="/workflows/{{ workflow.id }}/delete" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
+                            <button type="submit" class="mdc-button mdc-button--outlined">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <section style="margin-top:2rem;">
-  <h3>Create New Workflow Version</h3>
-  <form method="post" action="/workflows/create">
-    <label for="slug">Slug</label>
-    <input id="slug" name="slug" placeholder="base" required>
-
-    <label for="name">Name</label>
-    <input id="name" name="name" placeholder="Childbook Adventure" required>
-
-    <label for="type">Type</label>
-    <input id="type" name="type" placeholder="template" required>
-
-    <label for="content">Workflow JSON</label>
-    <textarea id="content" name="content" placeholder="{...}" required></textarea>
-
-    <button type="submit" class="button button-primary">Create</button>
-  </form>
+    <h3 class="mdc-typography--headline6">Create New Workflow Version</h3>
+    <form method="post" action="/workflows/create">
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="slug" name="slug" class="mdc-text-field__input" placeholder="base" required>
+            <label for="slug" class="mdc-floating-label">Slug</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="name" name="name" class="mdc-text-field__input" placeholder="Childbook Adventure" required>
+            <label for="name" class="mdc-floating-label">Name</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
+            <input id="type" name="type" class="mdc-text-field__input" placeholder="template" required>
+            <label for="type" class="mdc-floating-label">Type</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <div class="mdc-text-field mdc-text-field--textarea" style="width: 100%; margin-bottom: 16px;">
+            <textarea id="content" name="content" class="mdc-text-field__input" placeholder="{...}" required></textarea>
+            <label for="content" class="mdc-floating-label">Workflow JSON</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <button type="submit" class="mdc-button mdc-button--raised">Create</button>
+    </form>
 </section>
 
-<a href="/dashboard" style="margin-top: 2rem; display: inline-block;">Back to dashboard</a>
+<a href="/dashboard" class="mdc-button" style="margin-top: 2rem;">Back to dashboard</a>
 {% endblock %}

@@ -1,74 +1,107 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Books Overview</h2>
+<h2 class="mdc-typography--headline5">Books Overview</h2>
 
 {% if books %}
-<div class="panel">
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Progress</th>
-            <th>Story</th>
-            <th>Created</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for book in books %}
-        <tr>
-            <td>{{ book.id }}</td>
-            <td>{{ book.title }}</td>
-            <td>
-              {% set s = (book.status or '').lower() %}
-              {% if s in ['creating','generating_story','generating_images','composing'] %}
-                <span class="chip chip-amber">{{ book.status }}</span>
-              {% elif s == 'completed' %}
-                <span class="chip chip-green">completed</span>
-              {% elif s == 'failed' %}
-                <span class="chip chip-red">failed</span>
-              {% else %}
-                <span class="chip chip-slate">{{ book.status or 'unknown' }}</span>
-              {% endif %}
-            </td>
-            <td>{{ '%.0f'|format(book.progress_percentage or 0) }}%</td>
-            <td>
-              {% if book.story_source == 'template' %}
-                Template ({{ book.template_key or 'story' }})
-              {% else %}
-                Custom
-              {% endif %}
-            </td>
-            <td>{{ book.created_at or '-' }}</td>
-            <td class="actions">
-                <a href="/books/{{ book.id }}/workflow">Workflow</a>
-                <a href="/books/{{ book.id }}/images">Images</a>
-                <form method="post" action="/books/{{ book.id }}/regenerate" style="margin-top:0.5rem;">
-                    <input type="text" name="new_prompt" placeholder="New prompt (optional)">
-                    <button type="submit">Regenerate</button>
-                </form>
-                <form method="post" action="/books/{{ book.id }}/delete" style="margin-top:0.5rem;" onsubmit="return confirm('Delete book {{ book.title }}?');">
-                    <button type="submit" class="button-outline">Delete</button>
-                </form>
-            </td>
-        </tr>
-        {% if book.original_image_paths %}
-        <tr>
-            <td colspan="7">
-                <strong>Original Images:</strong>
-                <code>{{ book.original_image_paths }}</code>
-            </td>
-        </tr>
-        {% endif %}
-    {% endfor %}
-    </tbody>
-</table>
+<div class="mdc-data-table">
+    <div class="mdc-data-table__table-container">
+        <table class="mdc-data-table__table">
+            <thead>
+                <tr class="mdc-data-table__header-row">
+                    <th class="mdc-data-table__header-cell">ID</th>
+                    <th class="mdc-data-table__header-cell">Title</th>
+                    <th class="mdc-data-table__header-cell">Status</th>
+                    <th class="mdc-data-table__header-cell">Progress</th>
+                    <th class="mdc-data-table__header-cell">Story</th>
+                    <th class="mdc-data-table__header-cell">Created</th>
+                    <th class="mdc-data-table__header-cell">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="mdc-data-table__content">
+                {% for book in books %}
+                <tr class="mdc-data-table__row">
+                    <td class="mdc-data-table__cell">{{ book.id }}</td>
+                    <td class="mdc-data-table__cell">{{ book.title }}</td>
+                    <td class="mdc-data-table__cell">
+                        {% set s = (book.status or '').lower() %}
+                        {% if s in ['creating','generating_story','generating_images','composing'] %}
+                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
+                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
+                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1">
+                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
+                                    <span class="mdc-evolution-chip__text-label">{{ book.status }}</span>
+                                </button>
+                            </span>
+                        </span>
+                        {% elif s == 'completed' %}
+                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
+                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
+                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-secondary);">
+                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
+                                    <span class="mdc-evolution-chip__text-label">completed</span>
+                                </button>
+                            </span>
+                        </span>
+                        {% elif s == 'failed' %}
+                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
+                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
+                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-error);">
+                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
+                                    <span class="mdc-evolution-chip__text-label">failed</span>
+                                </button>
+                            </span>
+                        </span>
+                        {% else %}
+                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
+                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
+                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1">
+                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
+                                    <span class="mdc-evolution-chip__text-label">{{ book.status or 'unknown' }}</span>
+                                </button>
+                            </span>
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="mdc-data-table__cell">{{ '%.0f'|format(book.progress_percentage or 0) }}%</td>
+                    <td class="mdc-data-table__cell">
+                        {% if book.story_source == 'template' %}
+                        Template ({{ book.template_key or 'story' }})
+                        {% else %}
+                        Custom
+                        {% endif %}
+                    </td>
+                    <td class="mdc-data-table__cell">{{ book.created_at or '-' }}</td>
+                    <td class="mdc-data-table__cell">
+                        <a href="/books/{{ book.id }}/workflow" class="mdc-button">Workflow</a>
+                        <a href="/books/{{ book.id }}/images" class="mdc-button">Images</a>
+                        <form method="post" action="/books/{{ book.id }}/regenerate" style="margin-top:0.5rem;">
+                            <div class="mdc-text-field">
+                                <input type="text" name="new_prompt" class="mdc-text-field__input" placeholder="New prompt (optional)">
+                                <div class="mdc-line-ripple"></div>
+                            </div>
+                            <button class="mdc-button mdc-button--raised" type="submit">Regenerate</button>
+                        </form>
+                        <form method="post" action="/books/{{ book.id }}/delete" style="margin-top:0.5rem;" onsubmit="return confirm('Delete book {{ book.title }}?');">
+                            <button class="mdc-button mdc-button--outlined" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% if book.original_image_paths %}
+                <tr class="mdc-data-table__row">
+                    <td class="mdc-data-table__cell" colspan="7">
+                        <strong>Original Images:</strong>
+                        <code>{{ book.original_image_paths }}</code>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% else %}
-<p>No books found.</p>
+<p class="mdc-typography--body1">No books found.</p>
 {% endif %}
 
 {% endblock %}
