@@ -1,12 +1,8 @@
 import React from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator as PaperActivityIndicator } from 'react-native-paper';
+import Button from '../components/Button';
 import { colors, radii, spacing, typography } from "../styles/theme";
 
 type Props = {
@@ -25,7 +21,7 @@ const formatTimestamp = (date: Date | null) => {
 
 const ServerUnavailableScreen = ({ isChecking, onRetry, lastChecked, lastError }: Props) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top','bottom']}>
       <View style={styles.content}>
         <View style={styles.card}>
           <Text style={styles.title}>Server is resting</Text>
@@ -37,17 +33,7 @@ const ServerUnavailableScreen = ({ isChecking, onRetry, lastChecked, lastError }
           {lastChecked ? (
             <Text style={styles.timestamp}>Last check: {formatTimestamp(lastChecked)}</Text>
           ) : null}
-          <TouchableOpacity
-            style={[styles.retryButton, isChecking && styles.retryButtonDisabled]}
-            onPress={onRetry}
-            disabled={isChecking}
-          >
-            {isChecking ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.retryLabel}>Retry Connection</Text>
-            )}
-          </TouchableOpacity>
+          <Button title="Retry Connection" onPress={onRetry} loading={isChecking} disabled={isChecking} />
         </View>
         <Text style={styles.footerNote}>The app will retry automatically when you come back.</Text>
       </View>
@@ -96,23 +82,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     textAlign: "center",
     marginBottom: spacing(4),
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radii.lg,
-    paddingVertical: spacing(3),
-    paddingHorizontal: spacing(6),
-    minWidth: 180,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  retryButtonDisabled: {
-    opacity: 0.7,
-  },
-  retryLabel: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
   },
   footerNote: {
     ...typography.caption,

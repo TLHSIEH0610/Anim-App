@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { Surface } from 'react-native-paper';
+import { radii, shadow, spacing } from '../styles/theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -8,21 +10,18 @@ interface CardProps {
 }
 
 const Card: React.FC<CardProps> = ({ children, style }) => {
-  return <View style={[styles.card, style]}>{children}</View>;
+  return (
+    <Surface style={[styles.card, style]} elevation={2}>
+      {children}
+    </Surface>
+  );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: radii.lg,
+    padding: spacing(5),
+    ...shadow.card,
   },
 });
 

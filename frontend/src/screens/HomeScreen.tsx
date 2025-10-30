@@ -1,11 +1,13 @@
 
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { Image, Text, View, StyleSheet, Alert, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadImage, getJobStatus, getJobList, getJobImageUrl, getJobImageData } from "../api/jobs";
 import { useAuth } from "../context/AuthContext";
 import ScreenWrapper from "../components/ScreenWrapper";
 import Card from "../components/Card";
+import Button from "../components/Button";
+import { colors } from "../styles/theme";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
@@ -127,29 +129,19 @@ export default function HomeScreen() {
             <Text style={styles.userEmail}>{user?.email}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        <Button title="Logout" onPress={handleLogout} variant="destructive" />
       </View>
       <ScrollView>
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Image Animation</Text>
           <Text style={styles.subtitle}>Upload an image to convert it into an animation</Text>
           
-          <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
-            <Text style={styles.pickButtonText}>📷 Pick an Image</Text>
-          </TouchableOpacity>
+          <Button title="📷 Pick an Image" onPress={pickImage} variant="primary" size="lg" />
           
           {image && (
             <View style={styles.imageContainer}>
               <Image source={{ uri: image }} style={styles.image} />
-              <TouchableOpacity 
-                style={[styles.uploadButton, !image && styles.disabledButton]} 
-                onPress={upload} 
-                disabled={!image}
-              >
-                <Text style={styles.uploadButtonText}>🚀 Upload & Process</Text>
-              </TouchableOpacity>
+              <Button title="🚀 Upload & Process" onPress={upload} variant="primary" disabled={!image} />
             </View>
           )}
           
@@ -161,17 +153,14 @@ export default function HomeScreen() {
         </Card>
 
         <Card style={styles.card}>
-          <TouchableOpacity 
-            style={styles.jobToggleButton} 
+          <Button 
+            title={`📋 ${showJobs ? 'Hide' : 'Show'} My Jobs (${jobs.length})`}
             onPress={() => {
               setShowJobs(!showJobs);
               if (!showJobs) loadJobs();
             }}
-          >
-            <Text style={styles.jobToggleText}>
-              📋 {showJobs ? 'Hide' : 'Show'} My Jobs ({jobs.length})
-            </Text>
-          </TouchableOpacity>
+            variant="secondary"
+          />
 
           {showJobs && (
             <ScrollView style={styles.jobList} nestedScrollEnabled={true}>
@@ -182,7 +171,7 @@ export default function HomeScreen() {
                   <View key={job.job_id} style={styles.jobItem}>
                     <View style={styles.jobHeader}>
                       <Text style={styles.jobId}>Job #{job.job_id}</Text>
-                      <Text style={[styles.jobStatus, { color: job.status === 'done' ? '#4CAF50' : '#FF9800' }]}>
+                      <Text style={[styles.jobStatus, { color: job.status === 'done' ? colors.success : colors.warning }]}>
                         {job.status === 'done' ? '✅ Complete' : job.status === 'processing' ? '⏳ Processing' : '📋 Queued'}
                       </Text>
                     </View>
@@ -201,26 +190,22 @@ export default function HomeScreen() {
                             style={styles.resultImage}
                           />
                         ) : (
-                          <TouchableOpacity 
-                            style={styles.loadImageButton}
+                          <Button 
+                            title={imageLoading[job.job_id] ? '⏳ Loading...' : '📷 Load Image'}
                             onPress={() => loadJobImage(job.job_id)}
+                            variant="secondary"
                             disabled={imageLoading[job.job_id]}
-                          >
-                            <Text style={styles.loadImageText}>
-                              {imageLoading[job.job_id] ? '⏳ Loading...' : '📷 Load Image'}
-                            </Text>
-                          </TouchableOpacity>
+                          />
                         )}
                       </View>
                     )}
                     
                     {job.status !== 'done' && (
-                      <TouchableOpacity 
-                        style={styles.refreshButton}
+                      <Button 
+                        title="🔄 Refresh Status"
                         onPress={() => refreshJobStatus(job.job_id)}
-                      >
-                        <Text style={styles.refreshText}>🔄 Refresh Status</Text>
-                      </TouchableOpacity>
+                        variant="secondary"
+                      />
                     )}
                   </View>
                 ))
@@ -263,7 +248,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarText: {
-    color: '#333',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -273,23 +258,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   userEmail: {
     fontSize: 13,
-    color: '#666',
-  },
-  logoutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  logoutButtonText: {
-    color: '#dd2c00',
-    fontWeight: '600',
-    fontSize: 14,
+    color: colors.textSecondary,
   },
   card: {
     marginBottom: 20,
@@ -297,28 +271,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 30,
     textAlign: 'center',
-  },
-  pickButton: {
-    backgroundColor: '#4285f4',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    marginBottom: 20,
-    alignSelf: 'center',
-  },
-  pickButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   imageContainer: {
     alignItems: 'center',
@@ -330,21 +291,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 15,
   },
-  uploadButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-  },
-  uploadButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#cccccc',
-    opacity: 0.6,
-  },
   statusContainer: {
     backgroundColor: 'rgba(0,0,0,0.05)',
     padding: 15,
@@ -355,31 +301,18 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 14,
     textAlign: 'center',
-    color: '#333',
+    color: colors.textPrimary,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1976d2',
+    color: colors.primaryDark,
     marginBottom: 10,
   },
   infoText: {
     fontSize: 13,
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 5,
-  },
-  jobToggleButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  jobToggleText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   jobList: {
     maxHeight: 400,
@@ -399,7 +332,7 @@ const styles = StyleSheet.create({
   jobId: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   jobStatus: {
     fontSize: 14,
@@ -407,7 +340,7 @@ const styles = StyleSheet.create({
   },
   jobTime: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 10,
   },
   jobResult: {
@@ -422,39 +355,14 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 10,
-  },
-  refreshButton: {
-    backgroundColor: '#FF9800',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  refreshText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
   },
   noJobs: {
     textAlign: 'center',
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     padding: 20,
-  },
-  loadImageButton: {
-    backgroundColor: '#4285f4',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  loadImageText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });

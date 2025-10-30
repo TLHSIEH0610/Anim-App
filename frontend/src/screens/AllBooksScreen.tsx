@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Alert, Image } from 'react-native';
+import { ActivityIndicator } from 'react-native-paper';
 import { getStoryTemplates, StoryTemplateSummary, getStoryCoverUrl } from '../api/books';
 import ScreenWrapper from '../components/ScreenWrapper';
 import BottomNav from '../components/BottomNav';
 import Card from '../components/Card';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
+import Button from '../components/Button';
+import Header from '../components/Header';
 
 const fallbackCover = require('../../assets/icon.png');
 
@@ -21,9 +24,7 @@ function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose
       <Text style={styles.title}>{item.name}</Text>
       {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
       <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
-      <TouchableOpacity style={styles.cta} onPress={() => onChoose(item.slug)}>
-        <Text style={styles.ctaText}>Make this book</Text>
-      </TouchableOpacity>
+      <Button title="Make this book" onPress={() => onChoose(item.slug)} variant="primary" />
     </Card>
   );
 }
@@ -60,12 +61,9 @@ export default function AllBooksScreen() {
 
   return (
     <ScreenWrapper showIllustrations>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Books</Text>
-        <Text style={styles.headerSub}>Choose a story to personalize</Text>
-      </View>
+      <Header title="Books" subtitle="Choose a story to personalize" />
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        <View style={styles.center}><ActivityIndicator /></View>
       ) : error ? (
         <View style={styles.center}><Text style={styles.error}>{error}</Text></View>
       ) : (
@@ -82,24 +80,14 @@ export default function AllBooksScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingBottom: spacing(2),
-  },
-  headerTitle: {
-    ...typography.headingL,
-    color: '#333',
-  },
-  headerSub: {
-    ...typography.body,
-    color: '#555',
-  },
+  
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   list: {
-    paddingBottom: spacing(16),
+    paddingBottom: spacing(24),
   },
   card: {
     marginBottom: spacing(3),
@@ -115,28 +103,18 @@ const styles = StyleSheet.create({
   coverImg: { width: '100%', height: 180, resizeMode: 'cover' },
   title: {
     ...typography.headingM,
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: spacing(1),
   },
   desc: {
     ...typography.body,
-    color: '#555',
+    color: colors.textSecondary,
     marginBottom: spacing(1),
   },
   meta: {
     ...typography.caption,
-    color: '#666',
+    color: colors.textMuted,
     marginBottom: spacing(2),
-  },
-  cta: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing(3),
-    borderRadius: radii.md,
-    alignItems: 'center',
-  },
-  ctaText: {
-    color: colors.surface,
-    fontWeight: '600',
   },
   error: {
     color: colors.danger,

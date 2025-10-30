@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { colors, radii, spacing, typography } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
+import Button from '../components/Button';
+import Header from '../components/Header';
 
 export default function AccountScreen() {
   const { user, logout } = useAuth();
@@ -12,10 +14,7 @@ export default function AccountScreen() {
 
   return (
     <ScreenWrapper showIllustrations>
-      <View style={styles.header}>
-        <Text style={styles.title}>Account</Text>
-        <Text style={styles.subtitle}>Manage your profile and billing</Text>
-      </View>
+      <Header title="Account" subtitle="Manage your profile and billing" />
 
       <View style={styles.card}>
         <Text style={styles.label}>Name</Text>
@@ -24,13 +23,9 @@ export default function AccountScreen() {
         <Text style={styles.value}>{user?.email || '—'}</Text>
       </View>
 
-      <TouchableOpacity style={styles.primary} onPress={() => navigation.navigate('BillingHistory')}>
-        <Text style={styles.primaryText}>View Billing</Text>
-      </TouchableOpacity>
+      <Button title="View Billing" onPress={() => navigation.navigate('BillingHistory')} variant="primary" />
 
-      <TouchableOpacity style={styles.secondary} onPress={logout}>
-        <Text style={styles.secondaryText}>Logout</Text>
-      </TouchableOpacity>
+      <Button title="Logout" onPress={logout} variant="danger" style={{ marginTop: spacing(3) }} />
 
       <BottomNav active="account" />
     </ScreenWrapper>
@@ -38,9 +33,6 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingBottom: spacing(3) },
-  title: { ...typography.headingL, color: '#333' },
-  subtitle: { ...typography.body, color: '#555' },
   card: {
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: radii.lg,
@@ -49,20 +41,4 @@ const styles = StyleSheet.create({
   },
   label: { ...typography.caption, color: colors.textSecondary },
   value: { ...typography.body, color: colors.textPrimary },
-  primary: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing(3),
-    borderRadius: radii.md,
-    alignItems: 'center',
-    marginBottom: spacing(3),
-  },
-  primaryText: { color: colors.surface, fontWeight: '600' },
-  secondary: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingVertical: spacing(3),
-    borderRadius: radii.md,
-    alignItems: 'center',
-  },
-  secondaryText: { color: colors.textPrimary, fontWeight: '600' },
 });
-

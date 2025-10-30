@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-  RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, Alert, RefreshControl } from 'react-native';
+import { ActivityIndicator, Chip, ProgressBar, Portal, Dialog } from 'react-native-paper';
 import { getBookList, deleteBook, adminRegenerateBook, Book } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import { colors, radii, shadow, spacing, statusColors, typography } from '../styles/theme';
@@ -17,6 +9,9 @@ import { AppStackParamList } from '../navigation/types';
 import ScreenWrapper from '../components/ScreenWrapper';
 import BottomNav from '../components/BottomNav';
 import Card from '../components/Card';
+import Button from '../components/Button';
+import Header from '../components/Header';
+import { TouchableRipple } from 'react-native-paper';
 
 const STATUS_COLORS: Record<string, string> = {
   ...statusColors,
@@ -39,6 +34,7 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirm, setConfirm] = useState<{ visible: boolean; type: 'delete' | 'regenerate' | null; book: Book | null }>({ visible: false, type: null, book: null });
 
   const loadBooks = async (isRefresh = false) => {
     if (!token) return;
@@ -72,57 +68,29 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
   };
 
   const handleDeleteBook = (book: Book) => {
-    Alert.alert(
-      'Delete Book',
-      `Are you sure you want to delete "${book.title}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!token) {
-                Alert.alert('Error', 'Session expired. Please log in again.');
-                return;
-              }
-              await deleteBook(token, book.id);
-              Alert.alert('Success', 'Book deleted successfully');
-              loadBooks(); // Refresh the list
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete book');
-            }
-          },
-        },
-      ]
-    );
+    setConfirm({ visible: true, type: 'delete', book });
   };
 
   const handleRegenerateBook = (book: Book) => {
-    Alert.alert(
-      'Regenerate Book',
-      `This will completely regenerate "${book.title}" with new story and images. This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Regenerate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!token) {
-                Alert.alert('Error', 'Session expired. Please log in again.');
-                return;
-              }
-              await adminRegenerateBook(token, book.id);
-              Alert.alert('Success', 'Book regeneration started! Check the status page to monitor progress.');
-              loadBooks(); // Refresh the list
-            } catch (error) {
-              Alert.alert('Error', 'Failed to regenerate book');
-            }
-          },
-        },
-      ]
-    );
+    setConfirm({ visible: true, type: 'regenerate', book });
+  };
+
+  const performConfirm = async () => {
+    if (!confirm.book || !confirm.type) return;
+    try {
+      if (!token) {
+        return;
+      }
+      if (confirm.type === 'delete') {
+        await deleteBook(token, confirm.book.id);
+      } else if (confirm.type === 'regenerate') {
+        await adminRegenerateBook(token, confirm.book.id);
+      }
+      setConfirm({ visible: false, type: null, book: null });
+      loadBooks();
+    } catch (error) {
+      setConfirm({ visible: false, type: null, book: null });
+    }
   };
 
   // Logout moved to Account tab
@@ -131,7 +99,8 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
 
   const renderBookItem = ({ item: book }: { item: Book }) => (
     <Card style={styles.bookItem}>
-        <TouchableOpacity onPress={() => handleBookPress(book)}>
+        <TouchableRipple onPress={() => handleBookPress(book)}>
+          <View>
             <View style={styles.bookHeader}>
                 <View style={styles.bookTitleContainer}>
                 <Text style={styles.bookTitle}>{book.title}</Text>
@@ -140,44 +109,28 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
                 </Text>
                 </View>
                 
-                <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={() => handleRegenerateBook(book)}
-                >
-                <Text style={styles.regenerateButtonText}>🔄</Text>
-                </TouchableOpacity>
+                <Button
+                  title="🔄"
+                  onPress={() => handleRegenerateBook(book)}
+                  variant="secondary"
+                />
                 
-                <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteBook(book)}
-                >
-                <Text style={styles.deleteButtonText}>🗑️</Text>
-                </TouchableOpacity>
+                <Button
+                  title="🗑️"
+                  onPress={() => handleDeleteBook(book)}
+                  variant="danger"
+                />
             </View>
             
             <View style={styles.bookStatus}>
-                <View style={[
-                styles.statusBadge, 
-                { backgroundColor: STATUS_COLORS[book.status] || '#6b7280' }
-                ]}>
-                <Text style={styles.statusText}>
-                    {STATUS_LABELS[book.status] || book.status}
-                </Text>
-                </View>
-                
-                {book.status !== 'completed' && book.status !== 'failed' && (
+              <Chip compact style={{ backgroundColor: STATUS_COLORS[book.status] || colors.textMuted }} textStyle={{ color: '#fff', fontWeight: '600' }}>
+                {STATUS_LABELS[book.status] || book.status}
+              </Chip>
+              {book.status !== 'completed' && book.status !== 'failed' && (
                 <View style={styles.progressBar}>
-                    <View 
-                    style={[
-                        styles.progressFill, 
-                        { 
-                        width: `${book.progress_percentage || 0}%`,
-                        backgroundColor: STATUS_COLORS[book.status] || '#6b7280'
-                        }
-                    ]} 
-                    />
+                  <ProgressBar progress={(book.progress_percentage || 0) / 100} color={STATUS_COLORS[book.status] || colors.textMuted} />
                 </View>
-                )}
+              )}
             </View>
             
             <Text style={styles.bookDate}>
@@ -195,7 +148,8 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
                 Error: {book.error_message}
                 </Text>
             )}
-        </TouchableOpacity>
+          </View>
+        </TouchableRipple>
     </Card>
   );
 
@@ -229,7 +183,7 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
     return (
         <ScreenWrapper>
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#3b82f6" />
+                <ActivityIndicator />
                 <Text style={styles.loadingText}>Loading your library...</Text>
             </View>
         </ScreenWrapper>
@@ -238,13 +192,23 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
 
   return (
     <ScreenWrapper>
-
-        <View style={styles.titleSection}>
-          <Text style={styles.libraryTitle}>📚 My Books</Text>
-          <Text style={styles.librarySubtitle}>
-            Your collection of magical stories
-          </Text>
-        </View>
+      <Portal>
+        <Dialog visible={confirm.visible} onDismiss={() => setConfirm({ visible: false, type: null, book: null })}>
+          <Dialog.Title>{confirm.type === 'delete' ? 'Delete Book' : 'Regenerate Book'}</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              {confirm.type === 'delete'
+                ? `Are you sure you want to delete "${confirm.book?.title}"? This action cannot be undone.`
+                : `This will completely regenerate "${confirm.book?.title}" with new story and images. This action cannot be undone.`}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button title="Cancel" variant="secondary" onPress={() => setConfirm({ visible: false, type: null, book: null })} />
+            <Button title={confirm.type === 'delete' ? 'Delete' : 'Regenerate'} variant="danger" onPress={performConfirm} />
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      <Header title="My Books" subtitle="Your collection of magical stories" />
 
       <FlatList
         data={books}
@@ -255,7 +219,7 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadBooks(true)}
-            colors={['#3b82f6']}
+            colors={[colors.primary]}
           />
         }
         ListEmptyComponent={renderEmptyState}
@@ -276,7 +240,7 @@ const styles = StyleSheet.create({
     marginTop: spacing(2.5),
     ...typography.body,
     textAlign: 'center',
-    color: '#333',
+    color: colors.textPrimary,
   },
   header: {
     flexDirection: 'row',
@@ -299,7 +263,7 @@ const styles = StyleSheet.create({
     marginRight: spacing(3),
   },
   avatarText: {
-    color: '#333',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -309,12 +273,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: spacing(1),
   },
   userEmail: {
     ...typography.caption,
-    color: '#666',
+    color: colors.textMuted,
   },
   logoutButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
@@ -330,7 +294,7 @@ const styles = StyleSheet.create({
     marginRight: spacing(3),
   },
   historyButtonText: {
-    color: '#1e88e5',
+    color: colors.primaryDark,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -339,23 +303,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutButtonText: {
-    color: '#dd2c00',
+    color: colors.danger,
     fontWeight: '600',
     fontSize: 14,
   },
-  titleSection: {
-    paddingVertical: spacing(5),
-    alignItems: 'center',
-  },
-  libraryTitle: {
-    ...typography.headingXL,
-    color: '#333',
-    marginBottom: spacing(2),
-  },
-  librarySubtitle: {
-    ...typography.body,
-    color: '#555',
-  },
+  titleSection: { paddingVertical: spacing(1), alignItems: 'center' },
   listContainer: {
     paddingBottom: spacing(28),
   },
@@ -379,24 +331,11 @@ const styles = StyleSheet.create({
   bookTitle: {
     ...typography.headingM,
     marginBottom: spacing(1),
-    color: '#333',
+    color: colors.textPrimary,
   },
   bookDetails: {
     ...typography.caption,
-    color: '#666',
-  },
-  regenerateButton: {
-    padding: spacing(1.5),
-    marginRight: spacing(1),
-  },
-  regenerateButtonText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    padding: spacing(1.5),
-  },
-  deleteButtonText: {
-    fontSize: 16,
+    color: colors.textSecondary,
   },
   bookStatus: {
     flexDirection: 'row',
@@ -404,32 +343,13 @@ const styles = StyleSheet.create({
     marginVertical: spacing(2),
     gap: spacing(3),
   },
-  statusBadge: {
-    paddingHorizontal: spacing(3),
-    paddingVertical: spacing(1.5),
-    borderRadius: radii.pill,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    color: colors.surface,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   progressBar: {
     flex: 1,
-    height: 6,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: radii.pill,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: radii.pill,
   },
   bookDate: {
     ...typography.caption,
     marginBottom: spacing(2),
-    color: '#666',
+    color: colors.textSecondary,
   },
   completedIndicator: {
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -465,14 +385,14 @@ const styles = StyleSheet.create({
     ...typography.headingL,
     textAlign: 'center',
     marginBottom: spacing(2),
-    color: '#333',
+    color: colors.textPrimary,
   },
   emptySubtitle: {
     ...typography.body,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing(5),
-    color: '#555',
+    color: colors.textSecondary,
   },
   createFirstBookButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -482,7 +402,7 @@ const styles = StyleSheet.create({
     ...shadow.subtle,
   },
   createFirstBookText: {
-    color: '#333',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   fab: {

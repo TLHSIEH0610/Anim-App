@@ -12,6 +12,10 @@ import BookStatusScreen from "./src/screens/BookStatusScreen";
 import BookViewerScreen from "./src/screens/BookViewerScreen";
 import BillingHistoryScreen from "./src/screens/BillingHistoryScreen";
 import { StripeProvider, isStripeAvailable } from "./src/lib/stripe";
+import { colors } from "./src/styles/theme";
+import { Provider as PaperProvider } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { materialTheme } from './src/styles/materialTheme';
 import { AppStackParamList } from "./src/navigation/types";
 import { ServerStatusProvider, useServerStatus } from "./src/context/ServerStatusContext";
 import ServerUnavailableScreen from "./src/screens/ServerUnavailableScreen";
@@ -24,7 +28,7 @@ function AppContent() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -56,7 +60,7 @@ const ServerStatusGate = ({ children }: { children: React.ReactNode }) => {
   if (isBackendReachable === null) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -80,13 +84,15 @@ export default function App() {
   const cardPaymentsEnabled = Boolean(publishableKey && publishableKey.length > 0 && isStripeAvailable);
 
   const appTree = (
-    <AuthProvider>
-      <ServerStatusProvider>
-        <ServerStatusGate>
-          <AppContent />
-        </ServerStatusGate>
-      </ServerStatusProvider>
-    </AuthProvider>
+    <PaperProvider theme={materialTheme} settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}>
+      <AuthProvider>
+        <ServerStatusProvider>
+          <ServerStatusGate>
+            <AppContent />
+          </ServerStatusGate>
+        </ServerStatusProvider>
+      </AuthProvider>
+    </PaperProvider>
   );
 
   if (cardPaymentsEnabled) {
@@ -112,6 +118,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.background,
   },
 });
