@@ -461,6 +461,12 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 "version": template.version,
                 "page_count": len(template.pages) or 0,
                 "cover_path": template.cover_image_url,
+                "demo_images": [
+                    template.demo_image_1,
+                    template.demo_image_2,
+                    template.demo_image_3,
+                    template.demo_image_4,
+                ],
                 "currency": quote.currency,
                 "price_dollars": _decimal_to_float(template.price_dollars),
                 "discount_price": _decimal_to_float(template.discount_price),

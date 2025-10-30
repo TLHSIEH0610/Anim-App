@@ -691,6 +691,20 @@ async def create_story_template(request: Request):
             }
             # use the slug from payload
             await backend_request("POST", f"/admin/story-templates/{payload['slug']}/cover", files=files)
+        # Optional demo images upload
+        for idx in [1, 2, 3, 4]:
+            key = f"demo_file_{idx}"
+            demo_file = form.get(key)
+            if demo_file and getattr(demo_file, "filename", ""):
+                demo_file.file.seek(0)
+                files = {
+                    "demo_file": (
+                        demo_file.filename,
+                        demo_file.file,
+                        demo_file.content_type or "application/octet-stream",
+                    )
+                }
+                await backend_request("POST", f"/admin/story-templates/{payload['slug']}/demo/{idx}", files=files)
         return RedirectResponse("/stories?message=Story%20template%20created", status_code=status.HTTP_303_SEE_OTHER)
     except httpx.HTTPStatusError as exc:
         detail = _format_backend_error(exc)
@@ -796,6 +810,20 @@ async def update_story_template(slug: str, request: Request):
                 )
             }
             await backend_request("POST", f"/admin/story-templates/{payload['slug']}/cover", files=files)
+        # Optional demo images upload
+        for idx in [1, 2, 3, 4]:
+            key = f"demo_file_{idx}"
+            demo_file = form.get(key)
+            if demo_file and getattr(demo_file, "filename", ""):
+                demo_file.file.seek(0)
+                files = {
+                    "demo_file": (
+                        demo_file.filename,
+                        demo_file.file,
+                        demo_file.content_type or "application/octet-stream",
+                    )
+                }
+                await backend_request("POST", f"/admin/story-templates/{payload['slug']}/demo/{idx}", files=files)
         return RedirectResponse("/stories?message=Story%20template%20updated", status_code=status.HTTP_303_SEE_OTHER)
     except httpx.HTTPStatusError as exc:
         detail = _format_backend_error(exc)

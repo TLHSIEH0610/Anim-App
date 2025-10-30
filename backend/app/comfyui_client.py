@@ -264,14 +264,54 @@ class ComfyUIClient:
                 workflow = copy.deepcopy(workflow_json)
                 workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
 
-                if keypoint_filename and "100" in workflow and "inputs" in workflow["100"]:
-                    workflow["100"]["inputs"]["image"] = keypoint_filename
-                    workflow["100"]["inputs"]["load_from_upload"] = True
-                    print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
+                # Inject keypoint into the workflow if provided
+                if keypoint_filename:
+                    try:
+                        # Prefer wiring via ApplyInstantID*'s image_kps link
+                        apply_node_id = None
+                        for node_id, node in workflow.items():
+                            if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
+                                apply_node_id = node_id
+                                break
+                        load_node_id = None
+                        if apply_node_id:
+                            apply_inputs = workflow[apply_node_id].get("inputs", {})
+                            link = apply_inputs.get("image_kps") or apply_inputs.get("image_kp")
+                            if isinstance(link, list) and len(link) >= 1 and isinstance(link[0], str):
+                                load_node_id = link[0]
+                        # Fallback to common node ids in our workflows
+                        if not load_node_id:
+                            for candidate in ["109", "100", "128"]:
+                                node = workflow.get(candidate)
+                                if node and node.get("class_type") == "LoadImage":
+                                    load_node_id = candidate
+                                    break
+                        # Last resort: pick any LoadImage node whose image hints keypoints/pose
+                        if not load_node_id:
+                            for node_id, node in workflow.items():
+                                if node.get("class_type") != "LoadImage":
+                                    continue
+                                img = node.get("inputs", {}).get("image")
+                                if isinstance(img, str) and any(h in img.lower() for h in ("keypoint", "pose", "instantid")):
+                                    load_node_id = node_id
+                                    break
+                        if load_node_id and "inputs" in workflow.get(load_node_id, {}):
+                            workflow[load_node_id]["inputs"]["image"] = keypoint_filename
+                            workflow[load_node_id]["inputs"]["load_from_upload"] = True
+                            print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_filename}")
+                        elif "100" in workflow and "inputs" in workflow["100"]:
+                            # Legacy fallback: node 100 manual set
+                            workflow["100"]["inputs"]["image"] = keypoint_filename
+                            workflow["100"]["inputs"]["load_from_upload"] = True
+                            print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
+                        else:
+                            print("[ComfyUI] Warning: Could not locate a LoadImage node for keypoints to inject")
+                    except Exception as inj_err:
+                        print(f"[ComfyUI] Keypoint injection failed: {inj_err}")
 
                 # Debug log: surface the filenames wired into each LoadImage node
                 try:
-                    load_nodes = [node_id for node_id in ["13", "94", "98", "100"] if node_id in workflow]
+                    load_nodes = [node_id for node_id in ["13", "94", "98", "100", "109", "128"] if node_id in workflow]
                     resolved_inputs = {
                         node_id: workflow[node_id]["inputs"].get("image")
                         for node_id in load_nodes

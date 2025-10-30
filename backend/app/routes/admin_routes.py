@@ -60,6 +60,34 @@ def require_admin(x_admin_secret: Optional[str] = Header(None)) -> None:
         raise HTTPException(status_code=403, detail="Admin access denied")
 
 
+def _inject_keypoint_into_workflow(workflow: Dict[str, Any], filename: str) -> None:
+    """Best-effort: set the keypoint/pose LoadImage node to a given filename.
+
+    Heuristics:
+      - Prefer known node ids used in our workflows: 109, 100, 128
+      - Otherwise, find a LoadImage node whose current image contains 'keypoint' or 'pose'
+    """
+    candidate_ids = ["109", "100", "128"]
+    for node_id in candidate_ids:
+        node = workflow.get(node_id)
+        if node and node.get("class_type") == "LoadImage" and isinstance(node.get("inputs"), dict):
+            node["inputs"]["image"] = filename
+            # Many workflows respect this toggle for uploaded files
+            node["inputs"]["load_from_upload"] = True
+            return
+
+    # Fallback heuristic: find any LoadImage with an image field hinting at keypoints
+    for node_id, node in workflow.items():
+        if node.get("class_type") != "LoadImage":
+            continue
+        inputs = node.get("inputs", {})
+        img = inputs.get("image")
+        if isinstance(img, str) and any(hint in img.lower() for hint in ("keypoint", "pose", "instantid")):
+            inputs["image"] = filename
+            inputs["load_from_upload"] = True
+            return
+
+
 def _is_super_admin(x_admin_email: Optional[str], db: Session) -> bool:
     if not x_admin_email:
         return False
@@ -153,6 +181,12 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "workflow_slug": template.workflow_slug,
         "is_active": template.is_active,
         "cover_image_url": template.cover_image_url,
+        "demo_images": [
+            template.demo_image_1,
+            template.demo_image_2,
+            template.demo_image_3,
+            template.demo_image_4,
+        ],
         "free_trial_slug": template.free_trial_slug,
         "price_dollars": _decimal_to_float(template.price_dollars),
         "discount_price": _decimal_to_float(template.discount_price),
@@ -206,6 +240,13 @@ def _covers_base_dir() -> Path:
     target.mkdir(parents=True, exist_ok=True)
     return target
 
+def _demo_image_path(slug: str, index: int, orig_filename: Optional[str]) -> Path:
+    base = _covers_base_dir()
+    ext = ".png"
+    if orig_filename and "." in orig_filename:
+        ext = "." + orig_filename.split(".")[-1]
+    return base / f"{slug}_demo_{index}{ext}"
+
 
 def _controlnet_image_to_dict(image: ControlNetImage) -> dict:
     return {
@@ -228,6 +269,44 @@ def _store_keypoint_upload(upload: UploadFile, slug: str) -> str:
     upload.file.seek(0)
     temp_path = save_upload(upload.file, subdir="controlnet/keypoints", filename=filename)
     return _rename_keypoint(temp_path, slug)
+
+@router.post("/story-templates/{slug}/demo/{index}")
+def admin_upload_demo_image(
+    slug: str,
+    index: int,
+    demo_file: UploadFile = File(...),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if index not in {1, 2, 3, 4}:
+        raise HTTPException(status_code=400, detail="index must be 1..4")
+
+    template = (
+        db.query(StoryTemplate)
+        .filter(StoryTemplate.slug == slug)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+
+    # Persist under covers with deterministic name per slot
+    path = _demo_image_path(slug, index, demo_file.filename)
+    demo_file.file.seek(0)
+    temp_path = save_upload(demo_file.file, subdir="covers", filename=path.name)
+
+    if index == 1:
+        template.demo_image_1 = temp_path
+    elif index == 2:
+        template.demo_image_2 = temp_path
+    elif index == 3:
+        template.demo_image_3 = temp_path
+    else:
+        template.demo_image_4 = temp_path
+
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return {"message": "Demo image uploaded", "index": index, "path": temp_path}
 
 
 @router.post("/story-templates/{slug}/cover")
@@ -381,6 +460,38 @@ def _legacy_admin_get_workflow(
         elif book.positive_prompt:
             prompt = book.positive_prompt
 
+        # Prepare workflow JSON for display, injecting keypoint filename if known
+        wf = copy.deepcopy(snapshot.workflow_json)
+        try:
+            keypoint_slug_for_page: Optional[str] = None
+            if book.story_source == "template" and book.template_key and story_template:
+                temp_book = SimpleNamespace(
+                    title=book.title,
+                    template_key=book.template_key,
+                    page_count=book.page_count,
+                    story_source=book.story_source,
+                    template_params=book.template_params,
+                    target_age=book.target_age or story_template.age,
+                    character_description=book.character_description,
+                )
+                _, overrides = _build_story_from_template(temp_book, story_template)
+                override = overrides.get(page)
+                if override:
+                    keypoint_slug_for_page = override.get("keypoint")
+            if keypoint_slug_for_page:
+                kp_record = (
+                    db.query(ControlNetImage)
+                    .filter(ControlNetImage.slug == keypoint_slug_for_page)
+                    .first()
+                )
+                if kp_record and kp_record.image_path:
+                    image_filename = Path(kp_record.image_path).name
+                else:
+                    image_filename = f"{keypoint_slug_for_page}.png"
+                _inject_keypoint_into_workflow(wf, image_filename)
+        except Exception:
+            pass
+
         return {
             "book_id": book.id,
             "image_filenames": filenames,
@@ -390,7 +501,7 @@ def _legacy_admin_get_workflow(
             "template_params": book.template_params,
             "page_number": page,
             "prompt_id": snapshot.prompt_id,
-            "workflow": snapshot.workflow_json,
+            "workflow": wf,
             "source": "stored",
             "page_count": book.page_count,
             "available_pages": available_pages,
@@ -418,6 +529,7 @@ def _legacy_admin_get_workflow(
         prompt = book.positive_prompt
 
     control_prompt = None
+    keypoint_slug_for_page: Optional[str] = None
 
     if book.story_source == "template" and book.template_key and story_template:
         try:
@@ -435,6 +547,7 @@ def _legacy_admin_get_workflow(
                 override = overrides.get(target_page.page_number)
                 if override:
                     control_prompt = override.get("control")
+                    keypoint_slug_for_page = override.get("keypoint")
         except Exception:
             control_prompt = None
 
@@ -443,6 +556,23 @@ def _legacy_admin_get_workflow(
 
     if prompt:
         workflow = comfy_client._update_prompt(workflow, prompt, control_prompt)  # type: ignore[attr-defined]
+
+    # Inject keypoint file name into workflow for inspector when available
+    if keypoint_slug_for_page:
+        kp_record = (
+            db.query(ControlNetImage)
+            .filter(ControlNetImage.slug == keypoint_slug_for_page)
+            .first()
+        )
+        if kp_record and kp_record.image_path:
+            try:
+                image_filename = Path(kp_record.image_path).name
+            except Exception:
+                image_filename = f"{keypoint_slug_for_page}.png"
+            _inject_keypoint_into_workflow(workflow, image_filename)
+        else:
+            # Fall back to slug-based filename for clarity
+            _inject_keypoint_into_workflow(workflow, f"{keypoint_slug_for_page}.png")
 
     return {
         "book_id": book.id,

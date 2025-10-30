@@ -48,7 +48,7 @@
 
 <section class="mt-4">
   <h3 class="mdc-typography--headline6 mb-2">Create New Story Template</h3>
-  <form method="post" action="/stories/create" class="form-grid one-col">
+  <form method="post" action="/stories/create" class="form-grid one-col" enctype="multipart/form-data">
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
         <input id="slug" name="slug" class="mdc-text-field__input" required>
@@ -126,6 +126,39 @@
       <label for="pages">Pages JSON</label>
       <p style="margin-top:-0.25rem; font-size:0.9rem; opacity:.75">Include optional <code>"seed"</code> per page to force deterministic ComfyUI outputs.</p>
       <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required></textarea>
+    </div>
+
+    <div class="full">
+      <label for="cover_image_url">Cover Image Path (optional)</label>
+      <input id="cover_image_url" name="cover_image_url" placeholder="/data/media/covers/my_story.png">
+      <div class="form-help" style="opacity:.75; font-size:.9rem; margin-top:6px">Provide a file path within MEDIA_ROOT or upload a file below.</div>
+    </div>
+
+    <div class="full">
+      <label for="cover_file">Or upload a new cover image</label>
+      <input id="cover_file" name="cover_file" type="file" accept="image/*">
+    </div>
+
+    <div class="full">
+      <label>Demo Images (optional)</label>
+      <div class="aa-grid aa-grid--sm">
+        <div>
+          <input id="demo_file_1" name="demo_file_1" type="file" accept="image/*">
+          <div class="form-help">Demo 1</div>
+        </div>
+        <div>
+          <input id="demo_file_2" name="demo_file_2" type="file" accept="image/*">
+          <div class="form-help">Demo 2</div>
+        </div>
+        <div>
+          <input id="demo_file_3" name="demo_file_3" type="file" accept="image/*">
+          <div class="form-help">Demo 3</div>
+        </div>
+        <div>
+          <input id="demo_file_4" name="demo_file_4" type="file" accept="image/*">
+          <div class="form-help">Demo 4</div>
+        </div>
+      </div>
     </div>
 
     <div class="form-actions full">

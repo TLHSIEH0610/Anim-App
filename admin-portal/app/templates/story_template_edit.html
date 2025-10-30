@@ -99,6 +99,36 @@
     </div>
   {% endif %}
 
+  <div class="full">
+    <label>Demo Images (optional)</label>
+    <div class="aa-grid aa-grid--sm">
+      <div>
+        <input id="demo_file_1" name="demo_file_1" type="file" accept="image/*">
+        {% if story.demo_images and story.demo_images[0] %}
+          <img src="/files-proxy?path={{ story.demo_images[0] }}" alt="Demo 1" style="max-width: 180px; display:block; border-radius:10px; margin-top:6px;" onerror="this.style.display='none'">
+        {% endif %}
+      </div>
+      <div>
+        <input id="demo_file_2" name="demo_file_2" type="file" accept="image/*">
+        {% if story.demo_images and story.demo_images[1] %}
+          <img src="/files-proxy?path={{ story.demo_images[1] }}" alt="Demo 2" style="max-width: 180px; display:block; border-radius:10px; margin-top:6px;" onerror="this.style.display='none'">
+        {% endif %}
+      </div>
+      <div>
+        <input id="demo_file_3" name="demo_file_3" type="file" accept="image/*">
+        {% if story.demo_images and story.demo_images[2] %}
+          <img src="/files-proxy?path={{ story.demo_images[2] }}" alt="Demo 3" style="max-width: 180px; display:block; border-radius:10px; margin-top:6px;" onerror="this.style.display='none'">
+        {% endif %}
+      </div>
+      <div>
+        <input id="demo_file_4" name="demo_file_4" type="file" accept="image/*">
+        {% if story.demo_images and story.demo_images[3] %}
+          <img src="/files-proxy?path={{ story.demo_images[3] }}" alt="Demo 4" style="max-width: 180px; display:block; border-radius:10px; margin-top:6px;" onerror="this.style.display='none'">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
   <div class="form-help full">
     <strong>Available template variables</strong>
     <p>Use these placeholders inside story text and prompts. They are populated when a user creates a book:</p>

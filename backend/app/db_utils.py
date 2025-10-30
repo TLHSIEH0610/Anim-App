@@ -26,6 +26,10 @@ def apply_schema_patches(engine):
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",
         "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'",
         "ALTER TABLE story_templates ADD COLUMN cover_image_url TEXT",
+        "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_1 TEXT",
+        "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_2 TEXT",
+        "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_3 TEXT",
+        "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_4 TEXT",
         dedent(
             """
             CREATE TABLE IF NOT EXISTS payments (

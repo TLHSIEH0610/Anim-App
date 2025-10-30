@@ -1152,7 +1152,8 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
             postalCodeEnabled={false}
             placeholders={{ number: "4242 4242 4242 4242" }}
             cardStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.88)',
+              // Use hex to avoid Android parseColor("rgba(...)") errors
+              backgroundColor: '#FFFFFF',
               textColor: colors.textPrimary,
               placeholderColor: colors.textMuted,
               borderRadius: radii.md,

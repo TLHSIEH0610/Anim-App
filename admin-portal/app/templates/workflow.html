@@ -17,15 +17,20 @@
     <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
     {% endif %}
     {% if available_pages and available_pages|length > 1 %}
-    <div class="mdc-select">
-        <select id="page" name="page" onchange="this.form.submit()" class="mdc-select__native-control">
-            {% for p in available_pages %}
-            <option value="{{ p }}" {% if p == current_page %}selected{% endif %}>Page {{ p }}</option>
-            {% endfor %}
-        </select>
-        <label for="page" class="mdc-floating-label">Jump to page:</label>
-        <div class="mdc-line-ripple"></div>
-    </div>
+    <form method="get" action="/books/{{ book_id }}/workflow" style="margin-top: 8px;">
+        <div class="mdc-select">
+            <select id="page" name="page" onchange="this.form.submit()" class="mdc-select__native-control">
+                {% for p in available_pages %}
+                <option value="{{ p }}" {% if p == current_page %}selected{% endif %}>Page {{ p }}</option>
+                {% endfor %}
+            </select>
+            <label for="page" class="mdc-floating-label">Jump to page:</label>
+            <div class="mdc-line-ripple"></div>
+        </div>
+        <noscript>
+            <button type="submit" class="mdc-button mdc-button--outlined" style="margin-left: 8px;">Go</button>
+        </noscript>
+    </form>
     {% endif %}
     <p><strong>Snapshot Source:</strong> {{ metadata.source }}</p>
     {% if metadata.prompt_id %}
