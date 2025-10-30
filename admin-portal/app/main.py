@@ -7,6 +7,7 @@ try:
 except Exception:
     sentry_sdk = None
 from typing import Any, Dict
+from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 import httpx
@@ -375,6 +376,25 @@ async def dashboard(request: Request):
     try:
         resp = await backend_request("GET", "/admin/books")
         books = resp.json().get("books", [])
+        # Prepare display-friendly fields
+        for b in books:
+            created_raw = b.get("created_at")
+            created_disp = None
+            if created_raw:
+                try:
+                    if isinstance(created_raw, (int, float)):
+                        dt = datetime.fromtimestamp(float(created_raw), tz=timezone.utc)
+                    else:
+                        s = str(created_raw)
+                        s = s.replace("Z", "+00:00")
+                        dt = datetime.fromisoformat(s)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                    local_dt = dt.astimezone()
+                    created_disp = local_dt.strftime("%Y-%m-%d %H:%M")
+                except Exception:
+                    created_disp = str(created_raw)
+            b["created_display"] = created_disp
     except httpx.HTTPError as exc:
         error = f"Failed to load books: {exc}" if not error else error
 

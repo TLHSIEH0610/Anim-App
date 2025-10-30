@@ -6,7 +6,8 @@
     <title>{{ title or 'AnimApp Admin' }}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-    <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    <link rel="stylesheet" href="/static/css/material.min.css">
+    <link rel="stylesheet" href="/static/css/app.css">
     <style>
         :root {
             --mdc-theme-primary: #6200ee;
@@ -16,6 +17,7 @@
             --mdc-theme-on-primary: #fff;
             --mdc-theme-on-secondary: #000;
             --mdc-theme-on-surface: #000;
+            --mdc-theme-error: #b00020;
             --mdc-typography-font-family: 'Roboto', sans-serif;
         }
         .dark {
@@ -48,19 +50,19 @@
     </script>
 </head>
 <body>
-    <header class="mdc-top-app-bar">
+    <header class="mdc-top-app-bar mdc-top-app-bar--fixed" role="banner">
         <div class="mdc-top-app-bar__row">
             <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
                 <span class="mdc-top-app-bar__title">AnimApp Admin</span>
             </section>
             <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end" role="toolbar">
                 {% if admin_email %}
-                    <a href="/dashboard" class="mdc-button mdc-button--unelevated">Dashboard</a>
-                    <a href="/stories" class="mdc-button mdc-button--unelevated">Stories</a>
-                    <a href="/users" class="mdc-button mdc-button--unelevated">Users</a>
-                    <a href="/workflows" class="mdc-button mdc-button--unelevated">Workflows</a>
-                    <a href="/keypoint-images" class="mdc-button mdc-button--unelevated">Keypoint Images</a>
-                    <a href="/logout" class="mdc-button mdc-button--unelevated">Logout</a>
+                    <a href="/dashboard" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">Dashboard</span></a>
+                    <a href="/stories" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">Stories</span></a>
+                    <a href="/users" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">Users</span></a>
+                    <a href="/workflows" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">Workflows</span></a>
+                    <a href="/keypoint-images" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">KEYPOINT</span></a>
+                    <a href="/logout" class="mdc-button mdc-button--unelevated"><span class="mdc-button__label">Logout</span></a>
                     <button id="theme-toggle" class="mdc-icon-button" aria-label="Toggle theme">
                         <i class="material-icons">brightness_4</i>
                     </button>
@@ -69,7 +71,7 @@
         </div>
     </header>
 
-    <div class="container">
+    <div class="aa-container">
         {% if message %}
             <div class="alert alert-success">{{ message }}</div>
         {% endif %}
@@ -80,9 +82,12 @@
 
         {% block content %}{% endblock %}
     </div>
-    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script src="/static/js/material.min.js" defer></script>
     <script>
-        mdc.autoInit();
+        // Initialize MDC after DOM ready
+        document.addEventListener('DOMContentLoaded', function(){
+          try { mdc.autoInit(); } catch(e) {}
+        });
         (function(){
             const btn = document.getElementById('theme-toggle');
             if (!btn) return;
@@ -96,6 +101,31 @@
                 apply(isDark ? 'light' : 'dark');
             });
         })();
+
+        // Explicitly initialize MDC components if autoInit() is not sufficient
+        document.addEventListener('DOMContentLoaded', function(){
+          try {
+            const textFields = document.querySelectorAll('.mdc-text-field');
+            for (const el of textFields) {
+                const tf = mdc.textField.MDCTextField.attachTo(el);
+                // Ensure label floats correctly for prefilled values
+                try { tf.layout(); } catch(_) {}
+            }
+            const buttons = document.querySelectorAll('.mdc-button, .mdc-icon-button');
+            for (const button of buttons) {
+                mdc.ripple.MDCRipple.attachTo(button);
+            }
+          } catch(e) {}
+          // Simple data-toggle handler for small prompt forms, etc.
+          document.body.addEventListener('click', function(ev){
+            const t = ev.target.closest('[data-toggle]');
+            if (!t) return;
+            const sel = t.getAttribute('data-toggle');
+            const el = document.querySelector(sel);
+            if (!el) return;
+            el.classList.toggle('hidden');
+          });
+        });
     </script>
 </body>
 </html>

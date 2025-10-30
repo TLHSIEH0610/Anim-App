@@ -24,77 +24,78 @@
                     <td class="mdc-data-table__cell">
                         {% set role = (user.role or 'user') %}
                         {% if role == 'superadmin' %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-error);">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">superadmin</span>
-                                </button>
+                        <div class="mdc-chip" style="background-color: var(--mdc-theme-error);">
+                            <div class="mdc-chip__ripple"></div>
+                            <span role="gridcell">
+                                <span class="mdc-chip__text">superadmin</span>
                             </span>
-                        </span>
+                        </div>
                         {% elif role == 'admin' %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-secondary);">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">admin</span>
-                                </button>
+                        <div class="mdc-chip" style="background-color: var(--mdc-theme-secondary);">
+                            <div class="mdc-chip__ripple"></div>
+                            <span role="gridcell">
+                                <span class="mdc-chip__text">admin</span>
                             </span>
-                        </span>
+                        </div>
                         {% else %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">user</span>
-                                </button>
+                        <div class="mdc-chip">
+                            <div class="mdc-chip__ripple"></div>
+                            <span role="gridcell">
+                                <span class="mdc-chip__text">user</span>
                             </span>
-                        </span>
+                        </div>
                         {% endif %}
                     </td>
                     <td class="mdc-data-table__cell">{{ user.credits }}</td>
-                    <td class="mdc-data-table__cell">
+                    <td class="mdc-data-table__cell aa-wrap">
                         {% if user.books %}
-                        <ul>
+                        <div class="books-list">
                             {% for book in user.books %}
-                            <li>
+                            <div class="book-line">
                                 <a href="/books/{{ book.id }}/workflow">{{ book.title }}</a>
-                                ({{ book.status }})
-                                | <a href="/books/{{ book.id }}/images">Images</a>
-                                | <a href="/books/{{ book.id }}/story">Story</a>
-                            </li>
+                                <span class="muted">({{ book.status }})</span>
+                                <span>&nbsp;|&nbsp;</span><a href="/books/{{ book.id }}/images">Images</a>
+                                <span>&nbsp;|&nbsp;</span><a href="/books/{{ book.id }}/story">Story</a>
+                            </div>
                             {% endfor %}
-                        </ul>
+                        </div>
                         {% else %}
                         <em>No books</em>
                         {% endif %}
                     </td>
                     <td class="mdc-data-table__cell">
-                        <form method="post" action="/users/{{ user.id }}/update">
-                            <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-                                <input id="email-{{ user.id }}" type="email" name="email" value="{{ user.email }}" class="mdc-text-field__input" required>
-                                <label for="email-{{ user.id }}" class="mdc-floating-label">Email</label>
-                                <div class="mdc-line-ripple"></div>
+                        <div class="actions-wrap">
+                          <button class="mdc-button btn-sm" type="button" data-toggle="#edit-{{ user.id }}"><span class="mdc-button__label">Edit</span></button>
+                          <form method="post" action="/users/{{ user.id }}/export">
+                            <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Export</span></button>
+                          </form>
+                        </div>
+                    </td>
+                </tr>
+                <tr id="edit-{{ user.id }}" class="row-expand hidden">
+                    <td class="mdc-data-table__cell" colspan="6">
+                        <form method="post" action="/users/{{ user.id }}/update" class="form-grid one-col">
+                            <div class="full">
+                                <label for="email-{{ user.id }}">Email</label>
+                                <input id="email-{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
                             </div>
                             {% if is_super_admin %}
-                            <div class="mdc-select" style="width: 100%; margin-bottom: 16px;">
-                                <select id="role-{{ user.id }}" name="role" class="mdc-select__native-control">
+                            <div class="full">
+                                <label for="role-{{ user.id }}">Role</label>
+                                <select id="role-{{ user.id }}" name="role">
                                     <option value="user" {% if user.role == 'user' %}selected{% endif %}>user</option>
                                     <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>admin</option>
                                 </select>
-                                <label for="role-{{ user.id }}" class="mdc-floating-label">Role</label>
-                                <div class="mdc-line-ripple"></div>
                             </div>
                             {% endif %}
-                            <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-                                <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0" class="mdc-text-field__input">
-                                <label for="credits-{{ user.id }}" class="mdc-floating-label">Credits</label>
-                                <div class="mdc-line-ripple"></div>
+                            <div class="full">
+                                <label for="credits-{{ user.id }}">Credits</label>
+                                <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0">
                             </div>
-                            <button type="submit" class="mdc-button mdc-button--raised">Update</button>
-                        </form>
-                        <form method="post" action="/users/{{ user.id }}/export" style="display:block; margin-top:0.75rem;">
-                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
+                            <div class="form-actions full">
+                                <button type="submit" class="mdc-button mdc-button--raised btn-sm"><span class="mdc-button__label">Save</span></button>
+                                <button type="button" class="mdc-button btn-sm" data-toggle="#edit-{{ user.id }}"><span class="mdc-button__label">Cancel</span></button>
+                            </div>
                         </form>
                     </td>
                 </tr>

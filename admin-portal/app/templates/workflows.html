@@ -25,13 +25,15 @@
                     <td class="mdc-data-table__cell">{{ workflow.version }}</td>
                     <td class="mdc-data-table__cell">{{ workflow.is_active }}</td>
                     <td class="mdc-data-table__cell">
-                        <a href="/workflows/{{ workflow.id }}" class="mdc-button">Edit</a>
-                        <form method="post" action="/workflows/{{ workflow.id }}/export" style="display:inline; margin-left:0.5rem;">
-                            <button type="submit" class="mdc-button mdc-button--outlined">Export</button>
-                        </form>
-                        <form method="post" action="/workflows/{{ workflow.id }}/delete" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
-                            <button type="submit" class="mdc-button mdc-button--outlined">Delete</button>
-                        </form>
+                        <div class="actions-wrap">
+                          <a href="/workflows/{{ workflow.id }}" class="mdc-button btn-sm"><span class="mdc-button__label">Edit</span></a>
+                          <form method="post" action="/workflows/{{ workflow.id }}/export">
+                            <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Export</span></button>
+                          </form>
+                          <form method="post" action="/workflows/{{ workflow.id }}/delete" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
+                            <button type="submit" class="mdc-button btn-sm btn-danger"><span class="mdc-button__label">Delete</span></button>
+                          </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -40,30 +42,37 @@
     </div>
 </div>
 
-<section style="margin-top:2rem;">
+<section class="mt-4">
     <h3 class="mdc-typography--headline6">Create New Workflow Version</h3>
-    <form method="post" action="/workflows/create">
-        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-            <input id="slug" name="slug" class="mdc-text-field__input" placeholder="base" required>
-            <label for="slug" class="mdc-floating-label">Slug</label>
-            <div class="mdc-line-ripple"></div>
+    <form method="post" action="/workflows/create" class="form-grid one-col">
+        <div class="full">
+            <div class="mdc-text-field mdc-text-field--filled w-100">
+                <input id="slug" name="slug" class="mdc-text-field__input" required>
+                <label for="slug" class="mdc-floating-label">Slug</label>
+                <div class="mdc-line-ripple"></div>
+            </div>
         </div>
-        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-            <input id="name" name="name" class="mdc-text-field__input" placeholder="Childbook Adventure" required>
-            <label for="name" class="mdc-floating-label">Name</label>
-            <div class="mdc-line-ripple"></div>
+        <div class="full">
+            <div class="mdc-text-field mdc-text-field--filled w-100">
+                <input id="name" name="name" class="mdc-text-field__input" required>
+                <label for="name" class="mdc-floating-label">Name</label>
+                <div class="mdc-line-ripple"></div>
+            </div>
         </div>
-        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-            <input id="type" name="type" class="mdc-text-field__input" placeholder="template" required>
-            <label for="type" class="mdc-floating-label">Type</label>
-            <div class="mdc-line-ripple"></div>
+        <div class="full">
+            <div class="mdc-text-field mdc-text-field--filled w-100">
+                <input id="type" name="type" class="mdc-text-field__input" required>
+                <label for="type" class="mdc-floating-label">Type</label>
+                <div class="mdc-line-ripple"></div>
+            </div>
         </div>
-        <div class="mdc-text-field mdc-text-field--textarea" style="width: 100%; margin-bottom: 16px;">
-            <textarea id="content" name="content" class="mdc-text-field__input" placeholder="{...}" required></textarea>
-            <label for="content" class="mdc-floating-label">Workflow JSON</label>
-            <div class="mdc-line-ripple"></div>
+        <div class="full">
+            <label for="content">Workflow JSON</label>
+            <textarea id="content" name="content" style="min-height:320px;" placeholder="{\n  \"nodes\": [],\n  \"edges\": []\n}" required></textarea>
         </div>
-        <button type="submit" class="mdc-button mdc-button--raised">Create</button>
+        <div class="form-actions full">
+          <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Create</span></button>
+        </div>
     </form>
 </section>
 

@@ -12,7 +12,6 @@
                     <th class="mdc-data-table__header-cell">ID</th>
                     <th class="mdc-data-table__header-cell">Title</th>
                     <th class="mdc-data-table__header-cell">Status</th>
-                    <th class="mdc-data-table__header-cell">Progress</th>
                     <th class="mdc-data-table__header-cell">Story</th>
                     <th class="mdc-data-table__header-cell">Created</th>
                     <th class="mdc-data-table__header-cell">Actions</th>
@@ -25,76 +24,47 @@
                     <td class="mdc-data-table__cell">{{ book.title }}</td>
                     <td class="mdc-data-table__cell">
                         {% set s = (book.status or '').lower() %}
-                        {% if s in ['creating','generating_story','generating_images','composing'] %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">{{ book.status }}</span>
-                                </button>
-                            </span>
-                        </span>
+                        {% set pct = (book.progress_percentage or 0) | int %}
+                        {% set badge_class = 'badge--unknown' %}
+                        {% if s in ['creating','generating_story','generating_images','composing','queued','running'] %}
+                          {% set badge_class = 'badge--inprogress' %}
                         {% elif s == 'completed' %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-secondary);">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">completed</span>
-                                </button>
-                            </span>
-                        </span>
+                          {% set badge_class = 'badge--done' %}
                         {% elif s == 'failed' %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1" style="background-color: var(--mdc-theme-error);">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">failed</span>
-                                </button>
-                            </span>
-                        </span>
-                        {% else %}
-                        <span class="mdc-evolution-chip mdc-evolution-chip--with-primary-icon" role="row">
-                            <span class="mdc-evolution-chip__cell mdc-evolution-chip__cell--primary" role="gridcell">
-                                <button class="mdc-evolution-chip__action mdc-evolution-chip__action--primary" type="button" tabindex="-1">
-                                    <span class="mdc-evolution-chip__ripple mdc-evolution-chip__ripple--primary"></span>
-                                    <span class="mdc-evolution-chip__text-label">{{ book.status or 'unknown' }}</span>
-                                </button>
-                            </span>
-                        </span>
+                          {% set badge_class = 'badge--failed' %}
                         {% endif %}
+                        <div class="badge {{ badge_class }}">
+                          <span style="text-transform:capitalize;">{{ s or 'unknown' }}</span>
+                          {% if s != 'completed' and s != 'failed' %}
+                          <span class="progress-mini" aria-label="{{ pct }}%">
+                            <i style="width: {{ pct }}%"></i>
+                          </span>
+                          {% endif %}
+                        </div>
                     </td>
-                    <td class="mdc-data-table__cell">{{ '%.0f'|format(book.progress_percentage or 0) }}%</td>
                     <td class="mdc-data-table__cell">
                         {% if book.story_source == 'template' %}
-                        Template ({{ book.template_key or 'story' }})
+                          {% set tv = book.template_version or book.version %}
+                          {{ book.template_name or book.template_key or 'Template' }}
+                          <span class="muted">({{ book.template_key }}{% if tv %} v{{ tv }}{% endif %})</span>
                         {% else %}
-                        Custom
+                          Custom
                         {% endif %}
                     </td>
-                    <td class="mdc-data-table__cell">{{ book.created_at or '-' }}</td>
+                    <td class="mdc-data-table__cell">{{ book.created_display or book.created_at or '-' }}</td>
                     <td class="mdc-data-table__cell">
-                        <a href="/books/{{ book.id }}/workflow" class="mdc-button">Workflow</a>
-                        <a href="/books/{{ book.id }}/images" class="mdc-button">Images</a>
-                        <form method="post" action="/books/{{ book.id }}/regenerate" style="margin-top:0.5rem;">
-                            <div class="mdc-text-field">
-                                <input type="text" name="new_prompt" class="mdc-text-field__input" placeholder="New prompt (optional)">
-                                <div class="mdc-line-ripple"></div>
-                            </div>
-                            <button class="mdc-button mdc-button--raised" type="submit">Regenerate</button>
-                        </form>
-                        <form method="post" action="/books/{{ book.id }}/delete" style="margin-top:0.5rem;" onsubmit="return confirm('Delete book {{ book.title }}?');">
-                            <button class="mdc-button mdc-button--outlined" type="submit">Delete</button>
-                        </form>
+                        <div class="actions-wrap">
+                          <a href="/books/{{ book.id }}/workflow" class="mdc-button btn-sm"><span class="mdc-button__label">Workflow</span></a>
+                          <a href="/books/{{ book.id }}/images" class="mdc-button btn-sm"><span class="mdc-button__label">Images</span></a>
+                          <form method="post" action="/books/{{ book.id }}/regenerate">
+                            <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Regenerate</span></button>
+                          </form>
+                          <form method="post" action="/books/{{ book.id }}/delete" onsubmit="return confirm('Delete book {{ book.title }}?');">
+                            <button class="mdc-button btn-sm btn-danger" type="submit"><span class="mdc-button__label">Delete</span></button>
+                          </form>
+                        </div>
                     </td>
                 </tr>
-                {% if book.original_image_paths %}
-                <tr class="mdc-data-table__row">
-                    <td class="mdc-data-table__cell" colspan="7">
-                        <strong>Original Images:</strong>
-                        <code>{{ book.original_image_paths }}</code>
-                    </td>
-                </tr>
-                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
