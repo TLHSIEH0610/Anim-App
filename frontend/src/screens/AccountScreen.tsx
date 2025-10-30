@@ -13,7 +13,7 @@ export default function AccountScreen() {
   const navigation = useNavigation<any>();
 
   return (
-    <ScreenWrapper showIllustrations>
+    <ScreenWrapper showIllustrations footer={<BottomNav active="account" />}>
       <Header title="Account" subtitle="Manage your profile and billing" />
 
       <View style={styles.card}>
@@ -26,8 +26,6 @@ export default function AccountScreen() {
       <Button title="View Billing" onPress={() => navigation.navigate('BillingHistory')} variant="primary" />
 
       <Button title="Logout" onPress={logout} variant="danger" style={{ marginTop: spacing(3) }} />
-
-      <BottomNav active="account" />
     </ScreenWrapper>
   );
 }

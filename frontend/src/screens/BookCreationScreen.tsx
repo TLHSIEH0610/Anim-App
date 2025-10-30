@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, Image } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { TextInput as PaperTextInput, SegmentedButtons, TouchableRipple, IconButton, ActivityIndicator as PaperActivityIndicator, Snackbar, Portal, Dialog } from 'react-native-paper';
 import * as ImagePicker from "expo-image-picker";
 import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
@@ -50,7 +51,7 @@ interface BookForm {
   templateInput: TemplateInput;
 }
 
-const steps = ["Upload Images", "Story Setup", "Review", "Payment"];
+const steps = ["Story Setup", "Review", "Payment"];
 
 const GENDER_OPTIONS: Array<{ value: "male" | "female"; label: string }> = [
   { value: "female", label: "Girl" },
@@ -156,6 +157,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   const [cardDetailsComplete, setCardDetailsComplete] = useState(false);
   const [cardFieldError, setCardFieldError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [autoTitle, setAutoTitle] = useState<string>("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
 
@@ -386,6 +388,13 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     }
   };
 
+  const updateImages = (images: string[]) => {
+    setForm((prev) => ({ ...prev, images }));
+    if (images.length > 0) {
+      setImageError(null);
+    }
+  };
+
   const handleTitleChange = (value: string) => {
     if (value.trim().length === 0) {
       setTitleManuallyEdited(false);
@@ -420,11 +429,8 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         }
 
         const imageUris = selectedAssets.map((asset) => asset.uri);
-        updateForm("images", imageUris);
+        updateImages(imageUris);
 
-        if (currentStep === 0) {
-          setCurrentStep(1);
-        }
       }
     } catch (error) {
       setSnackbar({ visible: true, message: 'Failed to pick images' });
@@ -433,7 +439,10 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
   const removeImage = (index: number) => {
     const newImages = form.images.filter((_, i) => i !== index);
-    updateForm("images", newImages);
+    updateImages(newImages);
+    if (newImages.length === 0) {
+      setImageError("At least one character image is required.");
+    }
   };
 
   const handleSelectTemplate = (template: TemplateDisplay) => {
@@ -492,9 +501,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   const canProceedToNext = () => {
     switch (currentStep) {
       case 0:
-        return form.images.length > 0;
+        return form.images.length > 0 && !!selectedTemplate && !!form.templateInput.name.trim();
       case 1:
-        return !!selectedTemplate && !!form.templateInput.name.trim();
+        return !!form.title.trim();
       case 2:
         if (!pricingQuote || pricingLoading) {
           return false;
@@ -510,6 +519,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
   const ensureFormReady = (): { template: TemplateDisplay; quote: PricingQuote } | null => {
     if (!form.images.length) {
+      setImageError("Upload at least one character image to continue.");
       setSnackbar({ visible: true, message: 'Please select at least 1 image' });
       return null;
     }
@@ -642,7 +652,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
     if (!selectedPaymentMethod && paymentRequired) {
       setPaymentError("Please choose a payment method in the review step.");
-      setCurrentStep(2);
+      setCurrentStep(1);
       return;
     }
 
@@ -725,52 +735,51 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       if (detail && detail.toLowerCase().includes("stripe secret key not configured")) {
         setPricingQuote((prev) => (prev ? { ...prev, card_available: false } : prev));
         setSelectedPaymentMethod(null);
-        setCurrentStep(2);
+        setCurrentStep(1);
       }
     } finally {
       setIsPaymentLoading(false);
     }
   };
 
-  const renderStep0 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Upload Character Images</Text>
-      <Text style={styles.stepDescription}>
-        Select 1-4 images of your character for better consistency throughout the book.
-      </Text>
-
-      <View style={styles.imageCountBadge}>
-        <Text style={styles.imageCountText}>{form.images.length}/4 images selected</Text>
-      </View>
-
-      {form.images.length ? (
-        <View>
-          <View style={styles.imageGallery}>
-            {form.images.map((uri, index) => (
-              <View key={index} style={styles.imageWrapper}>
-                <Image source={{ uri }} style={styles.galleryImage} />
-                <IconButton icon="close" size={18} style={styles.removeImageButton} onPress={() => removeImage(index)} />
-              </View>
-            ))}
-          </View>
-          {form.images.length < 4 && (
-            <Button title="+ Add More Images" onPress={pickImage} variant="secondary" />
-          )}
-        </View>
-      ) : (
-        <Button title="Select Images (1-4)" onPress={pickImage} variant="primary" />
-      )}
-
-      <Text style={styles.helpText}>
-        Tip: Multiple images help AI understand your character better! Choose clear images with good lighting.
-      </Text>
-    </View>
-  );
-
-  const renderStep1 = () => {
+  const renderStep0 = () => {
     const readonlyTemplate = Boolean(route?.params?.templateSlug);
     return (
       <View style={styles.stepContent}>
+        <Text style={styles.stepTitle}>Upload Character Images *</Text>
+        <Text style={styles.stepDescription}>
+          Select 1-4 images of your character for better consistency throughout the book.
+        </Text>
+
+        <View style={styles.imageCountBadge}>
+          <Text style={styles.imageCountText}>{form.images.length}/4 images selected</Text>
+        </View>
+
+        {form.images.length ? (
+          <View>
+            <View style={styles.imageGallery}>
+              {form.images.map((uri, index) => (
+                <View key={index} style={styles.imageWrapper}>
+                  <Image source={{ uri }} style={styles.galleryImage} />
+                  <IconButton icon="close" size={18} style={styles.removeImageButton} onPress={() => removeImage(index)} />
+                </View>
+              ))}
+            </View>
+            {form.images.length < 4 && (
+              <Button title="+ Add More Images" onPress={pickImage} variant="secondary" />
+            )}
+          </View>
+        ) : (
+          <Button title="Select Images (1-4)" onPress={pickImage} variant="primary" />
+        )}
+
+        <Text style={styles.helpText}>
+          Tip: Multiple images help AI understand your character better! Choose clear images with good lighting.
+        </Text>
+        {imageError ? <Text style={styles.errorTextInline}>{imageError}</Text> : null}
+
+        <View style={styles.sectionDivider} />
+
         <Text style={styles.stepTitle}>Story Setup</Text>
 
         {isLoadingTemplates ? (
@@ -785,15 +794,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         ) : null}
 
         {readonlyTemplate ? (
-          selectedTemplate ? (
-            <View style={styles.paymentSummaryCard}>
-              <Text style={styles.paymentSummaryHeading}>Selected Template</Text>
-              <Text style={styles.reviewDetail}>{selectedTemplate.name} • {selectedTemplate.page_count} pages</Text>
-              {selectedTemplate.description ? (
-                <Text style={styles.helperText}>{selectedTemplate.description}</Text>
-              ) : null}
-            </View>
-          ) : null
+          <Text style={styles.helperText}>
+            This story template is pre-selected for this book. You can review the details on the next step.
+          </Text>
         ) : (
           <View style={styles.templateList}>
             {templates.map((template) => renderTemplateCard(template))}
@@ -801,10 +804,13 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         )}
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Character Name</Text>
+          <Text style={styles.label}>Character Name *</Text>
           <PaperTextInput
             mode="outlined"
             style={styles.textInput}
+            outlineStyle={{ borderRadius: radii.md }}
+            outlineColor={'rgba(37, 99, 235, 0.25)'}
+            activeOutlineColor={colors.primary}
             placeholder="Enter a character name"
             value={form.templateInput.name}
             onChangeText={(text: string) => updateTemplateInput("name", text)}
@@ -822,13 +828,15 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
           <SegmentedButtons
             value={form.templateInput.gender}
             onValueChange={(val: string) => updateTemplateInput('gender', val)}
+            density="small"
+            style={styles.segmented}
             buttons={GENDER_OPTIONS.map(opt => ({ value: opt.value, label: opt.label }))}
           />
         </View>
       </View>
     );
   };
-  const renderStep2 = () => (
+  const renderStep1 = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Review & Personalize</Text>
 
@@ -846,10 +854,16 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
           <PaperTextInput
             mode="outlined"
             style={styles.textInput}
+            outlineStyle={{ borderRadius: radii.md }}
+            outlineColor={'rgba(37, 99, 235, 0.25)'}
+            activeOutlineColor={colors.primary}
             value={form.title}
             placeholder={autoTitle || "Story Title"}
             onChangeText={handleTitleChange}
           />
+          {!form.title.trim() ? (
+            <Text style={styles.errorTextInline}>Book title is required.</Text>
+          ) : null}
         </View>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
         <Text style={styles.reviewDetail}>
@@ -916,9 +930,6 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       </View>
 
       <View style={styles.paymentOptionsContainer}>{renderPaymentActions()}</View>
-
-
-      <Button title="- Back to Story Setup" onPress={() => setCurrentStep(1)} variant="secondary" />
     </View>
   );
 
@@ -1052,7 +1063,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     );
   };
 
-  const renderStep3 = () => {
+  const renderStep2 = () => {
     const paymentRequired = pricingQuote
       ? pricingQuote.final_price > 0 ||
         (pricingQuote.free_trial_slug && !pricingQuote.free_trial_consumed)
@@ -1076,7 +1087,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Payment</Text>
       <Text style={styles.stepDescription}>
-        Confirm your payment choice to start generating your personalized children-s book.
+        Confirm your payment choice to start generating your personalized children's book.
       </Text>
 
       {pricingLoading ? (
@@ -1141,7 +1152,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
             postalCodeEnabled={false}
             placeholders={{ number: "4242 4242 4242 4242" }}
             cardStyle={{
-              backgroundColor: colors.surface,
+              backgroundColor: 'rgba(255, 255, 255, 0.88)',
               textColor: colors.textPrimary,
               placeholderColor: colors.textMuted,
               borderRadius: radii.md,
@@ -1159,8 +1170,6 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       ) : null}
 
       {paymentError ? <Text style={styles.errorTextInline}>{paymentError}</Text> : null}
-
-      <Button title="- Back to Review" onPress={() => setCurrentStep(2)} variant="secondary" />
 
       <Button
         title="Confirm & Pay"
@@ -1180,8 +1189,6 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         return renderStep1();
       case 2:
         return renderStep2();
-      case 3:
-        return renderStep3();
       default:
         return renderStep0();
     }
@@ -1190,8 +1197,13 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   const goToNextStep = () => {
     if (currentStep < steps.length - 1 && canProceedToNext()) {
       setCurrentStep(currentStep + 1);
-    } else if (currentStep === 1 && !form.templateInput.name.trim()) {
-      setNameError("Character name is required.");
+    } else if (currentStep === 0) {
+      if (!form.templateInput.name.trim()) {
+        setNameError("Character name is required.");
+      }
+      if (!form.images.length) {
+        setImageError("Upload at least one character image to continue.");
+      }
     }
   };
 
@@ -1252,22 +1264,41 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
       {renderStepContent()}
 
-      <Button title="Cancel" onPress={() => navigation.navigate("BookLibrary")} variant="danger" />
-
-      <View style={styles.navigation}>
-        {currentStep > 0 && currentStep < steps.length - 1 && (
-          <Button title="- Back" onPress={goToPrevStep} variant="secondary" />
+      <View style={styles.navigationRow}>
+        {currentStep > 0 && currentStep < steps.length - 1 ? (
+          <Button
+            title=""
+            onPress={goToPrevStep}
+            variant="secondary"
+            style={styles.navButton}
+            size="sm"
+            leftIcon={<MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />}
+          />
+        ) : (
+          <View style={styles.navSpacer} />
         )}
 
-        {currentStep < steps.length - 1 && (
+        {currentStep < steps.length - 1 ? (
           <Button
-            title={currentStep === steps.length - 2 ? "Continue" : "Next -"}
+            title=""
             onPress={goToNextStep}
             disabled={!canProceedToNext()}
             variant="primary"
+            style={[styles.navButton, styles.nextButton]}
+             size="sm"
+            rightIcon={<MaterialCommunityIcons name="arrow-right" size={20} color={canProceedToNext() ? colors.surface : colors.neutral500} />}
           />
+        ) : (
+          <View style={styles.navSpacer} />
         )}
       </View>
+
+      <Button
+        title="Cancel"
+        onPress={() => navigation.navigate("BookLibrary")}
+        variant="secondary"
+        style={[styles.cancelButton, styles.cancelStandalone]}
+      />
     </ScrollView>
     <Snackbar visible={snackbar.visible} onDismiss={() => setSnackbar({ visible: false, message: '' })} duration={3000}>
       {snackbar.message}
@@ -1282,9 +1313,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing(6),
     paddingBottom: spacing(6),
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
   },
   title: {
     ...typography.headingXL,
@@ -1299,12 +1327,12 @@ const styles = StyleSheet.create({
   stepIndicator: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: spacing(5),
+    paddingVertical: spacing(4),
     paddingHorizontal: spacing(5),
-    backgroundColor: colors.surface,
-    marginBottom: spacing(3),
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
+    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    borderRadius: radii.lg,
+    marginHorizontal: spacing(4),
+    marginBottom: spacing(4),
   },
   stepContainer: {
     alignItems: "center",
@@ -1314,7 +1342,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.pill,
-    backgroundColor: colors.neutral200,
+    backgroundColor: 'rgba(135, 206, 235, 0.25)',
     justifyContent: "center",
     alignItems: "center",
     marginBottom: spacing(1.5),
@@ -1323,27 +1351,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   stepCircleCompleted: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(37, 99, 235, 0.45)',
   },
   stepNumber: {
     fontSize: 12,
     fontWeight: "600",
-    color: colors.textMuted,
+    color: colors.primaryDark,
   },
   stepNumberActive: {
     color: colors.surface,
   },
   stepLabel: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   stepLabelActive: {
     color: colors.primaryDark,
+    fontWeight: "600",
   },
   stepContent: {
-    paddingHorizontal: spacing(6),
+    paddingHorizontal: spacing(2),
     paddingBottom: spacing(8),
+  },
+  sectionDivider: {
+    height: spacing(5),
+    width: '100%',
   },
   stepTitle: {
     ...typography.headingL,
@@ -1414,11 +1447,18 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: colors.neutral200,
+    borderColor: 'rgba(37, 99, 235, 0.15)',
     borderRadius: radii.md,
-    padding: spacing(3),
-    backgroundColor: colors.surface,
+    paddingVertical: spacing(1.5),
+    paddingHorizontal: spacing(2.5),
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     fontSize: 15,
+  },
+  segmented: {
+    backgroundColor: 'rgba(135, 206, 235, 0.12)',
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   optionGroup: {
     flexDirection: "row",
@@ -1429,11 +1469,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.neutral200,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
     borderRadius: radii.pill,
     paddingVertical: spacing(2.5),
     paddingHorizontal: spacing(3.5),
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   optionPillActive: {
     borderColor: colors.primary,
@@ -1466,15 +1506,15 @@ const styles = StyleSheet.create({
   templateCard: {
     padding: spacing(4),
     borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.neutral200,
-    backgroundColor: colors.surface,
+    borderWidth: 0,
+    backgroundColor: 'rgba(135, 206, 235, 0.18)',
     marginBottom: spacing(3),
-    ...shadow.card,
+    ...shadow.subtle,
   },
   templateCardActive: {
+    borderWidth: 1,
     borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
   },
   templateTitle: {
     ...typography.headingM,
@@ -1523,13 +1563,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   reviewDetails: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderRadius: radii.lg,
-    padding: spacing(4),
+    padding: 0,
     marginBottom: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.neutral200,
-    ...shadow.subtle,
   },
   reviewTitle: {
     fontSize: 20,
@@ -1545,9 +1582,8 @@ const styles = StyleSheet.create({
     marginTop: spacing(3),
     padding: spacing(3.5),
     borderRadius: radii.lg,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primarySoft,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    borderWidth: 0,
   },
   reviewStorylineHeading: {
     fontSize: 14,
@@ -1581,11 +1617,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   reviewPricingCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderRadius: radii.lg,
-    padding: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.neutral200,
+    padding: 0,
+    borderWidth: 0,
     marginBottom: spacing(4),
   },
   reviewDivider: {
@@ -1642,12 +1677,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing(4),
   },
   paymentInfoCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(135, 206, 235, 0.18)',
     borderRadius: radii.lg,
     padding: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.neutral200,
+    borderWidth: 0,
     marginBottom: spacing(4),
+    ...shadow.subtle,
   },
   cardFieldContainer: {
     marginTop: spacing(4),
@@ -1656,18 +1691,6 @@ const styles = StyleSheet.create({
   cardField: {
     width: "100%",
     height: 52,
-  },
-  paymentSummaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.neutral200,
-    marginBottom: spacing(4),
-  },
-  paymentSummaryHeading: {
-    ...typography.headingM,
-    marginBottom: spacing(2),
   },
   createButton: {
     backgroundColor: colors.primary,
@@ -1685,10 +1708,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-  navigation: {
+  navigationRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: spacing(6),
     paddingBottom: spacing(8),
+    gap: spacing(4),
+  },
+  navButton: {
+    flex: 1,
+    marginHorizontal: spacing(1),
+  },
+  navSpacer: {
+    flex: 1,
+    marginHorizontal: spacing(1),
+    opacity: 0,
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 0,
+  },
+  nextButton: {
+  },
+  cancelStandalone: {
+    marginHorizontal: spacing(6),
+    marginBottom: spacing(8),
   },
 });

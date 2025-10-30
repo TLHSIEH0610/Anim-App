@@ -8,21 +8,27 @@ const { width, height } = Dimensions.get("window");
 interface ScreenWrapperProps {
   children: React.ReactNode;
   showIllustrations?: boolean;
+  footer?: React.ReactNode;
 }
 
 const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
   children,
   showIllustrations = false,
+  footer,
 }) => {
   return (
     <LinearGradient
       colors={["#87CEEB", "#FFE4B5"]} // Light sky blue to Moccasin
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
+  //       colors={['#1A224A', '#2E3B72', '#A88A4E']} // Darkest blue, mid-blue, golden-brown
+  // locations={[0, 0.5, 1]} // Corresponds to the colors array
+  // start={{ x: 0, y: 0 }} // Top-left
+  // end={{ x: 0, y: 1 }} // Bottom-left (vertical gradient)
       style={styles.container}
     >
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {showIllustrations && (
           <>
             <Image
@@ -39,7 +45,10 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
             />
           </>
         )}
-        <View style={styles.contentContainer}>{children}</View>
+        <View style={[styles.contentContainer, footer ? styles.contentWithFooter : null]}>
+          {children}
+        </View>
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -55,8 +64,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 12,
+    paddingTop: 15,
+  },
+  contentWithFooter: {
+  },
+  footer: {
+    alignSelf: "stretch",
   },
   backgroundCastle: {
     position: "absolute",

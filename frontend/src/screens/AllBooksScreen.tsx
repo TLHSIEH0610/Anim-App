@@ -24,7 +24,12 @@ function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose
       <Text style={styles.title}>{item.name}</Text>
       {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
       <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
-      <Button title="Make this book" onPress={() => onChoose(item.slug)} variant="primary" />
+      <Button
+        title="Make this book"
+        onPress={() => onChoose(item.slug)}
+        variant="secondary"
+        style={styles.cardButton}
+      />
     </Card>
   );
 }
@@ -60,7 +65,7 @@ export default function AllBooksScreen() {
   );
 
   return (
-    <ScreenWrapper showIllustrations>
+    <ScreenWrapper showIllustrations footer={<BottomNav active="all" />}>
       <Header title="Books" subtitle="Choose a story to personalize" />
       {loading ? (
         <View style={styles.center}><ActivityIndicator /></View>
@@ -74,7 +79,6 @@ export default function AllBooksScreen() {
           contentContainerStyle={styles.list}
         />
       )}
-      <BottomNav active="all" />
     </ScreenWrapper>
   );
 }
@@ -91,9 +95,14 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: spacing(3),
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(135, 206, 235, 0.18)',
     borderRadius: radii.lg,
     ...shadow.subtle,
+  },
+  cardButton: {
+    marginTop: spacing(3),
+    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+    borderWidth: 0,
   },
   coverWrap: {
     borderRadius: radii.lg,

@@ -23,11 +23,19 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
   const resolvedVariant = variant === 'destructive' ? 'danger' : variant;
 
   const mode: 'contained' | 'outlined' | 'text' = resolvedVariant === 'primary' ? 'contained' : resolvedVariant === 'secondary' ? 'outlined' : 'contained';
-  const contentStyle = [size === 'sm' && styles.sizeSm, size === 'lg' && styles.sizeLg];
+  const isIconOnly = !title || title.trim().length === 0;
+  const contentStyle = [
+    size === 'sm' && styles.sizeSm,
+    size === 'lg' && styles.sizeLg,
+    isIconOnly && size === 'sm' && styles.iconOnlySm,
+  ];
   const labelStyle = [styles.label, size === 'sm' && styles.labelSm, size === 'lg' && styles.labelLg];
 
   const buttonColor = resolvedVariant === 'primary' ? colors.primary : resolvedVariant === 'danger' ? colors.danger : undefined;
   const textColor = resolvedVariant === 'secondary' ? colors.textPrimary : colors.surface;
+  // Disabled visual treatment: ensure obvious color difference
+  const disabledButtonColor = resolvedVariant === 'primary' || resolvedVariant === 'danger' ? colors.neutral200 : undefined;
+  const disabledTextColor = resolvedVariant === 'secondary' ? colors.neutral400 : colors.neutral500;
 
   return (
     <PaperButton
@@ -35,13 +43,14 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
       onPress={onPress}
       disabled={isDisabled}
       loading={!!loading}
-      buttonColor={buttonColor}
-      textColor={textColor}
+      buttonColor={isDisabled ? disabledButtonColor : buttonColor}
+      textColor={isDisabled ? disabledTextColor : textColor}
       contentStyle={contentStyle as any}
+      compact={size === 'sm'}
       style={[styles.paperBase, style]}
-      icon={leftIcon ? () => <View style={styles.iconLeft}>{leftIcon}</View> : undefined}
+      icon={leftIcon ? () => <View style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}>{leftIcon}</View> : undefined}
     >
-      <Text style={labelStyle as any}>{title}</Text>
+      {title ? <Text style={labelStyle as any}>{title}</Text> : null}
       {rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
     </PaperButton>
   );
@@ -57,8 +66,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sizeSm: {
-    paddingVertical: spacing(2),
-    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(1.25),
+    paddingHorizontal: spacing(2.25),
+    borderRadius: radii.md,
+  },
+  iconOnlySm: {
+    paddingVertical: spacing(1),
+    paddingHorizontal: spacing(1.5),
     borderRadius: radii.md,
   },
   sizeLg: {
@@ -81,6 +95,9 @@ const styles = StyleSheet.create({
   },
   iconLeft: {
     marginRight: spacing(2),
+  },
+  iconOnlyMargin: {
+    marginRight: 0,
   },
   iconRight: {
     marginLeft: spacing(2),

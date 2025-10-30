@@ -191,7 +191,7 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
   }
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper footer={<BottomNav active="purchased" />}>
       <Portal>
         <Dialog visible={confirm.visible} onDismiss={() => setConfirm({ visible: false, type: null, book: null })}>
           <Dialog.Title>{confirm.type === 'delete' ? 'Delete Book' : 'Regenerate Book'}</Dialog.Title>
@@ -225,7 +225,6 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
       />
-      <BottomNav active="purchased" />
     </ScreenWrapper>
   );
 }
@@ -317,6 +316,10 @@ const styles = StyleSheet.create({
   },
   bookItem: {
     marginBottom: spacing(3),
+    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    ...shadow.subtle,
   },
   bookHeader: {
     flexDirection: 'row',

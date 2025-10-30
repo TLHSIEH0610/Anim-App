@@ -14,7 +14,6 @@ import BillingHistoryScreen from "./src/screens/BillingHistoryScreen";
 import { StripeProvider, isStripeAvailable } from "./src/lib/stripe";
 import { colors } from "./src/styles/theme";
 import { Provider as PaperProvider } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { materialTheme } from './src/styles/materialTheme';
 import { AppStackParamList } from "./src/navigation/types";
 import { ServerStatusProvider, useServerStatus } from "./src/context/ServerStatusContext";
@@ -84,7 +83,7 @@ export default function App() {
   const cardPaymentsEnabled = Boolean(publishableKey && publishableKey.length > 0 && isStripeAvailable);
 
   const appTree = (
-    <PaperProvider theme={materialTheme} settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}>
+    <PaperProvider theme={materialTheme}>
       <AuthProvider>
         <ServerStatusProvider>
           <ServerStatusGate>
