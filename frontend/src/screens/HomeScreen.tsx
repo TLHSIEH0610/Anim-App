@@ -1,8 +1,13 @@
+
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { Image, Text, View, StyleSheet, Alert, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadImage, getJobStatus, getJobList, getJobImageUrl, getJobImageData } from "../api/jobs";
 import { useAuth } from "../context/AuthContext";
+import ScreenWrapper from "../components/ScreenWrapper";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import { colors } from "../styles/theme";
 
 export default function HomeScreen() {
   const { user, token, logout } = useAuth();
@@ -54,33 +59,25 @@ export default function HomeScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.8, // Reduce quality to help with file size
+      quality: 0.8,
       allowsMultipleSelection: false,
     });
 
     if (!result.canceled) {
       const asset = result.assets[0];
       
-      // Check file size (10MB limit)
       if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-        Alert.alert(
-          "File Too Large", 
-          "Please select an image smaller than 10MB"
-        );
+        Alert.alert("File Too Large", "Please select an image smaller than 10MB");
         return;
       }
       
-      // Check file type
       const isValidType = asset.type === 'image' && 
         (asset.uri.toLowerCase().includes('.jpg') || 
          asset.uri.toLowerCase().includes('.jpeg') || 
          asset.uri.toLowerCase().includes('.png'));
          
       if (!isValidType) {
-        Alert.alert(
-          "Invalid File Type", 
-          "Please select a JPG or PNG image"
-        );
+        Alert.alert("Invalid File Type", "Please select a JPG or PNG image");
         return;
       }
       
@@ -96,11 +93,7 @@ export default function HomeScreen() {
     try {
       const res = await uploadImage(token, image);
       setStatus(`✅ Job queued: #${res.job_id}`);
-      
-      // Clear image after successful upload
       setImage(null);
-      
-      // Reload jobs to show the new one
       await loadJobs();
       console.log('Upload successful:', res);
     } catch (err: any) {
@@ -116,18 +109,14 @@ export default function HomeScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: logout },
-      ]
-    );
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: logout },
+    ]);
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper showIllustrations={true}>
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
@@ -140,50 +129,38 @@ export default function HomeScreen() {
             <Text style={styles.userEmail}>{user?.email}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        <Button title="Logout" onPress={handleLogout} variant="destructive" />
       </View>
+      <ScrollView>
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Image Animation</Text>
+          <Text style={styles.subtitle}>Upload an image to convert it into an animation</Text>
+          
+          <Button title="📷 Pick an Image" onPress={pickImage} variant="primary" size="lg" />
+          
+          {image && (
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: image }} style={styles.image} />
+              <Button title="🚀 Upload & Process" onPress={upload} variant="primary" disabled={!image} />
+            </View>
+          )}
+          
+          {status && (
+            <View style={styles.statusContainer}>
+              <Text style={styles.status}>{status}</Text>
+            </View>
+          )}
+        </Card>
 
-      <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Image Animation</Text>
-        <Text style={styles.subtitle}>Upload an image to convert it into an animation</Text>
-        
-        <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
-          <Text style={styles.pickButtonText}>📷 Pick an Image</Text>
-        </TouchableOpacity>
-        
-        {image && (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: image }} style={styles.image} />
-            <TouchableOpacity 
-              style={[styles.uploadButton, !image && styles.disabledButton]} 
-              onPress={upload} 
-              disabled={!image}
-            >
-              <Text style={styles.uploadButtonText}>🚀 Upload & Process</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {status && (
-          <View style={styles.statusContainer}>
-            <Text style={styles.status}>{status}</Text>
-          </View>
-        )}
-
-        <View style={styles.jobSection}>
-          <TouchableOpacity 
-            style={styles.jobToggleButton} 
+        <Card style={styles.card}>
+          <Button 
+            title={`📋 ${showJobs ? 'Hide' : 'Show'} My Jobs (${jobs.length})`}
             onPress={() => {
               setShowJobs(!showJobs);
               if (!showJobs) loadJobs();
             }}
-          >
-            <Text style={styles.jobToggleText}>
-              📋 {showJobs ? 'Hide' : 'Show'} My Jobs ({jobs.length})
-            </Text>
-          </TouchableOpacity>
+            variant="secondary"
+          />
 
           {showJobs && (
             <ScrollView style={styles.jobList} nestedScrollEnabled={true}>
@@ -194,7 +171,7 @@ export default function HomeScreen() {
                   <View key={job.job_id} style={styles.jobItem}>
                     <View style={styles.jobHeader}>
                       <Text style={styles.jobId}>Job #{job.job_id}</Text>
-                      <Text style={[styles.jobStatus, { color: job.status === 'done' ? '#4CAF50' : '#FF9800' }]}>
+                      <Text style={[styles.jobStatus, { color: job.status === 'done' ? colors.success : colors.warning }]}>
                         {job.status === 'done' ? '✅ Complete' : job.status === 'processing' ? '⏳ Processing' : '📋 Queued'}
                       </Text>
                     </View>
@@ -211,78 +188,50 @@ export default function HomeScreen() {
                           <Image 
                             source={{ uri: imageData[job.job_id] }}
                             style={styles.resultImage}
-                            onLoad={() => {
-                              console.log('Image loaded successfully for job', job.job_id);
-                              setImageLoading(prev => ({...prev, [job.job_id]: false}));
-                            }}
-                            onError={(e) => {
-                              console.log('Image load error for job', job.job_id, ':', e.nativeEvent.error);
-                              setImageLoading(prev => ({...prev, [job.job_id]: false}));
-                            }}
                           />
                         ) : (
-                          <TouchableOpacity 
-                            style={styles.loadImageButton}
+                          <Button 
+                            title={imageLoading[job.job_id] ? '⏳ Loading...' : '📷 Load Image'}
                             onPress={() => loadJobImage(job.job_id)}
+                            variant="secondary"
                             disabled={imageLoading[job.job_id]}
-                          >
-                            <Text style={styles.loadImageText}>
-                              {imageLoading[job.job_id] ? '⏳ Loading...' : '📷 Load Image'}
-                            </Text>
-                          </TouchableOpacity>
+                          />
                         )}
-                        <Text style={styles.resultText}>🎉 Your animated image is ready!</Text>
                       </View>
                     )}
                     
                     {job.status !== 'done' && (
-                      <TouchableOpacity 
-                        style={styles.refreshButton}
+                      <Button 
+                        title="🔄 Refresh Status"
                         onPress={() => refreshJobStatus(job.job_id)}
-                      >
-                        <Text style={styles.refreshText}>🔄 Refresh Status</Text>
-                      </TouchableOpacity>
+                        variant="secondary"
+                      />
                     )}
                   </View>
                 ))
               )}
             </ScrollView>
           )}
-        </View>
-        
-        <View style={styles.infoBox}>
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={styles.infoTitle}>ℹ️ Information</Text>
           <Text style={styles.infoText}>• Free: 2 conversions per day</Text>
           <Text style={styles.infoText}>• Max file size: 10MB</Text>
           <Text style={styles.infoText}>• Supported: JPG, PNG</Text>
-        </View>
-      </View>
-    </View>
+        </Card>
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
   userInfo: {
     flexDirection: 'row',
@@ -293,13 +242,13 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: '#4285f4',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: 'white',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -309,61 +258,28 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   userEmail: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textSecondary,
   },
-  logoutButton: {
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    shadowColor: '#ff4444',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    alignItems: 'center',
+  card: {
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 30,
     textAlign: 'center',
-  },
-  pickButton: {
-    backgroundColor: '#4285f4',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  pickButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   imageContainer: {
     alignItems: 'center',
@@ -375,23 +291,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 15,
   },
-  uploadButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-  },
-  uploadButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#cccccc',
-    opacity: 0.6,
-  },
   statusContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
@@ -400,57 +301,27 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 14,
     textAlign: 'center',
-    color: '#333',
-  },
-  infoBox: {
-    backgroundColor: '#e3f2fd',
-    padding: 15,
-    borderRadius: 8,
-    width: '100%',
+    color: colors.textPrimary,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1976d2',
+    color: colors.primaryDark,
     marginBottom: 10,
   },
   infoText: {
     fontSize: 13,
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 5,
   },
-  jobSection: {
-    marginTop: 20,
-  },
-  jobToggleButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  jobToggleText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   jobList: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
     maxHeight: 400,
   },
   jobItem: {
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   jobHeader: {
     flexDirection: 'row',
@@ -461,7 +332,7 @@ const styles = StyleSheet.create({
   jobId: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   jobStatus: {
     fontSize: 14,
@@ -469,7 +340,7 @@ const styles = StyleSheet.create({
   },
   jobTime: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 10,
   },
   jobResult: {
@@ -482,47 +353,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
   },
-  resultText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   loadingText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 10,
-  },
-  refreshButton: {
-    backgroundColor: '#FF9800',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  refreshText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
   },
   noJobs: {
     textAlign: 'center',
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     padding: 20,
-  },
-  loadImageButton: {
-    backgroundColor: '#4285f4',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  loadImageText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });

@@ -32,12 +32,19 @@ export interface StoryTemplateSummary {
   age?: string | null;
   version?: number;
   page_count: number;
+  cover_path?: string | null;
   storyline_pages?: StorylinePageSummary[];
 }
 
 export async function getStoryTemplates(): Promise<{ stories: StoryTemplateSummary[] }> {
   const response = await api.get("/books/stories/templates");
   return response.data;
+}
+
+export function getStoryCoverUrl(coverPath?: string | null): string | null {
+  if (!coverPath) return null;
+  const baseUrl = API_BASE_ORIGIN;
+  return `${baseUrl}/books/stories/cover?path=${encodeURIComponent(coverPath)}`;
 }
 
 export interface Book {

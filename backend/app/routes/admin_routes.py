@@ -152,6 +152,7 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "version": template.version,
         "workflow_slug": template.workflow_slug,
         "is_active": template.is_active,
+        "cover_image_url": template.cover_image_url,
         "free_trial_slug": template.free_trial_slug,
         "price_dollars": _decimal_to_float(template.price_dollars),
         "discount_price": _decimal_to_float(template.discount_price),
@@ -160,6 +161,7 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
         "created_at": template.created_at.isoformat() if template.created_at else None,
         "updated_at": template.updated_at.isoformat() if template.updated_at else None,
     }
+
 
 
 def _resolve_keypoint_slug(value: Optional[str], db: Session) -> Optional[str]:
@@ -198,6 +200,13 @@ def _keypoint_upload_dir() -> Path:
     return _keypoint_base_dir()
 
 
+def _covers_base_dir() -> Path:
+    base = Path(os.getenv("MEDIA_ROOT", "/data/media")).expanduser()
+    target = base / "covers"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
 def _controlnet_image_to_dict(image: ControlNetImage) -> dict:
     return {
         "id": image.id,
@@ -219,6 +228,33 @@ def _store_keypoint_upload(upload: UploadFile, slug: str) -> str:
     upload.file.seek(0)
     temp_path = save_upload(upload.file, subdir="controlnet/keypoints", filename=filename)
     return _rename_keypoint(temp_path, slug)
+
+
+@router.post("/story-templates/{slug}/cover")
+def admin_upload_template_cover(
+    slug: str,
+    cover_file: UploadFile = File(...),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    template = db.query(StoryTemplate).filter(StoryTemplate.slug == slug).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+
+    # Use original extension if present
+    orig_name = cover_file.filename or f"{slug}.png"
+    ext = "." + orig_name.split(".")[-1] if "." in orig_name else ".png"
+    filename = f"{slug}{ext}"
+
+    cover_file.file.seek(0)
+    temp_path = save_upload(cover_file.file, subdir="covers", filename=filename)
+    # Persist relative path under MEDIA_ROOT
+    template.cover_image_url = str(temp_path)
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+
+    return {"message": "Cover uploaded", "cover_image_url": template.cover_image_url}
 
 
 def _rename_keypoint(path: str, slug: str) -> str:
@@ -753,6 +789,7 @@ def admin_create_story_template(
         version=payload.version or 1,
         workflow_slug=payload.workflow_slug or "base",
         is_active=payload.is_active if payload.is_active is not None else True,
+        cover_image_url=(payload.cover_image_url or None),
         free_trial_slug=(payload.free_trial_slug or None),
         price_dollars=_to_decimal(payload.price_dollars) or Decimal("1.50"),
         discount_price=_to_decimal(payload.discount_price),
@@ -849,6 +886,7 @@ def admin_update_story_template(
     template.name = payload.name
     template.description = payload.description
     template.age = payload.age
+    template.cover_image_url = payload.cover_image_url or None
     if payload.version is not None:
         template.version = payload.version
     template.workflow_slug = payload.workflow_slug or "base"
@@ -988,6 +1026,7 @@ class StoryTemplatePayload(BaseModel):
     version: Optional[int] = 1
     workflow_slug: Optional[str] = "base"
     is_active: Optional[bool] = True
+    cover_image_url: Optional[str] = None
     free_trial_slug: Optional[str] = None
     price_dollars: Optional[float] = None
     discount_price: Optional[float] = None

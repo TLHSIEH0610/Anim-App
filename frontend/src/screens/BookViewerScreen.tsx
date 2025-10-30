@@ -1,17 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Image,
-  Dimensions,
-  ActivityIndicator,
-  Share,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, Dimensions, Share, Platform } from 'react-native';
+import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar } from 'react-native-paper';
 import { getBookPreview, getBookPdfUrl, adminRegenerateBook, BookPreview } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
@@ -19,6 +8,9 @@ import { PDFDocument } from 'pdf-lib';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
+import ScreenWrapper from '../components/ScreenWrapper';
+import Header from '../components/Header';
+import Button from '../components/Button';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -32,6 +24,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
   const [isDownloading, setIsDownloading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
 
   const loadBookData = async () => {
     if (!token) return;
@@ -48,7 +41,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       setBookData(preview);
     } catch (error: any) {
       console.error('Error loading book:', error);
-      Alert.alert('Error', 'Failed to load book preview');
+      setSnackbar({ visible: true, message: 'Failed to load book preview' });
     } finally {
       setLoading(false);
     }
@@ -93,7 +86,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         try {
           const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
           if (!permissions.granted) {
-            Alert.alert('Download cancelled', 'Storage permission is required to save the PDF.');
+            setSnackbar({ visible: true, message: 'Storage permission is required to save the PDF.' });
             return;
           }
 
@@ -107,10 +100,10 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
             encoding: FileSystem.EncodingType.Base64,
           });
 
-          Alert.alert('Download complete', 'PDF saved to the folder you selected.');
+          setSnackbar({ visible: true, message: 'PDF saved to the folder you selected.' });
         } catch (androidError) {
           console.error('Android PDF save error:', androidError);
-          Alert.alert('Download failed', 'Could not save the PDF. Please try again.');
+          setSnackbar({ visible: true, message: 'Could not save the PDF. Please try again.' });
         }
       } else {
         await FileSystem.writeAsStringAsync(localPath, prunedBase64, {
@@ -124,7 +117,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       }
     } catch (error: any) {
       console.error('PDF download error:', error);
-      Alert.alert('Download failed', 'Unable to download PDF. Please try again.');
+      setSnackbar({ visible: true, message: 'Unable to download PDF. Please try again.' });
     } finally {
       setIsDownloading(false);
     }
@@ -155,43 +148,31 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       });
     } catch (error: any) {
       console.error('Share error:', error);
-      Alert.alert('Share failed', 'Unable to open the share sheet. Please try again.');
+      setSnackbar({ visible: true, message: 'Unable to open the share sheet.' });
     }
   };
 
   const handleAdminRegenerate = () => {
     if (!bookData) return;
-    
-    Alert.alert(
-      'Admin Regenerate Book',
-      'This will delete all story content, images, and PDF, then completely regenerate the book from scratch. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Regenerate', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              if (!token) {
-                Alert.alert('Error', 'Session expired. Please log in again.');
-                setLoading(false);
-                return;
-              }
-              await adminRegenerateBook(token, bookId);
-              Alert.alert('Success', 'Book regeneration started! You can check the status page to monitor progress.');
-              // Reload book data to show updated status
-              await loadBookData();
-            } catch (error: any) {
-              console.error('Error regenerating book:', error);
-              Alert.alert('Error', 'Failed to regenerate book. Please try again.');
-            } finally {
-              setLoading(false);
-            }
-          }
+    setSnackbar({ visible: true, message: 'Regeneration starting...' });
+    (async () => {
+      try {
+        setLoading(true);
+        if (!token) {
+          setSnackbar({ visible: true, message: 'Session expired. Please log in again.' });
+          setLoading(false);
+          return;
         }
-      ]
-    );
+        await adminRegenerateBook(token, bookId);
+        setSnackbar({ visible: true, message: 'Book regeneration started!' });
+        await loadBookData();
+      } catch (error: any) {
+        console.error('Error regenerating book:', error);
+        setSnackbar({ visible: true, message: 'Failed to regenerate book. Please try again.' });
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   const goToNextPage = () => {
@@ -219,7 +200,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <PaperActivityIndicator size="large" />
         <Text style={styles.loadingText}>Loading your book...</Text>
       </View>
     );
@@ -229,9 +210,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Book not found or failed to load</Text>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
+        <Button title="Go Back" onPress={() => navigation.goBack()} variant="secondary" />
       </View>
     );
   }
@@ -239,24 +218,9 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const currentPageData = bookData.pages[currentPage];
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.headerCenter}>
-          <Text style={styles.bookTitle}>{bookData.title}</Text>
-          <Text style={styles.pageIndicator}>
-            Page {currentPage + 1} of {bookData.total_pages}
-          </Text>
-        </View>
-        
-        <TouchableOpacity onPress={handleShare}>
-          <Text style={styles.shareButton}>Share</Text>
-        </TouchableOpacity>
-      </View>
+      <Header title={bookData.title} showBack rightActionIcon="share-variant" onRightActionPress={handleShare} />
 
       {/* Book Content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -294,7 +258,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
               } else if (currentPageData?.image_status === 'processing') {
                 return (
                   <View style={styles.placeholderImage}>
-                    <ActivityIndicator size="large" color="#3b82f6" />
+                    <PaperActivityIndicator size="large" />
                     <Text style={styles.placeholderText}>Creating illustration...</Text>
                   </View>
                 );
@@ -310,7 +274,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
             
             {imageLoading[currentPage] && (
               <View style={styles.imageLoadingOverlay}>
-                <ActivityIndicator size="small" color="#3b82f6" />
+                <PaperActivityIndicator size="small" />
               </View>
             )}
           </View>
@@ -329,130 +293,76 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         {/* Page Dots */}
         <View style={styles.pageDotsContainer}>
           {bookData.pages.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.pageDot,
-                index === currentPage && styles.pageDotActive
-              ]}
-              onPress={() => goToPage(index)}
-            />
+            <TouchableRipple key={index} onPress={() => goToPage(index)} borderless style={{ borderRadius: 10 }}>
+              <View style={[styles.pageDot, index === currentPage && styles.pageDotActive]} />
+            </TouchableRipple>
           ))}
         </View>
 
         {/* Navigation Buttons */}
         <View style={styles.navButtons}>
-          <TouchableOpacity 
-            style={[styles.navButton, currentPage === 0 && styles.navButtonDisabled]}
-            onPress={goToPrevPage}
-            disabled={currentPage === 0}
-          >
-            <Text style={[styles.navButtonText, currentPage === 0 && styles.navButtonTextDisabled]}>
-              ← Previous
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.navButton, currentPage === bookData.pages.length - 1 && styles.navButtonDisabled]}
-            onPress={goToNextPage}
-            disabled={currentPage === bookData.pages.length - 1}
-          >
-            <Text style={[styles.navButtonText, currentPage === bookData.pages.length - 1 && styles.navButtonTextDisabled]}>
-              Next →
-            </Text>
-          </TouchableOpacity>
+          <Button title="← Previous" onPress={goToPrevPage} variant="secondary" disabled={currentPage === 0} />
+          <Button title="Next →" onPress={goToNextPage} variant="secondary" disabled={currentPage === bookData.pages.length - 1} />
         </View>
       </View>
 
       {/* Actions */}
       <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, isDownloading && styles.actionButtonDisabled]}
+        <Button
+          title="📄 Download PDF"
           onPress={handleDownloadPdf}
+          variant="secondary"
+          loading={isDownloading}
           disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <ActivityIndicator color="#2563eb" />
-          ) : (
-            <Text style={styles.actionButtonText}>📄 Download PDF</Text>
-          )}
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={[styles.actionButton, styles.destructiveActionButton]} onPress={handleAdminRegenerate}>
-          <Text style={[styles.actionButtonText, styles.destructiveActionButtonText]}>
-            🔄 Regenerate Book
-          </Text>
-        </TouchableOpacity>
+        />
+        <Button
+          title="🔄 Regenerate Book"
+          onPress={handleAdminRegenerate}
+          variant="danger"
+        />
       </View>
+
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ visible: false, message: '' })}
+        duration={3000}
+      >
+        {snackbar.message}
+      </Snackbar>
     </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9ff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9ff',
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textSecondary,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f8f9ff',
+    backgroundColor: colors.background,
   },
   errorText: {
     fontSize: 18,
-    color: '#ef4444',
+    color: colors.danger,
     marginBottom: 20,
     textAlign: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e7ff',
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  bookTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    textAlign: 'center',
-  },
-  pageIndicator: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  shareButton: {
-    fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
+  
   content: {
     flex: 1,
   },
@@ -461,7 +371,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   bookPage: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
@@ -485,12 +395,12 @@ const styles = StyleSheet.create({
   placeholderImage: {
     width: screenWidth - 80,
     height: (screenWidth - 80) * 0.75,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.neutral100,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: colors.neutral200,
     borderStyle: 'dashed',
   },
   placeholderIcon: {
@@ -499,7 +409,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   imageLoadingOverlay: {
@@ -520,16 +430,16 @@ const styles = StyleSheet.create({
   pageText: {
     fontSize: 18,
     lineHeight: 28,
-    color: '#1f2937',
+    color: colors.textPrimary,
     textAlign: 'center',
     fontFamily: 'System', // You might want to use a more child-friendly font
     paddingHorizontal: 10,
   },
   navigationContainer: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     paddingVertical: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e7ff',
+    borderTopColor: colors.primarySoft,
   },
   pageDotsContainer: {
     flexDirection: 'row',
@@ -540,11 +450,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#d1d5db',
+    backgroundColor: colors.neutral200,
     marginHorizontal: 4,
   },
   pageDotActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     width: 20,
   },
   navButtons: {
@@ -556,50 +466,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.neutral100,
   },
   navButtonDisabled: {
     opacity: 0.5,
   },
   navButtonText: {
     fontSize: 16,
-    color: '#374151',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   navButtonTextDisabled: {
-    color: '#9ca3af',
+    color: colors.neutral400,
   },
   actionsContainer: {
     flexDirection: 'column',
     padding: 20,
     gap: 10,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e0e7ff',
+    borderTopColor: colors.primarySoft,
   },
   actionButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.neutral100,
     alignItems: 'center',
   },
   actionButtonDisabled: {
     opacity: 0.6,
   },
   destructiveActionButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.danger,
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textPrimary,
   },
   destructiveActionButtonText: {
     color: 'white',
   },
   button: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -610,4 +520,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { ActivityIndicator as PaperActivityIndicator, Banner, Chip, ProgressBar, Portal, Dialog } from 'react-native-paper';
 import { getBookStatus, retryBookCreation, Book } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
+import ScreenWrapper from '../components/ScreenWrapper';
+import { colors } from '../styles/theme';
+import Button from '../components/Button';
 
 const STATUS_MESSAGES: Record<string, string> = {
   creating: "🚀 Starting your book creation...",
@@ -39,6 +35,7 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [retryDialog, setRetryDialog] = useState(false);
 
   const loadBookStatus = async () => {
     if (!token) return;
@@ -60,32 +57,22 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
     }
   };
 
-  const handleRetry = async () => {
+  const handleRetry = () => {
+    setRetryDialog(true);
+  };
+
+  const performRetry = async () => {
     if (!token || !book) return;
-    
-    Alert.alert(
-      'Retry Book Creation?',
-      'This will restart the book creation process from the beginning.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Retry', 
-          style: 'default',
-          onPress: async () => {
-            setRetrying(true);
-            try {
-              await retryBookCreation(token, book.id);
-              Alert.alert('Success', 'Book creation has been restarted');
-              loadBookStatus(); // Refresh status
-            } catch (error: any) {
-              Alert.alert('Error', 'Failed to retry book creation');
-            } finally {
-              setRetrying(false);
-            }
-          }
-        }
-      ]
-    );
+    setRetrying(true);
+    try {
+      await retryBookCreation(token, book.id);
+      setRetryDialog(false);
+      loadBookStatus();
+    } catch (error: any) {
+      setRetryDialog(false);
+    } finally {
+      setRetrying(false);
+    }
   };
 
   const handleViewBook = () => {
@@ -105,7 +92,7 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <PaperActivityIndicator size="large" />
         <Text style={styles.loadingText}>Loading book status...</Text>
       </View>
     );
@@ -115,17 +102,15 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Book not found</Text>
-        <TouchableOpacity style={styles.button} onPress={handleBackToHome}>
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
+        <Button title="Go Back" onPress={handleBackToHome} variant="secondary" />
       </View>
     );
   }
 
   const getProgressColor = () => {
-    if (book.status === 'completed') return '#10b981';
-    if (book.status === 'failed') return '#ef4444';
-    return '#3b82f6';
+    if (book.status === 'completed') return colors.success;
+    if (book.status === 'failed') return colors.danger;
+    return colors.primary;
   };
 
   const getEstimatedTimeRemaining = () => {
@@ -140,6 +125,19 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
   };
 
   return (
+    <ScreenWrapper>
+    <Portal>
+      <Dialog visible={retryDialog} onDismiss={() => setRetryDialog(false)}>
+        <Dialog.Title>Retry Book Creation?</Dialog.Title>
+        <Dialog.Content>
+          <Text>This will restart the book creation process from the beginning.</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button title="Cancel" variant="secondary" onPress={() => setRetryDialog(false)} />
+          <Button title="Retry" onPress={performRetry} loading={retrying} />
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📚 {book.title}</Text>
@@ -148,9 +146,9 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
 
       <View style={styles.statusCard}>
         <View style={styles.statusHeader}>
-          <Text style={styles.statusMessage}>
+          <Chip style={{ alignSelf: 'center' }}>
             {STATUS_MESSAGES[book.status] || book.status}
-          </Text>
+          </Chip>
           <Text style={styles.statusDescription}>
             {STATUS_DESCRIPTIONS[book.status] || 'Processing your book...'}
           </Text>
@@ -158,17 +156,7 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
-          <View style={styles.progressBackground}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${book.progress_percentage || 0}%`,
-                  backgroundColor: getProgressColor()
-                }
-              ]} 
-            />
-          </View>
+          <ProgressBar progress={(book.progress_percentage || 0) / 100} color={getProgressColor()} />
           <Text style={styles.progressText}>
             {Math.round(book.progress_percentage || 0)}% Complete
           </Text>
@@ -184,12 +172,11 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
         )}
 
         {/* Error Message */}
-        {book.status === 'failed' && book.error_message && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Error Details:</Text>
-            <Text style={styles.errorMessage}>{book.error_message}</Text>
-          </View>
-        )}
+        {book.status === 'failed' && book.error_message ? (
+          <Banner visible icon="alert-circle">
+            {book.error_message}
+          </Banner>
+        ) : null}
 
         {/* Book Details */}
         <View style={styles.detailsCard}>
@@ -207,34 +194,14 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           {book.status === 'completed' && (
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.primaryButton]} 
-              onPress={handleViewBook}
-            >
-              <Text style={styles.primaryButtonText}>📖 View Book</Text>
-            </TouchableOpacity>
+            <Button title="📖 View Book" onPress={handleViewBook} variant="primary" />
           )}
-          
+
           {book.status === 'failed' && (
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.retryButton]} 
-              onPress={handleRetry}
-              disabled={retrying}
-            >
-              {retrying ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.primaryButtonText}>🔄 Try Again</Text>
-              )}
-            </TouchableOpacity>
+            <Button title="🔄 Try Again" onPress={handleRetry} variant="primary" loading={retrying} disabled={retrying} />
           )}
-          
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.secondaryButton]} 
-            onPress={handleBackToHome}
-          >
-            <Text style={styles.secondaryButtonText}>← Back to Library</Text>
-          </TouchableOpacity>
+
+          <Button title="← Back to Library" onPress={handleBackToHome} variant="secondary" />
         </View>
       </View>
 
@@ -279,60 +246,59 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
         </View>
       </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9ff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9ff',
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textSecondary,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f8f9ff',
+    backgroundColor: colors.background,
   },
   errorText: {
     fontSize: 18,
-    color: '#ef4444',
+    color: colors.danger,
     marginBottom: 20,
   },
   header: {
     padding: 20,
-    paddingTop: 60,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e7ff',
+    borderBottomColor: colors.primarySoft,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1e40af',
+    color: colors.primaryDark,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 5,
   },
   statusCard: {
     margin: 15,
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -343,36 +309,19 @@ const styles = StyleSheet.create({
   statusHeader: {
     marginBottom: 20,
   },
-  statusMessage: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
   statusDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   progressContainer: {
     marginBottom: 15,
   },
-  progressBackground: {
-    height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
   progressText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   timeEstimate: {
@@ -386,26 +335,8 @@ const styles = StyleSheet.create({
     color: '#92400e',
     textAlign: 'center',
   },
-  errorCard: {
-    backgroundColor: '#fef2f2',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
-  },
-  errorTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#dc2626',
-    marginBottom: 5,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#dc2626',
-  },
   detailsCard: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.neutral100,
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
@@ -413,12 +344,12 @@ const styles = StyleSheet.create({
   detailsTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.textPrimary,
     marginBottom: 10,
   },
   detailItem: {
     fontSize: 14,
-    color: '#4b5563',
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   actionsContainer: {
@@ -431,13 +362,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   retryButton: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: colors.warning,
   },
   secondaryButton: {
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.neutral400,
   },
   primaryButtonText: {
     color: 'white',
@@ -448,21 +379,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
   },
-  button: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   infoCard: {
     margin: 15,
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -473,7 +393,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.textPrimary,
     marginBottom: 15,
   },
   processStep: {
@@ -495,12 +415,12 @@ const styles = StyleSheet.create({
   processTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   processDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
 });

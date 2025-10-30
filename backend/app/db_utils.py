@@ -25,6 +25,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates DROP COLUMN IF EXISTS illustration_style",
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",
         "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'",
+        "ALTER TABLE story_templates ADD COLUMN cover_image_url TEXT",
         dedent(
             """
             CREATE TABLE IF NOT EXISTS payments (

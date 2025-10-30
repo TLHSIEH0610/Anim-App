@@ -650,6 +650,7 @@ async def create_story_template(request: Request):
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
+        "cover_image_url": (form.get("cover_image_url") or "").strip() or None,
         "free_trial_slug": free_trial_slug,
         "price_dollars": price_value,
         "discount_price": discount_value,
@@ -657,6 +658,19 @@ async def create_story_template(request: Request):
 
     try:
         await backend_request("POST", "/admin/story-templates", json=payload)
+        # Optional cover file upload after create
+        cover_file = form.get("cover_file")
+        if cover_file and getattr(cover_file, "filename", ""):
+            cover_file.file.seek(0)
+            files = {
+                "cover_file": (
+                    cover_file.filename,
+                    cover_file.file,
+                    cover_file.content_type or "application/octet-stream",
+                )
+            }
+            # use the slug from payload
+            await backend_request("POST", f"/admin/story-templates/{payload['slug']}/cover", files=files)
         return RedirectResponse("/stories?message=Story%20template%20created", status_code=status.HTTP_303_SEE_OTHER)
     except httpx.HTTPStatusError as exc:
         detail = _format_backend_error(exc)
@@ -742,6 +756,7 @@ async def update_story_template(slug: str, request: Request):
         "workflow_slug": form.get("workflow_slug", "").strip() or "base",
         "is_active": form.get("is_active", "true").lower() == "true",
         "pages": pages,
+        "cover_image_url": (form.get("cover_image_url") or "").strip() or None,
         "free_trial_slug": free_trial_slug,
         "price_dollars": price_value,
         "discount_price": discount_value,
@@ -749,6 +764,18 @@ async def update_story_template(slug: str, request: Request):
 
     try:
         await backend_request("PUT", f"/admin/story-templates/{slug}", json=payload)
+        # Optional cover file upload
+        cover_file = form.get("cover_file")
+        if cover_file and getattr(cover_file, "filename", ""):
+            cover_file.file.seek(0)
+            files = {
+                "cover_file": (
+                    cover_file.filename,
+                    cover_file.file,
+                    cover_file.content_type or "application/octet-stream",
+                )
+            }
+            await backend_request("POST", f"/admin/story-templates/{payload['slug']}/cover", files=files)
         return RedirectResponse("/stories?message=Story%20template%20updated", status_code=status.HTTP_303_SEE_OTHER)
     except httpx.HTTPStatusError as exc:
         detail = _format_backend_error(exc)

@@ -1,20 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  TouchableOpacity,
-  StyleProp,
-  ViewStyle,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, RefreshControl, StyleProp, ViewStyle } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { ActivityIndicator, List, Divider, Chip } from 'react-native-paper';
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchBillingHistory, BillingHistoryEntry } from "../api/billing";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { AppStackParamList } from "../navigation/types";
+import ScreenWrapper from "../components/ScreenWrapper";
+import Button from "../components/Button";
+import Header from "../components/Header";
 const formatCurrency = (amount: number, currency: string) => {
   try {
     return new Intl.NumberFormat(undefined, {
@@ -66,18 +60,19 @@ const HistoryItem = ({ entry }: HistoryItemProps) => {
 
   return (
     <View style={styles.itemContainer}>
-      <View style={styles.itemHeader}>
-        <Text style={styles.itemTitle}>{entry.template_slug || "Custom"}</Text>
-        <View style={[styles.statusBadge, styles_status(entry.status)]}>
-          <Text style={styles.statusText}>{entry.status.toUpperCase()}</Text>
-        </View>
-      </View>
-      <Text style={styles.itemDetail}>Method: {entry.method === "credit" ? "Credits" : "Card"}</Text>
-      <Text style={styles.itemDetail}>Amount: {amountLabel}</Text>
-      <Text style={styles.itemDetail}>Date: {formatDateTime(entry.created_at)}</Text>
+      <List.Item
+        title={entry.template_slug || 'Custom'}
+        description={`Method: ${entry.method === 'credit' ? 'Credits' : 'Card'}\nAmount: ${amountLabel}\nDate: ${formatDateTime(entry.created_at)}`}
+        right={() => (
+          <Chip compact style={[styles.statusBadge, styles_status(entry.status) as any]} textStyle={{ color: '#fff' }}>
+            {entry.status.toUpperCase()}
+          </Chip>
+        )}
+      />
       {entry.stripe_payment_intent_id ? (
         <Text style={styles.itemMeta}>Stripe ID: {entry.stripe_payment_intent_id}</Text>
       ) : null}
+      <Divider style={{ marginTop: spacing(2) }} />
     </View>
   );
 };
@@ -121,7 +116,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
     if (status === "loading" && !entries.length) {
       return (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator />
           <Text style={styles.loadingText}>Loading history...</Text>
         </View>
       );
@@ -164,50 +159,18 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
   };
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Billing History</Text>
-        <View style={styles.backButtonPlaceholder} />
-      </View>
+      <Header title="Billing History" showBack />
       {renderContent()}
     </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingTop: spacing(12),
-    paddingBottom: spacing(4),
-    paddingHorizontal: spacing(4),
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerTitle: {
-    ...typography.headingM,
-    color: colors.primaryDark,
-  },
-  backButton: {
-    paddingVertical: spacing(1.5),
-    paddingHorizontal: spacing(2.5),
-  },
-  backButtonText: {
-    color: colors.primary,
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  backButtonPlaceholder: {
-    width: spacing(8),
   },
   centerContent: {
     flex: 1,
@@ -285,5 +248,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSecondary,
   },
 });
-
-

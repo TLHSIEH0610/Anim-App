@@ -1,14 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions , SafeAreaView, Image, Linking } from "react-native";
+import { View, Text, StyleSheet, Image, Linking } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../context/AuthContext";
-import { LinearGradient } from 'expo-linear-gradient';
-
+import ScreenWrapper from "../components/ScreenWrapper";
+import Button from "../components/Button";
 import { loginWithGoogle } from "../api/auth";
-import { colors, spacing } from "../styles/theme";
-
-const { width, height } = Dimensions.get('window');
-
+import { colors, spacing, typography } from "../styles/theme";
 
 const LoginScreen = () => {
   const { login } = useAuth();
@@ -102,33 +99,7 @@ const LoginScreen = () => {
   };
 
   return (
-
-        <LinearGradient
-      colors={['#87CEEB', '#FFE4B5']} // Light sky blue to Moccasin (soft yellow/peach)
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }} // Gradient direction from top-left to bottom-right
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-
-        {/* Background Overlay for subtle illustrations */}
-        {/* These would be images you've prepared (e.g., castle_outline.png, stars.png) */}
-        {/* Ensure these images have transparent backgrounds */}
-        <Image
-          source={require('../../assets/castle_outline.png')} // Create this asset
-          style={styles.backgroundCastle}
-        />
-        <Image
-          source={require('../../assets/stars_scatter.png')} // Create this asset
-          style={styles.backgroundStars}
-        />
-                <Image
-          source={require('../../assets/cloud.png')} // Create this asset
-          style={styles.backgroundCloud}
-        />
-        {/* Add more background elements here if needed */}
-
-        {/* App Branding */}
+    <ScreenWrapper showIllustrations>
         <View style={styles.brandingContainer}>
           <Image
             source={require('../../assets/kid-knight.png')} // Use your actual chosen icon
@@ -143,27 +114,20 @@ const LoginScreen = () => {
           <Text style={styles.description}>Unlock personalized tales starring your little hero!</Text>
         </View>
 
-        {/* Login Button Area (Styling only, no actual login logic here) */}
         <View style={styles.buttonArea}>
-
-
-         
-  
-          <TouchableOpacity
-            style={[styles.genericButton, (isLoading || !hasGoogleConfig) && styles.googleButtonDisabled]}
-            onPress={handleGoogleLogin} 
-             disabled={isLoading || !hasGoogleConfig}
-          >
-            <Image
-              source={require('../../assets/google_logo.png')} // Add a small Google 'G' logo image
-              style={styles.buttonLogo}
-            />
-            <Text style={styles.buttonText}>Sign in with Google</Text>
-          </TouchableOpacity>
-           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-              {!hasGoogleConfig ? (
+          <Button
+            title="Sign in with Google"
+            onPress={handleGoogleLogin}
+            variant="secondary"
+            size="lg"
+            disabled={isLoading || !hasGoogleConfig}
+            leftIcon={<Image source={require('../../assets/google_logo.png')} style={styles.buttonLogo} />}
+            style={isLoading || !hasGoogleConfig ? styles.buttonDisabled : undefined}
+          />
+          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+          {!hasGoogleConfig ? (
             <Text style={styles.helperText}>
-              Add your Google OAuth client IDs to `frontend/.env` to enable sign in.
+              Add your Google OAuth client IDs to frontend/.env to enable sign in.
             </Text>
           ) : (
             <Text style={styles.helperText}>We use Google to keep your stories safe and sound.</Text>
@@ -172,63 +136,15 @@ const LoginScreen = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://your_privacy_policy_url.com')}>
-            <Text style={styles.footerLink}>Privacy Policy</Text>
-          </TouchableOpacity>
+          <Text onPress={() => Linking.openURL('https://your_privacy_policy_url.com')} style={styles.footerLink}>Privacy Policy</Text>
           <Text style={styles.footerSeparator}> | </Text>
-          <TouchableOpacity onPress={() => Linking.openURL('https://your_terms_of_service_url.com')}>
-            <Text style={styles.footerLink}>Terms of Service</Text>
-          </TouchableOpacity>
+          <Text onPress={() => Linking.openURL('https://your_terms_of_service_url.com')} style={styles.footerLink}>Terms of Service</Text>
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 40,
-    position: 'relative', // Needed for absolute positioning of background elements
-  },
-  // --- Background Illustrations ---
-  backgroundCastle: {
-    position: 'absolute',
-    width: width * 0.7, // 70% of screen width
-    height: height * 0.3, // 30% of screen height
-    resizeMode: 'contain',
-    opacity: 0.3, // Make it very subtle
-    bottom: height * 0.3, // Position from top
-    right: -width * 0.1, // Slightly off-screen to the right
-  },
-  backgroundStars: {
-    position: 'absolute',
-    width: width * 0.5,
-    height: height * 0.2,
-    resizeMode: 'contain',
-    opacity: 0.6,
-    bottom: height * 0.2, // Position from bottom
-    left: -width * 0.1, // Slightly off-screen to the left
-    transform: [{ rotate: '15deg' }], // Optional: add a slight rotation
-  },
-
-    backgroundCloud: {
-    position: 'absolute',
-    width: width * 0.5,
-    height: height * 0.2,
-    resizeMode: 'contain',
-    opacity: 0.6,
-    top: height * 0.2, // Position from bottom
-    left: -width * 0.1, // Slightly off-screen to the left
-    transform: [{ rotate: '15deg' }], // Optional: add a slight rotation
-  },
-  // --- End Background Illustrations ---
-
   brandingContainer: {
     alignItems: 'center',
     marginBottom: 30,
@@ -239,13 +155,11 @@ const styles = StyleSheet.create({
     height: 300,
     resizeMode: 'contain',
     marginBottom: 10,
-    borderRadius: 20, // Match your icon's actual design
+    borderRadius: 20,
   },
   appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    
+    ...typography.headingXL,
+    color: colors.textPrimary,
   },
   welcomeContainer: {
     alignItems: 'center',
@@ -253,16 +167,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   welcomeMessage: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#444',
+    ...typography.headingL,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
     // fontFamily: 'System-Semibold',
   },
   description: {
-    fontSize: 16,
-    color: '#555',
+    ...typography.body,
+    color: colors.textSecondary,
     textAlign: 'center',
     // fontFamily: 'System',
   },
@@ -272,33 +185,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
-  genericButton: { // Renamed from googleSignInButton for general use
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+  buttonLogo: {
+    width: 24,
+    height: 24,
   },
-  buttonLogo: { // Renamed from googleLogo
-    width: 54,
-    height: 54,
-    marginRight: 10,
-  },
-  buttonText: { // Renamed from googleSignInButtonText
-    fontSize: 18,
-    color: '#555',
-    fontWeight: '500',
-    // fontFamily: 'System-Medium',
+  buttonDisabled: {
+    opacity: 0.6,
   },
   privacyHint: {
     fontSize: 13,
-    color: '#777',
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: 15,
     marginHorizontal: 30,
@@ -312,17 +208,14 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     textDecorationLine: 'underline',
     // fontFamily: 'System',
   },
   footerSeparator: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginHorizontal: 5,
-  },
-    googleButtonDisabled: {
-    opacity: 0.6,
   },
     helperText: {
     fontSize: 13,
