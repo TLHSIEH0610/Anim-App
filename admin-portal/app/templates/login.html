@@ -2,32 +2,37 @@
 
 {% block content %}
 <div class="aa-center">
-<div class="mdc-card" style="padding: 20px; max-width: 420px; width:100%; margin: 0 auto;">
-    <h2 class="mdc-typography--headline6">Admin Login</h2>
-    <form method="post" action="/login">
-        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-            <input type="email" id="email" name="email" class="mdc-text-field__input" required>
-            <label class="mdc-floating-label" for="email">Email</label>
-            <div class="mdc-line-ripple"></div>
+  <div class="mdc-card" style="padding: 24px; max-width: 440px; width:100%; margin: 0 auto;">
+    <h2 class="mdc-typography--headline6 mb-3">Admin Login</h2>
+    <form method="post" action="/login" class="form-grid one-col">
+      <div class="full">
+        <div class="mdc-text-field mdc-text-field--filled w-100">
+          <span class="mdc-text-field__ripple"></span>
+          <input type="email" id="email" name="email" class="mdc-text-field__input" required autocomplete="username" />
+          <label class="mdc-floating-label" for="email">Email</label>
+          <div class="mdc-line-ripple"></div>
         </div>
-        <div class="mdc-text-field" style="width: 100%; margin-bottom: 16px;">
-            <input type="password" id="password" name="password" class="mdc-text-field__input" required>
-            <label class="mdc-floating-label" for="password">Password</label>
-            <div class="mdc-line-ripple"></div>
+      </div>
+
+      <div class="full">
+        <div class="mdc-text-field mdc-text-field--filled w-100">
+          <span class="mdc-text-field__ripple"></span>
+          <input type="password" id="password" name="password" class="mdc-text-field__input" required autocomplete="current-password" />
+          <label class="mdc-floating-label" for="password">Password</label>
+          <div class="mdc-line-ripple"></div>
         </div>
-        <button class="mdc-button mdc-button--raised" type="submit">
-            <span class="mdc-button__label">Sign In</span>
+      </div>
+
+      <div class="form-actions full">
+        <button class="mdc-button mdc-button--raised w-100" type="submit">
+          <span class="mdc-button__label">Sign In</span>
         </button>
+      </div>
     </form>
+
     {% if request.query_params.get('error') %}
-    <div class="mdc-snackbar mdc-snackbar--open">
-        <div class="mdc-snackbar__surface">
-            <div class="mdc-snackbar__label" role="status" aria-live="polite">
-                Invalid credentials. Please try again.
-            </div>
-        </div>
-    </div>
+      <div class="alert alert-error mt-3">Invalid credentials. Please try again.</div>
     {% endif %}
-</div>
+  </div>
 </div>
 {% endblock %}

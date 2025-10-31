@@ -17,19 +17,20 @@
     <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
     {% endif %}
     {% if available_pages and available_pages|length > 1 %}
-    <form method="get" action="/books/{{ book_id }}/workflow" style="margin-top: 8px;">
-        <div class="mdc-select">
-            <select id="page" name="page" onchange="this.form.submit()" class="mdc-select__native-control">
-                {% for p in available_pages %}
-                <option value="{{ p }}" {% if p == current_page %}selected{% endif %}>Page {{ p }}</option>
-                {% endfor %}
-            </select>
-            <label for="page" class="mdc-floating-label">Jump to page:</label>
-            <div class="mdc-line-ripple"></div>
+    <form method="get" action="/books/{{ book_id }}/workflow" class="form-grid one-col" style="margin-top: 8px; max-width: 360px;">
+      <div class="full">
+        <label for="page">Jump to page</label>
+        <select id="page" name="page" class="w-100" onchange="this.form.submit()">
+          {% for p in available_pages %}
+            <option value="{{ p }}" {% if p == current_page %}selected{% endif %}>Page {{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <noscript>
+        <div class="form-actions full">
+          <button type="submit" class="mdc-button mdc-button--outlined">Go</button>
         </div>
-        <noscript>
-            <button type="submit" class="mdc-button mdc-button--outlined" style="margin-left: 8px;">Go</button>
-        </noscript>
+      </noscript>
     </form>
     {% endif %}
     <p><strong>Snapshot Source:</strong> {{ metadata.source }}</p>
