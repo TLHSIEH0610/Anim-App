@@ -32,7 +32,7 @@ export default function Header({
 
   return (
     <LinearGradient
-      colors={["rgba(255, 255, 255, 0.7)", "rgba(255, 255, 255, 0.55)"]}
+      colors={["#3c6dbdff", "#7a7ac0"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
@@ -48,7 +48,7 @@ export default function Header({
             <MaterialCommunityIcons
               name="arrow-left"
               size={22}
-              color={colors.primary}
+              color={colors.background}
             />
           </TouchableOpacity>
         ) : null}
@@ -98,20 +98,20 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.headingL,
-    color: colors.textPrimary,
+    color: colors.surface,
     textAlign: "left",
   },
   subtitle: {
     marginTop: spacing(1),
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.primarySoft,
     textAlign: "left",
   },
   iconButton: {
     width: spacing(9),
     height: spacing(9),
     borderRadius: radii.pill,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
+    // backgroundColor: "rgba(37, 99, 235, 0.1)",
     alignItems: "center",
     justifyContent: "center",
   },

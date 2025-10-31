@@ -109,11 +109,13 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
                 </Text>
                 </View>
                 
-                <Button
-                  title="🔄"
-                  onPress={() => handleRegenerateBook(book)}
-                  variant="secondary"
-                />
+                {user?.role === 'admin' || user?.role === 'superadmin' ? (
+                  <Button
+                    title="🔄"
+                    onPress={() => handleRegenerateBook(book)}
+                    variant="secondary"
+                  />
+                ) : null}
                 
                 <Button
                   title="🗑️"
@@ -316,7 +318,7 @@ const styles = StyleSheet.create({
   },
   bookItem: {
     marginBottom: spacing(3),
-    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    backgroundColor: '#FFF8E1',
     borderRadius: radii.lg,
     overflow: 'hidden',
     ...shadow.subtle,

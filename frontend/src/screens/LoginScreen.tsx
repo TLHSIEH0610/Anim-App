@@ -2,11 +2,12 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, Image, Linking } from "react-native";
 import {
   GoogleSignin,
+  GoogleSigninButton,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../context/AuthContext";
 import ScreenWrapper from "../components/ScreenWrapper";
-import Button from "../components/Button";
+// Using built-in Google sign-in button from the library
 import { loginWithGoogle } from "../api/auth";
 import { colors, spacing, typography } from "../styles/theme";
 
@@ -126,21 +127,12 @@ const LoginScreen = () => {
       </View>
 
       <View style={styles.buttonArea}>
-        <Button
-          title="Sign in with Google"
+        <GoogleSigninButton
+          style={{ width: 360, height: 60, borderRadius: 8 }}
+          size={GoogleSigninButton.Size.Wide}
+          color={GoogleSigninButton.Color.Light}
           onPress={handleGoogleLogin}
-          variant="secondary"
-          size="lg"
           disabled={isLoading || !hasGoogleConfig}
-          leftIcon={
-            <Image
-              source={require("../../assets/google_logo.png")}
-              style={styles.buttonLogo}
-            />
-          }
-          style={
-            isLoading || !hasGoogleConfig ? styles.buttonDisabled : undefined
-          }
         />
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
         {!hasGoogleConfig ? (
@@ -196,7 +188,6 @@ const styles = StyleSheet.create({
   welcomeContainer: {
     alignItems: "center",
     marginHorizontal: 20,
-    marginBottom: 10,
   },
   welcomeMessage: {
     ...typography.headingL,
@@ -216,10 +207,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 10,
-  },
-  buttonLogo: {
-    width: 24,
-    height: 24,
   },
   buttonDisabled: {
     opacity: 0.6,

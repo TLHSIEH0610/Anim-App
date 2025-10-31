@@ -34,6 +34,7 @@ export interface StoryTemplateSummary {
   page_count: number;
   cover_path?: string | null;
   storyline_pages?: StorylinePageSummary[];
+  credits_balance?: number; // included by /books/stories/templates for current user
 }
 
 export async function getStoryTemplates(): Promise<{ stories: StoryTemplateSummary[] }> {

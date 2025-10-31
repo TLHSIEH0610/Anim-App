@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, RefreshControl, StyleProp, ViewStyle } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ActivityIndicator, List, Divider, Chip } from 'react-native-paper';
+import { ActivityIndicator, Divider, Chip } from 'react-native-paper';
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchBillingHistory, BillingHistoryEntry } from "../api/billing";
+import { getStoryTemplates, StoryTemplateSummary } from "../api/books";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { AppStackParamList } from "../navigation/types";
 import ScreenWrapper from "../components/ScreenWrapper";
@@ -48,30 +49,41 @@ type BillingHistoryScreenProps = NativeStackScreenProps<AppStackParamList, "Bill
 
 interface HistoryItemProps {
   entry: BillingHistoryEntry;
+  templateNames?: Record<string, string>;
 }
 
 const statusStyleKey = (status: string) => `status_${status}` as keyof typeof styles;
 const styles_status = (status: string): StyleProp<ViewStyle> =>
   (styles[statusStyleKey(status)] as StyleProp<ViewStyle>) || styles.status_default;
-const HistoryItem = ({ entry }: HistoryItemProps) => {
-  const amountLabel = entry.method === "credit"
+const HistoryItem = ({ entry, templateNames }: HistoryItemProps) => {
+  const amountLabel = entry.method === 'credit'
     ? `${formatCredits(entry.credits_used)} credits`
     : formatCurrency(entry.amount, entry.currency);
+  const titleText = entry.template_slug
+    ? (templateNames?.[entry.template_slug] || entry.template_slug)
+    : 'Custom';
 
   return (
     <View style={styles.itemContainer}>
-      <List.Item
-        title={entry.template_slug || 'Custom'}
-        description={`Method: ${entry.method === 'credit' ? 'Credits' : 'Card'}\nAmount: ${amountLabel}\nDate: ${formatDateTime(entry.created_at)}`}
-        right={() => (
-          <Chip compact style={[styles.statusBadge, styles_status(entry.status) as any]} textStyle={{ color: '#fff' }}>
-            {entry.status.toUpperCase()}
-          </Chip>
-        )}
-      />
+      <View style={styles.itemHeader}>
+        <Text style={styles.itemTitle}>{titleText}</Text>
+        <Chip
+          compact
+          style={[styles.statusBadge, styles_status(entry.status) as any]}
+          textStyle={styles.statusText as any}
+        >
+          {entry.status.toUpperCase()}
+        </Chip>
+      </View>
+
+      <Text style={styles.itemMethod}>Method: {entry.method === 'credit' ? 'Credits' : 'Card'}</Text>
+      <Text style={styles.itemAmount}>Amount: {amountLabel}</Text>
+      <Text style={styles.itemDate}>Date: {formatDateTime(entry.created_at)}</Text>
+
       {entry.stripe_payment_intent_id ? (
         <Text style={styles.itemMeta}>Stripe ID: {entry.stripe_payment_intent_id}</Text>
       ) : null}
+
       <Divider style={{ marginTop: spacing(2) }} />
     </View>
   );
@@ -81,6 +93,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
   const [entries, setEntries] = useState<BillingHistoryEntry[]>([]);
   const [status, setStatus] = useState<HistoryStatus>("idle");
   const [refreshing, setRefreshing] = useState(false);
+  const [templateNames, setTemplateNames] = useState<Record<string, string>>({});
 
   const loadHistory = useCallback(async () => {
     setStatus("loading");
@@ -97,6 +110,20 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
   useFocusEffect(
     useCallback(() => {
       loadHistory();
+      // Load template names to map slug -> human-readable name
+      (async () => {
+        try {
+          const res = await getStoryTemplates();
+          const list: StoryTemplateSummary[] = res.stories || [];
+          const map: Record<string, string> = {};
+          for (const t of list) {
+            if (t.slug) map[t.slug] = t.name || t.slug;
+          }
+          setTemplateNames(map);
+        } catch (e) {
+          // Non-fatal: keep slugs as fallback
+        }
+      })();
     }, [loadHistory])
   );
 
@@ -118,6 +145,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
         <View style={styles.centerContent}>
           <ActivityIndicator />
           <Text style={styles.loadingText}>Loading history...</Text>
+          <Button title="Back" variant="secondary" onPress={() => navigation.goBack()} style={{ marginTop: spacing(3) }} />
         </View>
       );
     }
@@ -126,6 +154,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
       return (
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>Unable to load billing history. Pull to refresh.</Text>
+          <Button title="Back" variant="secondary" onPress={() => navigation.goBack()} style={{ marginTop: spacing(3) }} />
         </View>
       );
     }
@@ -137,6 +166,7 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
           <Text style={styles.emptySubtitle}>
             Payment activity will appear here when you redeem credits or purchase books.
           </Text>
+          <Button title="Back" variant="secondary" onPress={() => navigation.goBack()} style={{ marginTop: spacing(3) }} />
         </View>
       );
     }
@@ -145,8 +175,13 @@ export default function BillingHistoryScreen({ navigation }: BillingHistoryScree
       <FlatList
         data={entries}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <HistoryItem entry={item} />}
+        renderItem={({ item }) => <HistoryItem entry={item} templateNames={templateNames} />}
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          <View style={{ paddingHorizontal: spacing(4), paddingBottom: spacing(8) }}>
+            <Button title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -216,6 +251,23 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     ...typography.headingS,
+    color: colors.textPrimary,
+  },
+  itemMethod: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing(1),
+  },
+  itemAmount: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    marginBottom: spacing(1),
+  },
+  itemDate: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing(1),
   },
   itemDetail: {
     ...typography.body,
@@ -226,14 +278,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   statusBadge: {
-    paddingHorizontal: spacing(2),
-    paddingVertical: spacing(1),
+    paddingHorizontal: spacing(1),
+    paddingVertical: spacing(0.5),
     borderRadius: radii.pill,
   },
   statusText: {
     color: colors.surface,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: '600',
   },
   status_completed: {
     backgroundColor: colors.success,

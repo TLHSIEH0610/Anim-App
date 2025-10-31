@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { BottomNavigation, useTheme } from "react-native-paper";
+import { colors } from "../styles/theme";
 
 type TabKey = "all" | "purchased" | "account";
 
@@ -69,6 +70,7 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     borderRadius: 0,
     paddingHorizontal: 0,
+    backgroundColor: colors.lightYellow,
   },
 });
 

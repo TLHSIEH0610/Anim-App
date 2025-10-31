@@ -9,6 +9,7 @@ export const colors = {
   warning: '#f59e0b',
   danger: '#ef4444',
   info: '#0ea5e9',
+  darkblue:'#304D7D',
   neutral100: '#f1f5f9',
   neutral200: '#e2e8f0',
   neutral300: '#cbd5f5',
@@ -17,6 +18,7 @@ export const colors = {
   textPrimary: '#1f2937',
   textSecondary: '#4b5563',
   textMuted: '#6b7280',
+  lightYellow:'#FFF8E1',
 };
 
 export const spacing = (multiplier: number) => multiplier * 4;
@@ -36,13 +38,15 @@ export const shadow = {
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 16,
     elevation: 3,
+
+
   },
   subtle: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 2,
+
+            shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
 };
 

@@ -141,7 +141,6 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📚 {book.title}</Text>
-        <Text style={styles.subtitle}>Book Creation Progress</Text>
       </View>
 
       <View style={styles.statusCard}>
@@ -205,46 +204,7 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
         </View>
       </View>
 
-      {/* Creation Process Info */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>🔍 What's Happening?</Text>
-        
-        <View style={styles.processStep}>
-          <Text style={[styles.processIcon, book.progress_percentage >= 20 && styles.processIconComplete]}>
-            {book.progress_percentage >= 20 ? '✅' : '📖'}
-          </Text>
-          <View style={styles.processContent}>
-            <Text style={styles.processTitle}>Story Generation</Text>
-            <Text style={styles.processDescription}>
-              AI creates a unique story based on your character and preferences
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.processStep}>
-          <Text style={[styles.processIcon, book.progress_percentage >= 80 && styles.processIconComplete]}>
-            {book.progress_percentage >= 80 ? '✅' : '🎨'}
-          </Text>
-          <View style={styles.processContent}>
-            <Text style={styles.processTitle}>Illustration Creation</Text>
-            <Text style={styles.processDescription}>
-              ComfyUI generates beautiful artwork for each page
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.processStep}>
-          <Text style={[styles.processIcon, book.status === 'completed' && styles.processIconComplete]}>
-            {book.status === 'completed' ? '✅' : '📚'}
-          </Text>
-          <View style={styles.processContent}>
-            <Text style={styles.processTitle}>Book Assembly</Text>
-            <Text style={styles.processDescription}>
-              Combining text and images into a professional PDF
-            </Text>
-          </View>
-        </View>
-      </View>
     </ScrollView>
     </ScreenWrapper>
   );
@@ -269,7 +229,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 10,
     backgroundColor: colors.background,
   },
   errorText: {
@@ -279,9 +239,6 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primarySoft,
   },
   title: {
     fontSize: 24,
@@ -297,8 +254,8 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     margin: 15,
-    padding: 20,
-    backgroundColor: colors.surface,
+    padding: 10,
+    backgroundColor: colors.background,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -336,8 +293,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   detailsCard: {
-    backgroundColor: colors.neutral100,
-    padding: 15,
+    backgroundColor: '#FFF8E1',
+    padding: 10,
     borderRadius: 8,
     marginBottom: 20,
   },
@@ -382,7 +339,7 @@ const styles = StyleSheet.create({
   infoCard: {
     margin: 15,
     padding: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFF8E1',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

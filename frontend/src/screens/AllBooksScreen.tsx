@@ -24,10 +24,12 @@ function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose
       <Text style={styles.title}>{item.name}</Text>
       {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
       <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
+     
+     
       <Button
-        title="Make this book"
+        title="View this book"
         onPress={() => onChoose(item.slug)}
-        variant="secondary"
+        variant="primary"
         style={styles.cardButton}
       />
     </Card>
@@ -95,13 +97,13 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: spacing(3),
-    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    backgroundColor:'#FFF8E1',
     borderRadius: radii.lg,
     ...shadow.subtle,
   },
   cardButton: {
     marginTop: spacing(3),
-    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+    backgroundColor: '#5554c1ff',
     borderWidth: 0,
   },
   coverWrap: {

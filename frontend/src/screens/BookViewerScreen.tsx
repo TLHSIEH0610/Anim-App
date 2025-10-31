@@ -11,6 +11,7 @@ import { AppStackParamList } from '../navigation/types';
 import ScreenWrapper from '../components/ScreenWrapper';
 import Header from '../components/Header';
 import Button from '../components/Button';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ type BookViewerScreenProps = NativeStackScreenProps<AppStackParamList, 'BookView
 
 export default function BookViewerScreen({ route, navigation }: BookViewerScreenProps) {
   const { bookId } = route.params;
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [bookData, setBookData] = useState<BookPreview | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -220,7 +221,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   return (
     <ScreenWrapper>
     <View style={styles.container}>
-      <Header title={bookData.title} showBack rightActionIcon="share-variant" onRightActionPress={handleShare} />
+      <Header title={bookData.title} showBack  />
 
       {/* Book Content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -301,25 +302,46 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
 
         {/* Navigation Buttons */}
         <View style={styles.navButtons}>
-          <Button title="← Previous" onPress={goToPrevPage} variant="secondary" disabled={currentPage === 0} />
-          <Button title="Next →" onPress={goToNextPage} variant="secondary" disabled={currentPage === bookData.pages.length - 1} />
+          <Button
+            title=""
+            onPress={goToPrevPage}
+            variant="primary"
+            size="sm"
+            disabled={currentPage === 0}
+            leftIcon={<MaterialCommunityIcons name="arrow-left" size={20} color={colors.surface} />}
+          />
+          <Button
+            title=""
+            onPress={goToNextPage}
+            variant="primary"
+            size="sm"
+            disabled={currentPage === bookData.pages.length - 1}
+            rightIcon={<MaterialCommunityIcons name="arrow-right" size={20} color={colors.surface} />}
+          />
         </View>
       </View>
 
       {/* Actions */}
       <View style={styles.actionsContainer}>
         <Button
+          title="Back to Library"
+          onPress={() => navigation.navigate('BookLibrary')}
+          variant="info"
+        />
+        <Button
           title="📄 Download PDF"
           onPress={handleDownloadPdf}
-          variant="secondary"
+          variant="primary"
           loading={isDownloading}
           disabled={isDownloading}
         />
-        <Button
-          title="🔄 Regenerate Book"
-          onPress={handleAdminRegenerate}
-          variant="danger"
-        />
+        {user?.role === 'admin' || user?.role === 'superadmin' ? (
+          <Button
+            title="🔄 Regenerate Book"
+            onPress={handleAdminRegenerate}
+            variant="danger"
+          />
+        ) : null}
       </View>
 
       <Snackbar
@@ -368,12 +390,12 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
-    padding: 20,
+    padding: 10,
   },
   bookPage: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primarySoft,
     borderRadius: 12,
-    padding: 20,
+    padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -387,8 +409,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   pageImage: {
-    width: screenWidth - 80,
-    height: (screenWidth - 80) * 0.75, // 4:3 aspect ratio
+    width: screenWidth - 10,
+    height: (screenWidth - 10) * 0.75, // 4:3 aspect ratio
     borderRadius: 8,
     resizeMode: 'cover',
   },
@@ -436,7 +458,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   navigationContainer: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.lightYellow,
     paddingVertical: 15,
     borderTopWidth: 1,
     borderTopColor: colors.primarySoft,
@@ -461,6 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+   
   },
   navButton: {
     paddingHorizontal: 20,
@@ -483,7 +506,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     padding: 20,
     gap: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.lightYellow,
     borderTopWidth: 1,
     borderTopColor: colors.primarySoft,
   },

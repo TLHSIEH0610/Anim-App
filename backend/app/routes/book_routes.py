@@ -385,6 +385,9 @@ def retry_book_creation(book_id: int, user = Depends(current_user), db: Session 
 @router.post("/{book_id}/admin-regenerate")
 def admin_regenerate_book(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
     """Admin regenerate: Delete all book content and start fresh"""
+    # Enforce admin-only access
+    if not getattr(user, "role", None) in ("admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
     book = db.query(Book).filter(Book.id == book_id, Book.user_id == user.id).first()
     if not book:
         raise HTTPException(404, "Book not found")

@@ -3,7 +3,16 @@ import { GestureResponderEvent, StyleProp, StyleSheet, Text, View, ViewStyle } f
 import { Button as PaperButton } from 'react-native-paper';
 import { colors, radii, spacing, shadow, typography } from '../styles/theme';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'destructive';
+type Variant =
+  | 'primary'
+  | 'secondary'
+  | 'danger'
+  | 'destructive'
+  | 'success'
+  | 'warning'
+  | 'info'
+  | 'neutral'
+  | 'background';
 type Size = 'sm' | 'md' | 'lg';
 
 type Props = {
@@ -22,7 +31,77 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
   const isDisabled = disabled || loading;
   const resolvedVariant = variant === 'destructive' ? 'danger' : variant;
 
-  const mode: 'contained' | 'outlined' | 'text' = resolvedVariant === 'primary' ? 'contained' : resolvedVariant === 'secondary' ? 'outlined' : 'contained';
+  const getVariantVisuals = (v: Variant) => {
+    switch (v) {
+      case 'secondary':
+        return {
+          mode: 'outlined' as const,
+          buttonColor: undefined,
+          textColor: colors.textPrimary,
+          disabledButtonColor: undefined,
+          disabledTextColor: colors.neutral400,
+        };
+      case 'danger':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.danger,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+      case 'success':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.success,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+      case 'warning':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.warning,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+      case 'info':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.info,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+      case 'neutral':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.neutral400,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+            case 'background':
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.background,
+          textColor: colors.textPrimary,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+      case 'primary':
+      default:
+        return {
+          mode: 'contained' as const,
+          buttonColor: colors.primary,
+          textColor: colors.surface,
+          disabledButtonColor: colors.neutral200,
+          disabledTextColor: colors.neutral500,
+        };
+    }
+  };
+
+  const { mode, buttonColor, textColor, disabledButtonColor, disabledTextColor } = getVariantVisuals(resolvedVariant);
   const isIconOnly = !title || title.trim().length === 0;
   const contentStyle = [
     size === 'sm' && styles.sizeSm,
@@ -30,12 +109,7 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
     isIconOnly && size === 'sm' && styles.iconOnlySm,
   ];
   const labelStyle = [styles.label, size === 'sm' && styles.labelSm, size === 'lg' && styles.labelLg];
-
-  const buttonColor = resolvedVariant === 'primary' ? colors.primary : resolvedVariant === 'danger' ? colors.danger : undefined;
-  const textColor = resolvedVariant === 'secondary' ? colors.textPrimary : colors.surface;
-  // Disabled visual treatment: ensure obvious color difference
-  const disabledButtonColor = resolvedVariant === 'primary' || resolvedVariant === 'danger' ? colors.neutral200 : undefined;
-  const disabledTextColor = resolvedVariant === 'secondary' ? colors.neutral400 : colors.neutral500;
+  const finalTextColor = isDisabled ? disabledTextColor : textColor;
 
   return (
     <PaperButton
@@ -44,13 +118,13 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
       disabled={isDisabled}
       loading={!!loading}
       buttonColor={isDisabled ? disabledButtonColor : buttonColor}
-      textColor={isDisabled ? disabledTextColor : textColor}
+      textColor={finalTextColor}
       contentStyle={contentStyle as any}
       compact={size === 'sm'}
       style={[styles.paperBase, style]}
       icon={leftIcon ? () => <View style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}>{leftIcon}</View> : undefined}
     >
-      {title ? <Text style={labelStyle as any}>{title}</Text> : null}
+      {title ? <Text style={[labelStyle as any, { color: finalTextColor }]}>{title}</Text> : null}
       {rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
     </PaperButton>
   );

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, Image } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { TextInput as PaperTextInput, SegmentedButtons, TouchableRipple, IconButton, ActivityIndicator as PaperActivityIndicator, Snackbar, Portal, Dialog } from 'react-native-paper';
+import { TextInput as PaperTextInput, SegmentedButtons, TouchableRipple, IconButton, ActivityIndicator as PaperActivityIndicator, Snackbar, Portal, Dialog, RadioButton } from 'react-native-paper';
 import * as ImagePicker from "expo-image-picker";
 import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
 import {
@@ -929,80 +929,93 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         )}
       </View>
 
-      <View style={styles.paymentOptionsContainer}>{renderPaymentActions()}</View>
+      <View style={styles.paymentOptionsContainer}>{renderPaymentOptionsRadios()}</View>
     </View>
   );
 
-  const renderPaymentActions = () => {
+  const renderPaymentOptionsRadios = () => {
     if (!pricingQuote) {
-      return (
-        <Text style={styles.errorTextInline}>Pricing not loaded. Please go back and retry.</Text>
-      );
+      return <Text style={styles.errorTextInline}>Pricing not loaded. Please go back and retry.</Text>;
     }
-    const controls: Array<React.ReactNode> = [];
 
     const freeTrialAvailable = Boolean(
       pricingQuote.free_trial_slug && !pricingQuote.free_trial_consumed
     );
-    if (freeTrialAvailable) {
-      controls.push(
-        <Button
-          key="free"
-          title="Use Free Trial"
-          onPress={handleUseFreeTrial}
-          disabled={isPaymentLoading}
-          variant={selectedPaymentMethod === "free_trial" ? 'primary' : 'secondary'}
-        />
-      );
-    }
-
     const creditsRequired = pricingQuote.credits_required ?? 0;
     const creditsBalanceValue = pricingQuote.credits_balance ?? 0;
-    const creditsLabel = formatCredits(creditsRequired);
-    if (creditsRequired > 0 && creditsBalanceValue >= creditsRequired) {
-      controls.push(
-        <Button
-          key="credits"
-          title={`Use Credits (${creditsLabel})`}
-          onPress={handlePayWithCredits}
-          disabled={isPaymentLoading}
-          variant={selectedPaymentMethod === "credits" ? 'primary' : 'secondary'}
-        />
-      );
-    }
-
+    const creditsDisabled = !(creditsRequired > 0 && creditsBalanceValue >= creditsRequired);
     const cardAvailable =
       cardPaymentsSupported && pricingQuote.card_available !== false && pricingQuote.final_price > 0;
+    const cardDisabled = !cardAvailable;
 
-    if (pricingQuote.final_price > 0 && cardPaymentsSupported && pricingQuote.card_available === false) {
-      controls.push(
-        <Text key="card-disabled" style={styles.helperText}>
-          Card payments are currently unavailable. Please choose credits or a free trial.
-        </Text>
-      );
-    }
+    const onChange = (val: string) => {
+      if (val === 'free_trial') return handleUseFreeTrial();
+      if (val === 'credits') return handlePayWithCredits();
+      if (val === 'card') return handlePayWithCard();
+    };
 
-    if (pricingQuote.final_price > 0 && cardAvailable) {
-      controls.push(
-        <Button
-          key="card"
-          title="Pay with Card"
-          onPress={handlePayWithCard}
-          disabled={isPaymentLoading || !cardPaymentsSupported}
-          variant={selectedPaymentMethod === "card" ? 'primary' : 'secondary'}
+    const radioValue = selectedPaymentMethod ?? '';
+
+    const items: React.ReactNode[] = [];
+    if (freeTrialAvailable) {
+      items.push(
+        <RadioButton.Item
+          key="free_trial"
+          value="free_trial"
+          label="Use Free Trial"
+          disabled={isPaymentLoading}
+          position="leading"
+          mode="android"
         />
       );
     }
 
-    if (!controls.length) {
-      controls.push(
-        <Text key="no-payment" style={styles.helperText}>
-          No payment required for this selection.
-        </Text>
+    // Always show Credits when a positive credit amount is required; disable if balance insufficient
+    if (creditsRequired > 0) {
+      const creditsLabel = `Use Credits (${formatCredits(creditsRequired)})`;
+      items.push(
+        <RadioButton.Item
+          key="credits"
+          value="credits"
+          label={creditsLabel}
+          disabled={isPaymentLoading || creditsDisabled}
+          position="leading"
+          mode="android"
+        />
       );
     }
 
-    return controls;
+    if (pricingQuote.final_price > 0) {
+      items.push(
+        <RadioButton.Item
+          key="card"
+          value="card"
+          label="Pay with Card"
+          disabled={isPaymentLoading || cardDisabled}
+          position="leading"
+          mode="android"
+        />
+      );
+      if (cardDisabled && cardPaymentsSupported && pricingQuote.card_available === false) {
+        items.push(
+          <Text key="card-disabled-note" style={styles.helperText}>
+            Card payments are currently unavailable.
+          </Text>
+        );
+      }
+    }
+
+    if (items.length === 0) {
+      return (
+        <Text style={styles.helperText}>No payment required for this selection.</Text>
+      );
+    }
+
+    return (
+      <RadioButton.Group onValueChange={onChange} value={radioValue}>
+        {items}
+      </RadioButton.Group>
+    );
   };
 
   const renderReviewPaymentDetails = () => {
@@ -1176,6 +1189,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         title="Confirm & Pay"
         onPress={handleConfirmPaymentAndCreate}
         disabled={confirmDisabled}
+        loading={isPaymentLoading || isCreating}
         variant="primary"
       />
     </View>

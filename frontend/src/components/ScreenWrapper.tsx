@@ -21,10 +21,6 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
       colors={["#87CEEB", "#FFE4B5"]} // Light sky blue to Moccasin
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-  //       colors={['#1A224A', '#2E3B72', '#A88A4E']} // Darkest blue, mid-blue, golden-brown
-  // locations={[0, 0.5, 1]} // Corresponds to the colors array
-  // start={{ x: 0, y: 0 }} // Top-left
-  // end={{ x: 0, y: 1 }} // Bottom-left (vertical gradient)
       style={styles.container}
     >
       <StatusBar barStyle="dark-content" />
@@ -64,7 +60,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingTop: 15,
   },
   contentWithFooter: {
