@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mdc-typography--headline5">ComfyUI Test Console</h2>
+
+<form method="post" action="/test" class="form-grid one-col mt-3" enctype="multipart/form-data">
+  <div class="full">
+    <label for="workflow_slug">Workflow</label>
+    <select id="workflow_slug" name="workflow_slug">
+      {% set sel = selected_workflow or 'base' %}
+      {% for wf in workflows %}
+        <option value="{{ wf.slug }}" {% if wf.slug == sel %}selected{% endif %}>{{ wf.slug }} (v{{ wf.version }})</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="full">
+    <label for="images">Reference Images (InstantID)</label>
+    <input id="images" name="images" type="file" accept="image/*" multiple>
+    <div class="form-help muted">Upload up to 4 kid photos used as InstantID references (optional).</div>
+  </div>
+
+  <div class="full">
+    <label for="image_kp">Keypoint Image (image_kp / node 109)</label>
+    <input id="image_kp" name="image_kp" type="file" accept="image/*">
+    <div class="form-help muted">Optional. A pose/keypoint image injected to the workflow (e.g., node 109).</div>
+  </div>
+
+  <div class="full">
+    <label for="positive_prompt">Positive Prompt</label>
+    <textarea id="positive_prompt" name="positive_prompt" rows="3" placeholder="Cheerful children's book illustration of ...">{{ positive_prompt or '' }}</textarea>
+  </div>
+
+  <div class="full">
+    <label for="negative_prompt">Negative Prompt</label>
+    <textarea id="negative_prompt" name="negative_prompt" rows="2" placeholder="blurry, low quality">{{ negative_prompt or '' }}</textarea>
+  </div>
+
+  <div class="form-actions full">
+    <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Submit</span></button>
+  </div>
+</form>
+
+{% if result %}
+  <div class="mt-4">
+    <h3 class="mdc-typography--headline6">Result</h3>
+    {% if result.output_path %}
+      <img src="/files-proxy?path={{ result.output_path }}" alt="Generated" style="max-width: 560px; width: 100%; border-radius: 12px; display:block">
+    {% endif %}
+  </div>
+
+  <div class="mt-3">
+    <h3 class="mdc-typography--headline6">Queued Payload</h3>
+    <pre style="white-space: pre-wrap; word-break: break-word; background: var(--aa-surface-variant); padding: 12px; border-radius: 10px;">
+{{ payload_json or '' }}
+    </pre>
+  </div>
+{% endif %}
+{% endblock %}

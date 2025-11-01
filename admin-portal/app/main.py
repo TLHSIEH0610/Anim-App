@@ -963,6 +963,128 @@ async def workflows_page(request: Request):
     )
 
 
+@app.get("/test", response_class=HTMLResponse)
+async def test_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    message = request.query_params.get("message")
+    error = request.query_params.get("error")
+    try:
+        wf_resp = await backend_request("GET", "/admin/workflows")
+        wf_data = wf_resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    return templates.TemplateResponse(
+        "test.html",
+        {
+            "request": request,
+            "admin_email": session.get("email"),
+            "workflows": wf_data.get("workflows", []),
+            "message": message,
+            "error": error,
+        },
+    )
+
+
+@app.post("/test", response_class=HTMLResponse)
+async def test_run(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    form = await request.form()
+    try:
+        # Build multipart with multiple reference images and optional keypoint
+        files = []
+        # Multiple reference images
+        if hasattr(form, 'getlist'):
+            ref_images = form.getlist('images')
+        else:
+            # Fallback: single value
+            ref_images = [form.get('images')] if form.get('images') else []
+        for f in ref_images:
+            if f and getattr(f, 'filename', ''):
+                try:
+                    f.file.seek(0)
+                except Exception:
+                    pass
+                files.append(
+                    (
+                        'images',
+                        (f.filename, f.file, getattr(f, 'content_type', 'application/octet-stream')),
+                    )
+                )
+        # Optional keypoint image
+        image_kp = form.get('image_kp')
+        if image_kp and getattr(image_kp, 'filename', ''):
+            try:
+                image_kp.file.seek(0)
+            except Exception:
+                pass
+            files.append(
+                (
+                    'image_kp',
+                    (image_kp.filename, image_kp.file, getattr(image_kp, 'content_type', 'application/octet-stream')),
+                )
+            )
+
+        data = {
+            "workflow_slug": form.get("workflow_slug", "base"),
+            "positive_prompt": form.get("positive_prompt", ""),
+            "negative_prompt": form.get("negative_prompt", ""),
+        }
+        resp = await backend_request("POST", "/admin/test/comfy-run", data=data, files=files if files else None)
+        result = resp.json()
+        wf_resp = await backend_request("GET", "/admin/workflows")
+        wf_data = wf_resp.json()
+        # Bubble up failure as an error banner but still show any payload
+        error_text = None
+        if result.get("status") != "success":
+            error_text = result.get("error") or result.get("message") or "ComfyUI run failed"
+        return templates.TemplateResponse(
+            "test.html",
+            {
+                "request": request,
+                "admin_email": session.get("email"),
+                "workflows": wf_data.get("workflows", []),
+                "result": result,
+                "payload_json": json.dumps(result.get("workflow_payload"), indent=2) if result.get("workflow_payload") else None,
+                "selected_workflow": data["workflow_slug"],
+                "positive_prompt": data["positive_prompt"],
+                "negative_prompt": data["negative_prompt"],
+                "error": error_text,
+            },
+        )
+    except httpx.HTTPError as exc:
+        # Reload page with error
+        try:
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/dashboard?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        return templates.TemplateResponse(
+            "test.html",
+            {
+                "request": request,
+                "admin_email": session.get("email"),
+                "workflows": wf_data.get("workflows", []),
+                "error": _format_backend_error(exc) if hasattr(exc, 'response') else str(exc),
+                "selected_workflow": form.get("workflow_slug", "base"),
+                "positive_prompt": form.get("positive_prompt", ""),
+                "negative_prompt": form.get("negative_prompt", ""),
+            },
+        )
+
+
 @app.post("/stories/{slug}/delete")
 async def delete_story_template(slug: str, request: Request):
     session = get_admin_session(request)

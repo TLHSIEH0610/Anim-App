@@ -1527,3 +1527,89 @@ def admin_get_workflow(
         "workflow_slug": workflow_slug,
     }
 
+@router.post("/test/comfy-run")
+def admin_test_comfy_run(
+    workflow_slug: str = Form(...),
+    positive_prompt: Optional[str] = Form(None),
+    negative_prompt: Optional[str] = Form(None),
+    images: Optional[List[UploadFile]] = File(None),
+    image_kp: UploadFile | None = File(None),
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Run a lightweight ComfyUI test with a selected workflow and inputs.
+
+    Accepts a single reference image (e.g., for InstantID), optional positive/negative prompts,
+    and a workflow slug. Returns the output image path and the exact workflow payload queued.
+    """
+    # Resolve workflow definition by slug (latest active)
+    definition = (
+        db.query(WorkflowDefinition)
+        .filter(WorkflowDefinition.slug == workflow_slug, WorkflowDefinition.is_active.is_(True))
+        .order_by(WorkflowDefinition.version.desc())
+        .first()
+    )
+    if not definition:
+        raise HTTPException(status_code=404, detail="Workflow definition not found")
+
+    try:
+        base_workflow = (
+            definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Invalid workflow JSON: {exc}")
+
+    # Save uploaded image(s) to MEDIA_ROOT/uploads for ComfyUI upload
+    input_paths: list[str] = []
+    if images:
+        for f in images:
+            if f is None or not getattr(f, "filename", ""):
+                continue
+            try:
+                f.file.seek(0)
+            except Exception:
+                pass
+            saved = save_upload(f.file, subdir="uploads", filename=f.filename)
+            input_paths.append(saved)
+
+    comfy_client = ComfyUIClient(COMFYUI_SERVER)
+    # Process via ComfyUI
+    # Upload keypoint image to ComfyUI if provided
+    kp_uploaded: Optional[str] = None
+    if image_kp is not None and getattr(image_kp, "filename", ""):
+        try:
+            image_kp.file.seek(0)
+        except Exception:
+            pass
+        kp_local = save_upload(image_kp.file, subdir="uploads", filename=image_kp.filename)
+        try:
+            kp_uploaded = comfy_client._upload_image(kp_local)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
+
+    result = comfy_client.process_image_to_animation(
+        input_image_paths=input_paths,
+        workflow_json=base_workflow,
+        custom_prompt=(positive_prompt or None),
+        control_prompt=(negative_prompt or None),
+        keypoint_filename=kp_uploaded,
+        fixed_basename="test_result",
+    )
+
+    status_text = result.get("status")
+    payload = {
+        "status": status_text,
+        "message": "ComfyUI test completed" if status_text == "success" else "ComfyUI test failed",
+        "output_path": result.get("output_path"),
+        "prompt_id": result.get("prompt_id"),
+        "workflow_payload": result.get("workflow"),
+        "error": result.get("error"),
+        "inputs": {
+            "workflow_slug": workflow_slug,
+            "positive_prompt": positive_prompt,
+            "negative_prompt": negative_prompt,
+            "reference_images": [getattr(f, "filename", None) for f in (images or []) if getattr(f, "filename", None)],
+            "image_kp": (image_kp.filename if image_kp else None),
+        },
+    }
+    return payload

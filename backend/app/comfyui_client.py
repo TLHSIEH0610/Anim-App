@@ -216,6 +216,7 @@ class ComfyUIClient:
         custom_prompt: str | None = None,
         control_prompt: str | None = None,
         keypoint_filename: str | None = None,
+        fixed_basename: Optional[str] = None,
     ) -> Dict:
         """
         Process image(s) through ComfyUI workflow
@@ -240,13 +241,15 @@ class ComfyUIClient:
                 if isinstance(input_image_paths, str):
                     input_image_paths = [input_image_paths]
 
-                # Validate number of images
-                if not input_image_paths or len(input_image_paths) > 4:
+                # Validate number of images (allow zero for prompt-only tests)
+                if input_image_paths is None:
+                    input_image_paths = []
+                if len(input_image_paths) > 4:
                     event["status"] = "error"
                     event["context"]["reason"] = "invalid_image_count"
                     return {
                         "status": "failed",
-                        "error": f"Invalid number of images: {len(input_image_paths)}. Must be 1-4 images."
+                        "error": f"Invalid number of images: {len(input_image_paths)}. Must be 0-4 images.",
                     }
 
                 print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")
@@ -262,7 +265,8 @@ class ComfyUIClient:
                 # Prepare workflow with dynamic adjustments based on number of images
                 import copy
                 workflow = copy.deepcopy(workflow_json)
-                workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
+                if image_filenames:
+                    workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
 
                 # Inject keypoint into the workflow if provided
                 if keypoint_filename:
@@ -342,7 +346,7 @@ class ComfyUIClient:
 
                 if result["status"] == "completed" and result["outputs"]:
                     # Download the result
-                    output_path = self._download_result(result["outputs"])
+                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename)
                     event["context"]["result"] = "success"
                     return {
                         "status": "success",
@@ -469,7 +473,7 @@ class ComfyUIClient:
         except Exception as snapshot_error:
             print(f"[ComfyUI] Failed to log workflow snapshot: {snapshot_error}")
 
-    def _download_result(self, outputs: Dict[str, Any]) -> str:
+    def _download_result(self, outputs: Dict[str, Any], fixed_basename: Optional[str] = None) -> str:
         """Download the result and save to local storage"""
         # Cross-platform path handling
         media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
@@ -492,8 +496,12 @@ class ComfyUIClient:
                     # Download the file
                     image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
 
-                    # Save locally with cross-platform path
-                    output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                    # Save locally with cross-platform path (optionally fixed name)
+                    if fixed_basename:
+                        from pathlib import Path as _P
+                        output_path = output_dir / f"{fixed_basename}{_P(filename).suffix}"
+                    else:
+                        output_path = output_dir / f"result_{int(time.time())}_{filename}"
                     with open(output_path, 'wb') as f:
                         f.write(image_data)
 
@@ -521,7 +529,11 @@ class ComfyUIClient:
                     if "temp" not in (filename or "").lower():
                         print(f"Found non-temp output: {filename} from node {node_id}")
                         image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
-                        output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                        if fixed_basename:
+                            from pathlib import Path as _P
+                            output_path = output_dir / f"{fixed_basename}{_P(filename).suffix}"
+                        else:
+                            output_path = output_dir / f"result_{int(time.time())}_{filename}"
                         with open(output_path, 'wb') as f:
                             f.write(image_data)
                         event["context"]["filename"] = filename
@@ -537,7 +549,11 @@ class ComfyUIClient:
                 node_id, _ = fallback_info
                 print(f"Falling back to temp output {filename} from node {node_id}")
                 image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
-                output_path = output_dir / f"result_{int(time.time())}_{filename}"
+                if fixed_basename:
+                    from pathlib import Path as _P
+                    output_path = output_dir / f"{fixed_basename}{_P(filename).suffix}"
+                else:
+                    output_path = output_dir / f"result_{int(time.time())}_{filename}"
                 with open(output_path, 'wb') as f:
                     f.write(image_data)
                 event["context"]["filename"] = filename
