@@ -3,10 +3,17 @@
 {% block content %}
 <h2 class="mdc-typography--headline5">Edit Workflow</h2>
 
-<p class="mb-2"><strong>Slug:</strong> {{ workflow.slug }} &nbsp; | &nbsp; <strong>Current Version:</strong> {{ workflow.version }}</p>
+<p class="mb-2"><strong>Current Version:</strong> {{ workflow.version }}</p>
 
 <form method="post" action="/workflows/{{ workflow.id }}" class="form-grid one-col mt-3">
-  <input type="hidden" name="slug" value="{{ workflow.slug }}">
+  <div class="full">
+    <div class="mdc-text-field mdc-text-field--filled w-100">
+      <input id="slug" name="slug" value="{{ workflow.slug }}" class="mdc-text-field__input" required>
+      <label for="slug" class="mdc-floating-label">Slug</label>
+      <div class="mdc-line-ripple"></div>
+    </div>
+    <small>Changing the slug will also update any story templates that reference the old slug.</small>
+  </div>
 
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">

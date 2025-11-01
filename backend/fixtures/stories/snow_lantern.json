@@ -1,0 +1,62 @@
+{
+  "age": "5",
+  "description": "A relationship between a child and a fox in a snowy winter",
+  "discount_price": null,
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "The Snow Lantern",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook illustration, winter forest evening, {name} walking with a small lantern along a snowy path, tall pine trees covered in snow, soft golden glow lighting the path, calm and magical atmosphere",
+      "keypoint_image": "snow_lantern_1",
+      "negative_prompt": "blurry, deformed face, extra limbs, text, watermark, low contrast, distorted lighting",
+      "page_number": 1,
+      "pose_prompt": "child holding lantern in front, walking forward on snowy path, looking down slightly at light",
+      "positive_prompt": "high detail, best quality, {age}-year-old {gender} wearing a red winter coat with fur collar, yellow scarf, blue mittens, holding a glowing lantern while walking on a snowy magical forest path, snow gently falling, peaceful twilight lighting, watercolor painting, magical forest, tale background, scenery, anime",
+      "seed": null,
+      "story_text": "One cold winter night, {name} carried a tiny lantern through the snowy forest. {They} wondered if the light could help lost stars find their way home.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook illustration, snowy clearing with glowing footprints, {name} kneeling to look closely, gentle snowflakes falling around, the lantern glow reflecting in {their} eyes",
+      "keypoint_image": "snow_lantern_2",
+      "negative_prompt": "low quality, overexposed, multiple people, extra limbs, text, deformed snow",
+      "page_number": 2,
+      "pose_prompt": "child kneeling down, one hand holding lantern close to snow, head tilted slightly",
+      "positive_prompt": "high detail, best quality, {age}-year-old {gender} wearing a red winter coat with white fur collar, yellow scarf, and blue mittens, kneeling in snow and holding a softly glowing lantern, glowing footprints visible nearby on the snow, gentle magical sparkles around the footprints, snowy magical forest path surrounded by tall trees, snow gently falling, dreamy winter night, watercolor painting style, soft lighting, magical forest scenery, fairytale background, warm and cold color contrast, cinematic composition, anime-style storybook illustration",
+      "seed": null,
+      "story_text": "{name} stopped and noticed glowing footprints leading deeper into the forest. The tiny lights flickered like stars dancing on the snow.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook illustration, {name} meeting a small glowing snow fox spirit in the forest, gentle blue and white glow around it, lantern light mixing with moonlight, snowy trees in background",
+      "keypoint_image": "snow_lantern_3",
+      "negative_prompt": "blurry, scary creature, distorted face, multiple people, overexposed, text, low resolution",
+      "page_number": 3,
+      "pose_prompt": "child standing, holding lantern slightly forward, looking at small glowing fox in front of them",
+      "positive_prompt": "high detail, best quality, {age}-year-old {gender} wearing a red winter coat with white fur collar, yellow scarf, and blue mittens, holding a lantern, facing a glowing snow fox spirit, snow gently falling, dreamy winter night, watercolor painting style, soft lighting, magical forest scenery, fairytale background, warm and cold color contrast, cinematic composition, anime-style storybook illustration",
+      "seed": null,
+      "story_text": "From the glowing trail came a small snow fox, shining like a star. It wagged its tail and nodded as if saying, 'Follow me!'",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook illustration, {name} and glowing snow fox standing on a hill overlooking the night sky, hundreds of stars twinkling above, lantern beside them glowing warmly",
+      "keypoint_image": "snow_lantern_4",
+      "negative_prompt": "text, watermark, blurry, distorted anatomy, overexposed, multiple characters except fox",
+      "page_number": 4,
+      "pose_prompt": "child standing side by side with small fox, looking up at stars, lantern on ground beside them",
+      "positive_prompt": "high detail, best quality, {age}-year-old {gender} wearing a red winter coat with white fur collar, yellow scarf, and blue mittens, standing beside glowing snow fox on snowy hill. he is lifting a glowing lantern high toward the starry night sky, starry sky full of bright stars, snow gently falling, dreamy winter night, watercolor painting style, soft lighting, magical forest scenery, fairytale background, warm and cold color contrast, cinematic composition, anime-style storybook illustration",
+      "seed": null,
+      "story_text": "Together they climbed a snowy hill. When {name} lifted the lantern high, the stars above seemed to shimmer brighter, as if whispering thanks.",
+      "workflow": null
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "snow_lantern",
+  "version": 1,
+  "workflow_slug": "juggernautXL_PE_AnimeBG_picbookXLloraV1"
+}

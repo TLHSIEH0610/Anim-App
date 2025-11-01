@@ -1,0 +1,62 @@
+{
+  "age": "4",
+  "description": "A magical winter night adventure with a guiding star.",
+  "discount_price": null,
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "Winter Wish",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook illustration, cozy night scene, warm indoor lighting, {name} sitting beside a snowy window, gazing out at the night sky full of stars, gentle snow falling outside, soft painterly texture, emotional winter atmosphere",
+      "keypoint_image": "winter_wish_1",
+      "negative_prompt": "blurry, distorted face, deformed hands, low quality, overexposed, multiple people, extra limbs, watermark, text",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "watercolor painting, high detail, ultra resolution , a {age}-year-old {gender}, sitting on a bench looking upward, looking at the night sky full of big stars, clear sky, wearing a red winter coat with white fur collar, blue mittens, brown snow boots, and a yellow knitted hat, tale and magical background, big moon",
+      "seed": null,
+      "story_text": "{name}, a {age}-year-old child, sat on a bench watching snowflakes fall softly outside. {they} dreamed of meeting a real star one day.",
+      "workflow": "picbook_animebg"
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "magical winter night, snowy yard, {name} running toward a glowing star lying on the snow, soft shadows, warm golden light reflecting on snow, starry sky background, emotional painterly tone",
+      "keypoint_image": "winter_wish_2",
+      "negative_prompt": "floating star, missing ground, overbright sky, low contrast, multiple stars on snow, duplicate figures, bad lighting, blurry",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "watercolor painting, high detail, ultra resolution , dark night, a {age}-year-old {gender} running toward, looking at a glowing star on snow, clear sky, wearing a red winter coat with white fur collar, blue mittens, brown snow boots, and a yellow knitted hat, tale and magical background, beautiful sky",
+      "seed": 394237482900502,
+      "story_text": "One night, {name} saw a bright streak of light cross the sky. A tiny glowing star landed gently on the snow outside.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "storybook winter scene, close-up of {name} kneeling in snow, holding a glowing star in cupped hands, golden light illuminating {their} face, snow falling gently, soft painterly glow, emotional focus on warmth and wonder",
+      "keypoint_image": "winter_wish_3",
+      "negative_prompt": "floating star, distorted hands, low detail, blurry lighting, too dark, wrong object shape, deformed face",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "watercolor painting, high detail, ultra resolution , a {age}-year-old {gender} smiling, holding a big yellow glowing star, wearing a red winter coat with white fur collar, blue mittens, brown snow boots, and a yellow knitted hat, kneeling in snow, beautiful night sky, tale landscape, magical house in the background,",
+      "seed": 239971716923143,
+      "story_text": "{name} knelt in the snow and picked up the tiny star. Its light glowed warmly in {their} hands, and for the first time, {they} felt a magical warmth inside.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "image_prompt": "peaceful morning winter scene, {name} standing in snow looking up at the sky, a single bright star glowing above, warm sunrise colors, snow-covered village in background, emotional closure, soft painterly tone",
+      "keypoint_image": "winter_wish_4",
+      "negative_prompt": "multiple stars, distorted sky, inconsistent lighting, overexposed snow, extra characters, deformed face",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "watercolor painting, high detail, ultra resolution, a {age}-year-old {gender} standing in snow looking up at the sky, looking upward, a big  glowing star far above on his left , snow-covered village in the distance, wearing a red winter coat with white fur collar, blue mittens, brown snow boots, and a yellow knitted hat, beautiful dawn sky, tale landscape, magical house in the background",
+      "seed": null,
+      "story_text": "As dawn came, the star floated back to the sky. {name} waved goodbye, smiling as one star in the morning light shone brighter than all the rest.",
+      "workflow": null
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "winter_wish",
+  "version": 1,
+  "workflow_slug": "nevolutionXLIL_v2_PE_AnimeBG"
+}

@@ -1,12 +1,12 @@
 {
   "content": {
-    "100": {
+    "109": {
       "_meta": {
         "title": "Load Image"
       },
       "class_type": "LoadImage",
       "inputs": {
-        "image": "keypoint_default.png"
+        "image": "Winter_Wish_3.png"
       }
     },
     "11": {
@@ -18,25 +18,91 @@
         "instantid_file": "ip-adapter.bin"
       }
     },
+    "110": {
+      "_meta": {
+        "title": "Apply InstantID Advanced"
+      },
+      "class_type": "ApplyInstantIDAdvanced",
+      "inputs": {
+        "cn_strength": 0.87,
+        "combine_embeds": "average",
+        "control_net": [
+          "16",
+          0
+        ],
+        "end_at": 1,
+        "image": [
+          "95",
+          0
+        ],
+        "image_kps": [
+          "109",
+          0
+        ],
+        "insightface": [
+          "38",
+          0
+        ],
+        "instantid": [
+          "11",
+          0
+        ],
+        "ip_weight": 1.5,
+        "model": [
+          "112",
+          0
+        ],
+        "negative": [
+          "40",
+          0
+        ],
+        "noise": 0.3,
+        "positive": [
+          "39",
+          0
+        ],
+        "start_at": 0
+      }
+    },
+    "112": {
+      "_meta": {
+        "title": "Load LoRA"
+      },
+      "class_type": "LoraLoader",
+      "inputs": {
+        "clip": [
+          "4",
+          1
+        ],
+        "lora_name": "PE_AnimeBG.safetensors",
+        "model": [
+          "4",
+          0
+        ],
+        "strength_clip": 1,
+        "strength_model": 1
+      }
+    },
+    "115": {
+      "_meta": {
+        "title": "Save Image"
+      },
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": [
+          "8",
+          0
+        ]
+      }
+    },
     "13": {
       "_meta": {
         "title": "Load Image"
       },
       "class_type": "LoadImage",
       "inputs": {
-        "image": "character_0.png"
-      }
-    },
-    "15": {
-      "_meta": {
-        "title": "Preview Image"
-      },
-      "class_type": "PreviewImage",
-      "inputs": {
-        "images": [
-          "8",
-          0
-        ]
+        "image": "Screenshot 2025-10-12 142028.png"
       }
     },
     "16": {
@@ -54,27 +120,27 @@
       },
       "class_type": "KSampler",
       "inputs": {
-        "cfg": 4.5,
+        "cfg": 5,
         "denoise": 1,
         "latent_image": [
           "5",
           0
         ],
         "model": [
-          "60",
+          "110",
           0
         ],
         "negative": [
-          "60",
+          "110",
           2
         ],
         "positive": [
-          "60",
+          "110",
           1
         ],
         "sampler_name": "ddpm",
         "scheduler": "karras",
-        "seed": 498060263730812,
+        "seed": 239971716923142,
         "steps": 25
       }
     },
@@ -84,7 +150,7 @@
       },
       "class_type": "InstantIDFaceAnalysis",
       "inputs": {
-        "provider": "CPU"
+        "provider": "CUDA"
       }
     },
     "39": {
@@ -94,10 +160,10 @@
       "class_type": "CLIPTextEncode",
       "inputs": {
         "clip": [
-          "99",
+          "112",
           1
         ],
-        "text": "masterpiece, best quality, adventure illustration"
+        "text": "watercolor painting, high detail, ultra resolution , a 3-year-old boy, smiling, holding a big yellow glowing star, wearing a red winter coat with white fur collar, blue mittens, brown snow boots, and a yellow knitted hat, kneeling in snow, beautiful night sky, tale landscape, magical house in the background,"
       }
     },
     "4": {
@@ -106,7 +172,7 @@
       },
       "class_type": "CheckpointLoaderSimple",
       "inputs": {
-        "ckpt_name": "wildcardxXLANIMATION_wildcardxXLANIMATION.safetensors"
+        "ckpt_name": "nevolutionXLIL_v2Base.safetensors"
       }
     },
     "40": {
@@ -116,10 +182,10 @@
       "class_type": "CLIPTextEncode",
       "inputs": {
         "clip": [
-          "99",
+          "112",
           1
         ],
-        "text": "text, watermark, low quality, blurry, distorted"
+        "text": "floating star, distorted hands, low detail, blurry lighting, too dark, wrong object shape, deformed face, watermarks"
       }
     },
     "5": {
@@ -129,51 +195,8 @@
       "class_type": "EmptyLatentImage",
       "inputs": {
         "batch_size": 1,
-        "height": 960,
-        "width": 960
-      }
-    },
-    "60": {
-      "_meta": {
-        "title": "Apply InstantID"
-      },
-      "class_type": "ApplyInstantID",
-      "inputs": {
-        "control_net": [
-          "16",
-          0
-        ],
-        "end_at": 1,
-        "image": [
-          "95",
-          0
-        ],
-        "image_kps": [
-          "100",
-          0
-        ],
-        "insightface": [
-          "38",
-          0
-        ],
-        "instantid": [
-          "11",
-          0
-        ],
-        "model": [
-          "99",
-          0
-        ],
-        "negative": [
-          "40",
-          0
-        ],
-        "positive": [
-          "39",
-          0
-        ],
-        "start_at": 0,
-        "weight": 0.8
+        "height": 1016,
+        "width": 1016
       }
     },
     "75": {
@@ -192,18 +215,9 @@
         ]
       }
     },
-    "77": {
-      "_meta": {
-        "title": "Load ControlNet Model"
-      },
-      "class_type": "ControlNetLoader",
-      "inputs": {
-        "control_net_name": "control-lora-depth-rank256.safetensors"
-      }
-    },
     "8": {
       "_meta": {
-        "title": "VAEDecode"
+        "title": "VAE Decode"
       },
       "class_type": "VAEDecode",
       "inputs": {
@@ -223,7 +237,7 @@
       },
       "class_type": "LoadImage",
       "inputs": {
-        "image": "character_1.png"
+        "image": "Screenshot 2025-10-12 142136.png"
       }
     },
     "95": {
@@ -248,32 +262,13 @@
       },
       "class_type": "LoadImage",
       "inputs": {
-        "image": "character_2.png"
-      }
-    },
-    "99": {
-      "_meta": {
-        "title": "Load LoRA"
-      },
-      "class_type": "LoraLoader",
-      "inputs": {
-        "clip": [
-          "4",
-          1
-        ],
-        "lora_name": "picbookXLloraV1.safetensors",
-        "model": [
-          "4",
-          0
-        ],
-        "strength_clip": 1,
-        "strength_model": 0.64
+        "image": "Screenshot 2025-10-12 142201.png"
       }
     }
   },
   "is_active": true,
-  "name": "Base Keypoint Workflow",
-  "slug": "base",
+  "name": "NevoV2+PE",
+  "slug": "nevolutionXLIL_v2_PE_AnimeBG",
   "type": "template",
   "version": 1
 }

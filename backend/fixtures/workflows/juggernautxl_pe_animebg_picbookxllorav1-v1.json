@@ -1,0 +1,293 @@
+{
+  "content": {
+    "109": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "test1 (2).png"
+      }
+    },
+    "11": {
+      "_meta": {
+        "title": "Load InstantID Model"
+      },
+      "class_type": "InstantIDModelLoader",
+      "inputs": {
+        "instantid_file": "ip-adapter.bin"
+      }
+    },
+    "110": {
+      "_meta": {
+        "title": "Apply InstantID Advanced"
+      },
+      "class_type": "ApplyInstantIDAdvanced",
+      "inputs": {
+        "cn_strength": 0.87,
+        "combine_embeds": "average",
+        "control_net": [
+          "16",
+          0
+        ],
+        "end_at": 1,
+        "image": [
+          "95",
+          0
+        ],
+        "image_kps": [
+          "109",
+          0
+        ],
+        "insightface": [
+          "38",
+          0
+        ],
+        "instantid": [
+          "11",
+          0
+        ],
+        "ip_weight": 1,
+        "model": [
+          "112",
+          0
+        ],
+        "negative": [
+          "40",
+          0
+        ],
+        "noise": 0.3,
+        "positive": [
+          "39",
+          0
+        ],
+        "start_at": 0
+      }
+    },
+    "112": {
+      "_meta": {
+        "title": "Load LoRA"
+      },
+      "class_type": "LoraLoader",
+      "inputs": {
+        "clip": [
+          "121",
+          1
+        ],
+        "lora_name": "PE_AnimeBG.safetensors",
+        "model": [
+          "121",
+          0
+        ],
+        "strength_clip": 1,
+        "strength_model": 1
+      }
+    },
+    "115": {
+      "_meta": {
+        "title": "Save Image"
+      },
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": [
+          "8",
+          0
+        ]
+      }
+    },
+    "121": {
+      "_meta": {
+        "title": "Load LoRA"
+      },
+      "class_type": "LoraLoader",
+      "inputs": {
+        "clip": [
+          "4",
+          1
+        ],
+        "lora_name": "picbookXLloraV1.safetensors",
+        "model": [
+          "4",
+          0
+        ],
+        "strength_clip": 1,
+        "strength_model": 0.2
+      }
+    },
+    "13": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "Screenshot 2025-10-12 142028.png"
+      }
+    },
+    "16": {
+      "_meta": {
+        "title": "Load ControlNet Model"
+      },
+      "class_type": "ControlNetLoader",
+      "inputs": {
+        "control_net_name": "diffusion_pytorch_model.safetensors"
+      }
+    },
+    "3": {
+      "_meta": {
+        "title": "KSampler"
+      },
+      "class_type": "KSampler",
+      "inputs": {
+        "cfg": 5,
+        "denoise": 1,
+        "latent_image": [
+          "5",
+          0
+        ],
+        "model": [
+          "110",
+          0
+        ],
+        "negative": [
+          "110",
+          2
+        ],
+        "positive": [
+          "110",
+          1
+        ],
+        "sampler_name": "ddpm",
+        "scheduler": "karras",
+        "seed": 26498873619581,
+        "steps": 25
+      }
+    },
+    "38": {
+      "_meta": {
+        "title": "InstantID Face Analysis"
+      },
+      "class_type": "InstantIDFaceAnalysis",
+      "inputs": {
+        "provider": "CUDA"
+      }
+    },
+    "39": {
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      },
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "112",
+          1
+        ],
+        "text": "storybook illustration, side view of a 3-year-old boy wearing light blue pajamas, sitting on the wooden floor beside a large arched window, gazing upward through the glass at the night sky, soft light from the window illuminating his face, reflection of stars and spiral galaxy visible on the glass, warm cozy bedroom interior with gentle moonlight mixing with warm lamplight, a teddy bear held in his hands, bookshelf and rocket toy nearby, dreamy watercolor painterly texture, soft colors, magical emotional tone, cinematic children's book composition"
+      }
+    },
+    "4": {
+      "_meta": {
+        "title": "Load Checkpoint"
+      },
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "juggernautXL_ragnarokBy.safetensors"
+      }
+    },
+    "40": {
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      },
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "112",
+          1
+        ],
+        "text": "distorted hands, low detail, blurry lighting, too dark, wrong object shape, deformed face, watermarks, small stars"
+      }
+    },
+    "5": {
+      "_meta": {
+        "title": "Empty Latent Image"
+      },
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "batch_size": 1,
+        "height": 1016,
+        "width": 1016
+      }
+    },
+    "75": {
+      "_meta": {
+        "title": "Batch Images"
+      },
+      "class_type": "ImageBatch",
+      "inputs": {
+        "image1": [
+          "13",
+          0
+        ],
+        "image2": [
+          "94",
+          0
+        ]
+      }
+    },
+    "8": {
+      "_meta": {
+        "title": "VAE Decode"
+      },
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "3",
+          0
+        ],
+        "vae": [
+          "4",
+          2
+        ]
+      }
+    },
+    "94": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "Screenshot 2025-10-12 142136.png"
+      }
+    },
+    "95": {
+      "_meta": {
+        "title": "Batch Images"
+      },
+      "class_type": "ImageBatch",
+      "inputs": {
+        "image1": [
+          "75",
+          0
+        ],
+        "image2": [
+          "98",
+          0
+        ]
+      }
+    },
+    "98": {
+      "_meta": {
+        "title": "Load Image"
+      },
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "Screenshot 2025-10-12 142201.png"
+      }
+    }
+  },
+  "is_active": true,
+  "name": "Juggernaut + PE_AnimeBG + Picbook",
+  "slug": "juggernautXL_PE_AnimeBG_picbookXLloraV1",
+  "type": "template",
+  "version": 1
+}

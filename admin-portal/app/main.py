@@ -606,6 +606,8 @@ async def stories_page(request: Request):
     try:
         resp = await backend_request("GET", "/admin/story-templates")
         data = resp.json()
+        wf_resp = await backend_request("GET", "/admin/workflows")
+        wf_data = wf_resp.json()
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/dashboard?error={quote_plus(str(exc))}",
@@ -618,6 +620,7 @@ async def stories_page(request: Request):
             "request": request,
             "admin_email": session.get("email"),
             "stories": data.get("stories", []),
+            "workflows": wf_data.get("workflows", []),
             "message": message,
             "error": error,
         },
@@ -635,9 +638,29 @@ async def create_story_template(request: Request):
     try:
         pages = json.loads(pages_raw) if pages_raw else []
     except json.JSONDecodeError as exc:
-        return RedirectResponse(
-            f"/stories?error={quote_plus('Invalid JSON: ' + str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        # Re-render with previous inputs
+        try:
+            resp = await backend_request("GET", "/admin/story-templates")
+            data = resp.json()
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/dashboard?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "stories.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "stories": data.get("stories", []),
+                "workflows": wf_data.get("workflows", []),
+                "error": f"Invalid JSON: {exc}",
+                "form_defaults": form_defaults,
+            },
         )
 
     free_trial_slug = (form.get("free_trial_slug") or "").strip() or None
@@ -645,9 +668,28 @@ async def create_story_template(request: Request):
         price_value = _parse_decimal_field(form.get("price_dollars"), "Base price", required=True)
         discount_value = _parse_decimal_field(form.get("discount_price"), "Discount price")
     except ValueError as exc:
-        return RedirectResponse(
-            f"/stories?error={quote_plus(str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        try:
+            resp = await backend_request("GET", "/admin/story-templates")
+            data = resp.json()
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/dashboard?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "stories.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "stories": data.get("stories", []),
+                "workflows": wf_data.get("workflows", []),
+                "error": str(exc),
+                "form_defaults": form_defaults,
+            },
         )
 
     version_raw = (form.get("version") or "").strip()
@@ -728,6 +770,8 @@ async def edit_story_template(slug: str, request: Request):
     try:
         resp = await backend_request("GET", f"/admin/story-templates/{slug}")
         story = resp.json()
+        wf_resp = await backend_request("GET", "/admin/workflows")
+        wf_data = wf_resp.json()
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/stories?error={quote_plus(str(exc))}",
@@ -740,6 +784,7 @@ async def edit_story_template(slug: str, request: Request):
             "request": request,
             "admin_email": session.get("email"),
             "story": story,
+            "workflows": wf_data.get("workflows", []),
         },
     )
 
@@ -755,9 +800,29 @@ async def update_story_template(slug: str, request: Request):
     try:
         pages = json.loads(pages_raw) if pages_raw else []
     except json.JSONDecodeError as exc:
-        return RedirectResponse(
-            f"/stories/{slug}?error={quote_plus('Invalid JSON: ' + str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        # Render edit page with previous inputs
+        try:
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+            story_resp = await backend_request("GET", f"/admin/story-templates/{slug}")
+            story = story_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/stories/{slug}?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "story_template_edit.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "story": story,
+                "workflows": wf_data.get("workflows", []),
+                "error": f"Invalid JSON: {exc}",
+                "form_defaults": form_defaults,
+            },
         )
 
     free_trial_slug = (form.get("free_trial_slug") or "").strip() or None
@@ -765,9 +830,28 @@ async def update_story_template(slug: str, request: Request):
         price_value = _parse_decimal_field(form.get("price_dollars"), "Base price", required=True)
         discount_value = _parse_decimal_field(form.get("discount_price"), "Discount price")
     except ValueError as exc:
-        return RedirectResponse(
-            f"/stories/{slug}?error={quote_plus(str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        try:
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+            story_resp = await backend_request("GET", f"/admin/story-templates/{slug}")
+            story = story_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/stories/{slug}?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "story_template_edit.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "story": story,
+                "workflows": wf_data.get("workflows", []),
+                "error": str(exc),
+                "form_defaults": form_defaults,
+            },
         )
 
     version_raw = (form.get("version") or "").strip()
@@ -825,16 +909,29 @@ async def update_story_template(slug: str, request: Request):
                 }
                 await backend_request("POST", f"/admin/story-templates/{payload['slug']}/demo/{idx}", files=files)
         return RedirectResponse("/stories?message=Story%20template%20updated", status_code=status.HTTP_303_SEE_OTHER)
-    except httpx.HTTPStatusError as exc:
-        detail = _format_backend_error(exc)
-        return RedirectResponse(
-            f"/stories/{slug}?error={quote_plus(detail)}",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
     except httpx.HTTPError as exc:
-        return RedirectResponse(
-            f"/stories/{slug}?error={quote_plus(str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        try:
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+            story_resp = await backend_request("GET", f"/admin/story-templates/{slug}")
+            story = story_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/stories/{slug}?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "story_template_edit.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "story": story,
+                "workflows": wf_data.get("workflows", []),
+                "error": _format_backend_error(exc) if hasattr(exc, 'response') else str(exc),
+                "form_defaults": form_defaults,
+            },
         )
 @app.get("/workflows", response_class=HTMLResponse)
 async def workflows_page(request: Request):
@@ -905,16 +1002,29 @@ async def export_story_template(slug: str, request: Request):
             f"/stories?message={quote_plus(message)}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except httpx.HTTPStatusError as exc:
-        detail = _format_backend_error(exc)
-        return RedirectResponse(
-            f"/stories?error={quote_plus(detail)}",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
     except httpx.HTTPError as exc:
-        return RedirectResponse(
-            f"/stories?error={quote_plus(str(exc))}",
-            status_code=status.HTTP_303_SEE_OTHER,
+        try:
+            resp = await backend_request("GET", "/admin/story-templates")
+            data = resp.json()
+            wf_resp = await backend_request("GET", "/admin/workflows")
+            wf_data = wf_resp.json()
+        except httpx.HTTPError as exc2:
+            return RedirectResponse(
+                f"/dashboard?error={quote_plus(str(exc2))}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        form_defaults = dict(form)
+        form_defaults["pages"] = pages_raw
+        return templates.TemplateResponse(
+            "stories.html",
+            {
+                "request": request,
+                "admin_email": (get_admin_session(request) or {}).get("email"),
+                "stories": data.get("stories", []),
+                "workflows": wf_data.get("workflows", []),
+                "error": _format_backend_error(exc) if hasattr(exc, 'response') else str(exc),
+                "form_defaults": form_defaults,
+            },
         )
 
 

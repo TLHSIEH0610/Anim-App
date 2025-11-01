@@ -1269,8 +1269,11 @@ def admin_update_workflow(
     definition = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
     if not definition:
         raise HTTPException(status_code=404, detail="Workflow not found")
+    old_slug = definition.slug
+    new_slug = payload.slug
 
-    definition.slug = payload.slug
+    # Update definition
+    definition.slug = new_slug
     definition.name = payload.name
     definition.type = payload.type
     definition.content = payload.content
@@ -1278,6 +1281,12 @@ def admin_update_workflow(
         definition.version = payload.version
     if payload.is_active is not None:
         definition.is_active = payload.is_active
+
+    # If slug changed, cascade update story templates that reference the old slug
+    if new_slug != old_slug:
+        db.query(StoryTemplate).filter(StoryTemplate.workflow_slug == old_slug).update(
+            {StoryTemplate.workflow_slug: new_slug}, synchronize_session=False
+        )
 
     db.commit()
     return {"message": "Workflow updated"}
@@ -1292,10 +1301,30 @@ def admin_delete_workflow(
     definition = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
     if not definition:
         raise HTTPException(status_code=404, detail="Workflow not found")
+    old_slug = definition.slug
+
+    # Find a replacement workflow (any other definition). Prefer active and most recent.
+    replacement = (
+        db.query(WorkflowDefinition)
+        .filter(WorkflowDefinition.id != workflow_id)
+        .order_by(WorkflowDefinition.is_active.desc(), WorkflowDefinition.updated_at.desc(), WorkflowDefinition.version.desc())
+        .first()
+    )
+
+    # If there are story templates using this slug and no replacement exists, block deletion
+    in_use_count = db.query(func.count(StoryTemplate.id)).filter(StoryTemplate.workflow_slug == old_slug).scalar()
+    if in_use_count and not replacement:
+        raise HTTPException(status_code=409, detail="Cannot delete: no other workflow available to reassign templates.")
+
+    # Reassign any story templates using the deleted slug to the replacement's slug
+    if replacement:
+        db.query(StoryTemplate).filter(StoryTemplate.workflow_slug == old_slug).update(
+            {StoryTemplate.workflow_slug: replacement.slug}, synchronize_session=False
+        )
 
     db.delete(definition)
     db.commit()
-    return {"message": "Workflow deleted"}
+    return {"message": "Workflow deleted", "reassigned_to": replacement.slug if replacement else None}
 
 
 @router.delete("/books/{book_id}")

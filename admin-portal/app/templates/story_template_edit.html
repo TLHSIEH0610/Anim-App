@@ -6,14 +6,14 @@
 <form method="post" action="/stories/{{ story.slug }}" enctype="multipart/form-data" class="form-grid one-col mt-3">
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="name" name="name" value="{{ story.name }}" class="mdc-text-field__input" required>
+      <input id="name" name="name" value="{{ (form_defaults.name if form_defaults and form_defaults.name is not none else story.name) }}" class="mdc-text-field__input" required>
       <label for="name" class="mdc-floating-label">Name</label>
       <div class="mdc-line-ripple"></div>
     </div>
   </div>
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="slug" name="slug" value="{{ story.slug }}" class="mdc-text-field__input" required>
+      <input id="slug" name="slug" value="{{ (form_defaults.slug if form_defaults and form_defaults.slug is not none else story.slug) }}" class="mdc-text-field__input" required>
       <label for="slug" class="mdc-floating-label">Slug</label>
       <div class="mdc-line-ripple"></div>
     </div>
@@ -21,30 +21,32 @@
 
   <div class="full">
     <label for="description">Description</label>
-    <textarea id="description" name="description">{{ story.description }}</textarea>
+    <textarea id="description" name="description">{{ (form_defaults.description if form_defaults and form_defaults.description is not none else story.description) }}</textarea>
   </div>
 
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="age" name="age" value="{{ story.age }}" class="mdc-text-field__input">
+      <input id="age" name="age" value="{{ (form_defaults.age if form_defaults and form_defaults.age is not none else story.age) }}" class="mdc-text-field__input">
       <label for="age" class="mdc-floating-label">Age</label>
       <div class="mdc-line-ripple"></div>
     </div>
   </div>
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="version" name="version" type="number" min="1" value="{{ story.version or 1 }}" class="mdc-text-field__input" required>
+      <input id="version" name="version" type="number" min="1" value="{{ (form_defaults.version if form_defaults and form_defaults.version is not none else (story.version or 1)) }}" class="mdc-text-field__input" required>
       <label for="version" class="mdc-floating-label">Version</label>
       <div class="mdc-line-ripple"></div>
     </div>
   </div>
 
   <div class="full">
-    <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="workflow_slug" name="workflow_slug" value="{{ story.workflow_slug }}" class="mdc-text-field__input">
-      <label for="workflow_slug" class="mdc-floating-label">Workflow Slug</label>
-      <div class="mdc-line-ripple"></div>
-    </div>
+    <label for="workflow_slug">Workflow</label>
+    <select id="workflow_slug" name="workflow_slug">
+      {% set selected_wf = (form_defaults.workflow_slug if form_defaults and form_defaults.workflow_slug is not none else story.workflow_slug) %}
+      {% for wf in workflows %}
+        <option value="{{ wf.slug }}" {% if wf.slug == selected_wf %}selected{% endif %}>{{ wf.slug }} (v{{ wf.version }})</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="full">
     <label for="is_active">Active</label>
@@ -56,14 +58,14 @@
 
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="{{ '%.2f' % story.price_dollars if story.price_dollars is not none else '' }}" class="mdc-text-field__input" required>
+      <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="{{ (form_defaults.price_dollars if form_defaults and form_defaults.price_dollars is not none else ('%.2f' % story.price_dollars if story.price_dollars is not none else '')) }}" class="mdc-text-field__input" required>
       <label for="price_dollars" class="mdc-floating-label">Base Price (AUD)</label>
       <div class="mdc-line-ripple"></div>
     </div>
   </div>
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" value="{{ '%.2f' % story.discount_price if story.discount_price is not none else '' }}" class="mdc-text-field__input">
+      <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" value="{{ (form_defaults.discount_price if form_defaults and form_defaults.discount_price is not none else ('%.2f' % story.discount_price if story.discount_price is not none else '')) }}" class="mdc-text-field__input">
       <label for="discount_price" class="mdc-floating-label">Discount Price (AUD)</label>
       <div class="mdc-line-ripple"></div>
     </div>
@@ -71,7 +73,7 @@
 
   <div class="full">
     <div class="mdc-text-field mdc-text-field--filled w-100">
-      <input id="free_trial_slug" name="free_trial_slug" value="{{ story.free_trial_slug or '' }}" class="mdc-text-field__input">
+      <input id="free_trial_slug" name="free_trial_slug" value="{{ (form_defaults.free_trial_slug if form_defaults and form_defaults.free_trial_slug is not none else (story.free_trial_slug or '')) }}" class="mdc-text-field__input">
       <label for="free_trial_slug" class="mdc-floating-label">Free Trial Slug</label>
       <div class="mdc-line-ripple"></div>
     </div>
@@ -79,7 +81,7 @@
 
   <div class="full">
     <label for="pages">Pages JSON</label>
-    <textarea id="pages" name="pages" style="min-height:320px;">{{ story.pages | tojson(indent=2) }}</textarea>
+    <textarea id="pages" name="pages" style="min-height:320px;">{{ (form_defaults.pages if form_defaults and form_defaults.pages is not none else (story.pages | tojson(indent=2))) }}</textarea>
   </div>
 
   <div class="full">

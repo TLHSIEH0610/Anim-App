@@ -51,14 +51,14 @@
   <form method="post" action="/stories/create" class="form-grid one-col" enctype="multipart/form-data">
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="slug" name="slug" class="mdc-text-field__input" required>
+        <input id="slug" name="slug" class="mdc-text-field__input" required value="{{ (form_defaults.slug if form_defaults else '') }}">
         <label for="slug" class="mdc-floating-label">Slug</label>
         <div class="mdc-line-ripple"></div>
       </div>
     </div>
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="name" name="name" class="mdc-text-field__input" required>
+        <input id="name" name="name" class="mdc-text-field__input" required value="{{ (form_defaults.name if form_defaults else '') }}">
         <label for="name" class="mdc-floating-label">Name</label>
         <div class="mdc-line-ripple"></div>
       </div>
@@ -66,49 +66,52 @@
 
     <div class="full">
       <label for="description">Description</label>
-      <textarea id="description" name="description" placeholder="Short summary"></textarea>
+      <textarea id="description" name="description" placeholder="Short summary">{{ (form_defaults.description if form_defaults else '') }}</textarea>
     </div>
 
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="age" name="age" class="mdc-text-field__input">
+        <input id="age" name="age" class="mdc-text-field__input" value="{{ (form_defaults.age if form_defaults else '') }}">
         <label for="age" class="mdc-floating-label">Age</label>
         <div class="mdc-line-ripple"></div>
       </div>
     </div>
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="version" name="version" type="number" min="1" value="1" class="mdc-text-field__input" required>
+        <input id="version" name="version" type="number" min="1" value="{{ (form_defaults.version if form_defaults and form_defaults.version is not none else 1) }}" class="mdc-text-field__input" required>
         <label for="version" class="mdc-floating-label">Version</label>
         <div class="mdc-line-ripple"></div>
       </div>
     </div>
 
     <div class="full">
-      <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="workflow_slug" name="workflow_slug" value="base" class="mdc-text-field__input">
-        <label for="workflow_slug" class="mdc-floating-label">Workflow Slug</label>
-        <div class="mdc-line-ripple"></div>
-      </div>
+      <label for="workflow_slug">Workflow</label>
+      <select id="workflow_slug" name="workflow_slug">
+        {% set selected_wf = form_defaults.workflow_slug if form_defaults else 'base' %}
+        {% for wf in workflows %}
+          <option value="{{ wf.slug }}" {% if wf.slug == selected_wf %}selected{% endif %}>{{ wf.slug }} (v{{ wf.version }})</option>
+        {% endfor %}
+      </select>
     </div>
     <div class="full">
       <label for="is_active">Active</label>
       <select id="is_active" name="is_active">
-        <option value="true" selected>True</option>
-        <option value="false">False</option>
+        {% set active_val = (form_defaults.is_active|lower if form_defaults and form_defaults.is_active is string else ( 'true' if (form_defaults.is_active if form_defaults and form_defaults.is_active is not none else True) else 'false')) %}
+        <option value="true" {% if active_val == 'true' %}selected{% endif %}>True</option>
+        <option value="false" {% if active_val == 'false' %}selected{% endif %}>False</option>
       </select>
     </div>
 
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="1.50" class="mdc-text-field__input" required>
+        <input id="price_dollars" name="price_dollars" type="number" step="0.01" min="0" value="{{ (form_defaults.price_dollars if form_defaults and form_defaults.price_dollars is not none else 1.50) }}" class="mdc-text-field__input" required>
         <label for="price_dollars" class="mdc-floating-label">Base Price (AUD)</label>
         <div class="mdc-line-ripple"></div>
       </div>
     </div>
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" class="mdc-text-field__input">
+        <input id="discount_price" name="discount_price" type="number" step="0.01" min="0" class="mdc-text-field__input" value="{{ (form_defaults.discount_price if form_defaults and form_defaults.discount_price is not none else '') }}">
         <label for="discount_price" class="mdc-floating-label">Discount Price (AUD)</label>
         <div class="mdc-line-ripple"></div>
       </div>
@@ -116,7 +119,7 @@
 
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
-        <input id="free_trial_slug" name="free_trial_slug" class="mdc-text-field__input">
+        <input id="free_trial_slug" name="free_trial_slug" class="mdc-text-field__input" value="{{ (form_defaults.free_trial_slug if form_defaults else '') }}">
         <label for="free_trial_slug" class="mdc-floating-label">Free Trial Slug</label>
         <div class="mdc-line-ripple"></div>
       </div>
@@ -125,12 +128,12 @@
     <div class="full">
       <label for="pages">Pages JSON</label>
       <p style="margin-top:-0.25rem; font-size:0.9rem; opacity:.75">Include optional <code>"seed"</code> per page to force deterministic ComfyUI outputs.</p>
-      <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required></textarea>
+      <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required>{{ (form_defaults.pages if form_defaults else '') }}</textarea>
     </div>
 
     <div class="full">
       <label for="cover_image_url">Cover Image Path (optional)</label>
-      <input id="cover_image_url" name="cover_image_url" placeholder="/data/media/covers/my_story.png">
+      <input id="cover_image_url" name="cover_image_url" placeholder="/data/media/covers/my_story.png" value="{{ (form_defaults.cover_image_url if form_defaults else '') }}">
       <div class="form-help" style="opacity:.75; font-size:.9rem; margin-top:6px">Provide a file path within MEDIA_ROOT or upload a file below.</div>
     </div>
 

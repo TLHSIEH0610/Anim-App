@@ -3,6 +3,17 @@
 {% block content %}
 <h2 class="mdc-typography--headline5">Workflow Definitions</h2>
 
+{% if request.query_params.get('error') %}
+<script>
+  (function(){
+    try {
+      var msg = new URLSearchParams(window.location.search).get('error');
+      if (msg) alert(msg);
+    } catch (e) {}
+  })();
+</script>
+{% endif %}
+
 <div class="mdc-data-table">
     <div class="mdc-data-table__table-container">
         <table class="mdc-data-table__table">
