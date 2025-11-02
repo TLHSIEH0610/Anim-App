@@ -1,7 +1,17 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, Image } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { TextInput as PaperTextInput, SegmentedButtons, TouchableRipple, IconButton, ActivityIndicator as PaperActivityIndicator, Snackbar, Portal, Dialog, RadioButton } from 'react-native-paper';
+import {
+  TextInput as PaperTextInput,
+  SegmentedButtons,
+  TouchableRipple,
+  IconButton,
+  ActivityIndicator as PaperActivityIndicator,
+  Snackbar,
+  Portal,
+  Dialog,
+  RadioButton,
+} from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
 import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
 import {
@@ -60,7 +70,10 @@ const GENDER_OPTIONS: Array<{ value: "male" | "female"; label: string }> = [
 
 type PaymentMode = "none" | "free_trial" | "credits" | "stripe_confirmed";
 
-const buildAutoTitle = (storyLabel: string | undefined, characterName: string | undefined) => {
+const buildAutoTitle = (
+  storyLabel: string | undefined,
+  characterName: string | undefined
+) => {
   const cleanStory = (storyLabel || "Story").trim();
   const cleanName = (characterName || "").trim();
   if (cleanName.length) {
@@ -77,16 +90,19 @@ const formatCredits = (value: number | null | undefined) => {
   if (Number.isNaN(numeric)) {
     return "0";
   }
-  return Number.isInteger(numeric) ? numeric.toString() : numeric.toFixed(2).replace(/\.?0+$/, "");
+  return Number.isInteger(numeric)
+    ? numeric.toString()
+    : numeric.toFixed(2).replace(/\.?0+$/, "");
 };
 
 type CardDetailsChange = {
   complete?: boolean;
 };
 
-
-
-const formatCurrency = (amount: number | null | undefined, currency: string | undefined) => {
+const formatCurrency = (
+  amount: number | null | undefined,
+  currency: string | undefined
+) => {
   if (amount === null || amount === undefined) {
     return "--";
   }
@@ -104,7 +120,10 @@ const formatCurrency = (amount: number | null | undefined, currency: string | un
   }
 };
 
-const injectCharacterName = (text: string | null | undefined, rawName: string) => {
+const injectCharacterName = (
+  text: string | null | undefined,
+  rawName: string
+) => {
   if (!text) {
     return "";
   }
@@ -115,12 +134,20 @@ const injectCharacterName = (text: string | null | undefined, rawName: string) =
     .replace(/\[name\]/gi, fallbackName)
     .replace(/<name>/gi, fallbackName);
 };
-type BookCreationScreenProps = NativeStackScreenProps<AppStackParamList, "BookCreation">;
+type BookCreationScreenProps = NativeStackScreenProps<
+  AppStackParamList,
+  "BookCreation"
+>;
 
-export default function BookCreationScreen({ navigation, route }: BookCreationScreenProps) {
+export default function BookCreationScreen({
+  navigation,
+  route,
+}: BookCreationScreenProps) {
   const { token } = useAuth();
   const stripe = useStripe();
-  const cardPaymentsSupported = isStripeAvailable && !!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+  const cardPaymentsSupported =
+    isStripeAvailable &&
+    !!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
 
   const [templates, setTemplates] = useState<TemplateDisplay[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
@@ -139,17 +166,23 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
-  const [creationDialog, setCreationDialog] = useState<{ visible: boolean; bookId: number | null }>({ visible: false, bookId: null });
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+  }>({ visible: false, message: "" });
+  const [creationDialog, setCreationDialog] = useState<{
+    visible: boolean;
+    bookId: number | null;
+  }>({ visible: false, bookId: null });
 
   const [pricingQuote, setPricingQuote] = useState<PricingQuote | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("none");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"free_trial" | "credits" | "card" | null>(
-    null
-  );
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
+    "free_trial" | "credits" | "card" | null
+  >(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -172,11 +205,12 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     if (!selectedTemplate) {
       return "";
     }
-    const text =
-      selectedTemplate.storyText?.trim() ||
-      selectedTemplate.description?.trim() ||
-      selectedTemplate.storylinePages?.[0]?.imagePrompt?.trim();
-    return injectCharacterName(text, form.templateInput.name);
+    // const text =
+    // selectedTemplate.storyText?.trim() ||
+    // selectedTemplate.description?.trim()
+    // selectedTemplate.storylinePages?.[0]?.imagePrompt?.trim();
+    // return injectCharacterName(text, form.templateInput.name);
+    return selectedTemplate.description?.trim();
   }, [selectedTemplate, form.templateInput.name]);
 
   const storylinePagesDetailed = useMemo(() => {
@@ -241,7 +275,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       } catch (error: any) {
         console.error("Failed to load pricing", error?.response?.data || error);
         setPricingQuote(null);
-        setPricingError("Unable to fetch pricing. Pull to refresh or try again.");
+        setPricingError(
+          "Unable to fetch pricing. Pull to refresh or try again."
+        );
       } finally {
         setPricingLoading(false);
       }
@@ -271,9 +307,12 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         setForm((prev) => {
           const initialSlug = route?.params?.templateSlug;
           const first = mapped[0];
-          const chosen = mapped.find(t => t.slug === initialSlug) || first;
+          const chosen = mapped.find((t) => t.slug === initialSlug) || first;
           const templateKey = chosen?.slug ?? null;
-          const generatedTitle = buildAutoTitle(first?.name, prev.templateInput.name);
+          const generatedTitle = buildAutoTitle(
+            first?.name,
+            prev.templateInput.name
+          );
           setAutoTitle(generatedTitle);
           setTitleManuallyEdited(false);
           return {
@@ -283,7 +322,8 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
             title: generatedTitle,
           };
         });
-        const priceSlug = route?.params?.templateSlug || mapped[0]?.slug || null;
+        const priceSlug =
+          route?.params?.templateSlug || mapped[0]?.slug || null;
         if (priceSlug) {
           await loadPricing(priceSlug);
         }
@@ -314,10 +354,15 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   }, [selectedTemplate]);
 
   useEffect(() => {
-    const generated = buildAutoTitle(selectedTemplate?.name, form.templateInput.name);
+    const generated = buildAutoTitle(
+      selectedTemplate?.name,
+      form.templateInput.name
+    );
     setAutoTitle(generated);
     if (!titleManuallyEdited) {
-      setForm((prev) => (prev.title === generated ? prev : { ...prev, title: generated }));
+      setForm((prev) =>
+        prev.title === generated ? prev : { ...prev, title: generated }
+      );
     }
   }, [selectedTemplate?.name, form.templateInput.name, titleManuallyEdited]);
 
@@ -336,9 +381,12 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     );
     const balanceForSelection = pricingQuote.credits_balance ?? 0;
     const requiredForSelection = pricingQuote.credits_required ?? 0;
-    const creditsAvailable = requiredForSelection > 0 && balanceForSelection >= requiredForSelection;
+    const creditsAvailable =
+      requiredForSelection > 0 && balanceForSelection >= requiredForSelection;
     const cardAvailable =
-      cardPaymentsSupported && pricingQuote.final_price > 0 && pricingQuote.card_available !== false;
+      cardPaymentsSupported &&
+      pricingQuote.final_price > 0 &&
+      pricingQuote.card_available !== false;
 
     setSelectedPaymentMethod((prev) => {
       if (prev === "free_trial" && freeTrialAvailable) {
@@ -363,7 +411,10 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     });
   }, [pricingQuote, cardPaymentsSupported]);
 
-  const updateForm = <K extends keyof BookForm>(field: K, value: BookForm[K]) => {
+  const updateForm = <K extends keyof BookForm>(
+    field: K,
+    value: BookForm[K]
+  ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -417,23 +468,28 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       if (!result.canceled) {
         const selectedAssets = result.assets;
         if (selectedAssets.length > 4) {
-          setSnackbar({ visible: true, message: 'You can select up to 4 images maximum' });
+          setSnackbar({
+            visible: true,
+            message: "You can select up to 4 images maximum",
+          });
           return;
         }
 
         for (const asset of selectedAssets) {
           if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-            setSnackbar({ visible: true, message: `${asset.fileName || 'An image'} is larger than 10MB.` });
+            setSnackbar({
+              visible: true,
+              message: `${asset.fileName || "An image"} is larger than 10MB.`,
+            });
             return;
           }
         }
 
         const imageUris = selectedAssets.map((asset) => asset.uri);
         updateImages(imageUris);
-
       }
     } catch (error) {
-      setSnackbar({ visible: true, message: 'Failed to pick images' });
+      setSnackbar({ visible: true, message: "Failed to pick images" });
     }
   };
 
@@ -450,7 +506,11 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   };
 
   const handleUseFreeTrial = () => {
-    if (!pricingQuote || !pricingQuote.free_trial_slug || pricingQuote.free_trial_consumed) {
+    if (
+      !pricingQuote ||
+      !pricingQuote.free_trial_slug ||
+      pricingQuote.free_trial_consumed
+    ) {
       return;
     }
     setSelectedPaymentMethod("free_trial");
@@ -487,7 +547,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       return;
     }
     if (pricingQuote.card_available === false) {
-      setPaymentError("Card payments are currently disabled. Please choose another option.");
+      setPaymentError(
+        "Card payments are currently disabled. Please choose another option."
+      );
       return;
     }
     setSelectedPaymentMethod("card");
@@ -501,14 +563,21 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   const canProceedToNext = () => {
     switch (currentStep) {
       case 0:
-        return form.images.length > 0 && !!selectedTemplate && !!form.templateInput.name.trim();
+        return (
+          form.images.length > 0 &&
+          !!selectedTemplate &&
+          !!form.templateInput.name.trim()
+        );
       case 1:
         return !!form.title.trim();
       case 2:
         if (!pricingQuote || pricingLoading) {
           return false;
         }
-        if (pricingQuote.final_price <= 0 && (!pricingQuote.free_trial_slug || pricingQuote.free_trial_consumed)) {
+        if (
+          pricingQuote.final_price <= 0 &&
+          (!pricingQuote.free_trial_slug || pricingQuote.free_trial_consumed)
+        ) {
           return true;
         }
         return selectedPaymentMethod !== null;
@@ -517,55 +586,75 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     }
   };
 
-  const ensureFormReady = (): { template: TemplateDisplay; quote: PricingQuote } | null => {
+  const ensureFormReady = (): {
+    template: TemplateDisplay;
+    quote: PricingQuote;
+  } | null => {
     if (!form.images.length) {
       setImageError("Upload at least one character image to continue.");
-      setSnackbar({ visible: true, message: 'Please select at least 1 image' });
+      setSnackbar({ visible: true, message: "Please select at least 1 image" });
       return null;
     }
     if (!form.title.trim()) {
-      setSnackbar({ visible: true, message: 'Please enter a book title' });
+      setSnackbar({ visible: true, message: "Please enter a book title" });
       return null;
     }
     if (!form.templateInput.name.trim()) {
       setNameError("Character name is required.");
-      setSnackbar({ visible: true, message: 'Please provide a character name' });
+      setSnackbar({
+        visible: true,
+        message: "Please provide a character name",
+      });
       return null;
     }
     if (!selectedTemplate) {
-      setSnackbar({ visible: true, message: 'Please select a story template' });
+      setSnackbar({ visible: true, message: "Please select a story template" });
       return null;
     }
     if (!pricingQuote) {
-      setSnackbar({ visible: true, message: 'Pricing information is unavailable. Please try again.' });
+      setSnackbar({
+        visible: true,
+        message: "Pricing information is unavailable. Please try again.",
+      });
       return null;
     }
     return { template: selectedTemplate, quote: pricingQuote };
   };
 
-  const createChildBook = async (
-    overrides?: { paymentModeOverride?: PaymentMode; paymentIdOverride?: number | null }
-  ) => {
+  const createChildBook = async (overrides?: {
+    paymentModeOverride?: PaymentMode;
+    paymentIdOverride?: number | null;
+  }) => {
     const effectivePaymentMode = overrides?.paymentModeOverride ?? paymentMode;
     const effectivePaymentId =
-      overrides && Object.prototype.hasOwnProperty.call(overrides, "paymentIdOverride")
+      overrides &&
+      Object.prototype.hasOwnProperty.call(overrides, "paymentIdOverride")
         ? overrides.paymentIdOverride ?? null
         : paymentId;
 
     const preflight = ensureFormReady();
     if (!preflight) {
-      setSnackbar({ visible: true, message: 'Please complete required fields before continuing.' });
+      setSnackbar({
+        visible: true,
+        message: "Please complete required fields before continuing.",
+      });
       return;
     }
     const { template, quote } = preflight;
 
     if (!token) {
-      setSnackbar({ visible: true, message: 'Please sign in again to create your book.' });
+      setSnackbar({
+        visible: true,
+        message: "Please sign in again to create your book.",
+      });
       return;
     }
 
     if (!isPaymentComplete(effectivePaymentMode, effectivePaymentId, quote)) {
-      setSnackbar({ visible: true, message: 'Please complete the payment step before creating your book.' });
+      setSnackbar({
+        visible: true,
+        message: "Please complete the payment step before creating your book.",
+      });
       return;
     }
 
@@ -595,12 +684,18 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       setCreationDialog({ visible: true, bookId: response.id });
       resetPaymentState();
     } catch (error: any) {
-      console.error("Book creation error:", error?.response?.data || error.message);
+      console.error(
+        "Book creation error:",
+        error?.response?.data || error.message
+      );
       let errorMessage = "Failed to create book. Please try again.";
       if (error.response?.status === 402) {
-        errorMessage = error.response.data?.detail || "Payment verification failed.";
+        errorMessage =
+          error.response.data?.detail || "Payment verification failed.";
       } else if (error.response?.status === 400) {
-        errorMessage = error.response.data?.detail || "Invalid input. Please check your form.";
+        errorMessage =
+          error.response.data?.detail ||
+          "Invalid input. Please check your form.";
       }
       setSnackbar({ visible: true, message: errorMessage });
     } finally {
@@ -610,7 +705,10 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
   const renderTemplateCard = (template: TemplateDisplay) => {
     const isActive = template.slug === selectedTemplate?.slug;
-    const quote = pricingQuote && template.slug === selectedTemplate?.slug ? pricingQuote : null;
+    const quote =
+      pricingQuote && template.slug === selectedTemplate?.slug
+        ? pricingQuote
+        : null;
     return (
       <TouchableRipple
         key={template.slug}
@@ -620,17 +718,24 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         <View>
           <Text style={styles.templateTitle}>{template.name}</Text>
           {template.description ? (
-            <Text style={styles.templateDescription}>{template.description}</Text>
+            <Text style={styles.templateDescription}>
+              {template.description}
+            </Text>
           ) : null}
           <Text style={styles.templateMeta}>
-            Suggested Age: {template.age || "n/a"} - {template.page_count || 0} pages
+            Suggested Age: {template.age || "n/a"} - {template.page_count || 0}{" "}
+            pages
           </Text>
           {quote ? (
             <View style={styles.pricingRow}>
-              <Text style={styles.priceValue}>{formatCurrency(quote.final_price, quote.currency)}</Text>
+              <Text style={styles.priceValue}>
+                {formatCurrency(quote.final_price, quote.currency)}
+              </Text>
               {quote.promotion_label ? (
                 <View style={styles.promotionBadge}>
-                  <Text style={styles.promotionText}>{quote.promotion_label.toUpperCase()}</Text>
+                  <Text style={styles.promotionText}>
+                    {quote.promotion_label.toUpperCase()}
+                  </Text>
                 </View>
               ) : null}
             </View>
@@ -667,7 +772,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         nextMode = "none";
       } else if (selectedPaymentMethod === "free_trial") {
         if (!quote.free_trial_slug || quote.free_trial_consumed) {
-          throw new Error("Free trial is no longer available for this template.");
+          throw new Error(
+            "Free trial is no longer available for this template."
+          );
         }
         nextMode = "free_trial";
       } else if (selectedPaymentMethod === "credits") {
@@ -700,18 +807,25 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
           throw new Error("Enter a valid card before confirming.");
         }
 
-        const intent: StripeIntentResponse = await createStripeIntent(template.slug);
-        const { error: stripeError } = await stripe.confirmPayment(intent.client_secret, {
-          paymentMethodType: "Card",
-          paymentMethodData: {
-            billingDetails: {
-              name: form.templateInput.name?.trim() || undefined,
+        const intent: StripeIntentResponse = await createStripeIntent(
+          template.slug
+        );
+        const { error: stripeError } = await stripe.confirmPayment(
+          intent.client_secret,
+          {
+            paymentMethodType: "Card",
+            paymentMethodData: {
+              billingDetails: {
+                name: form.templateInput.name?.trim() || undefined,
+              },
             },
-          },
-        });
+          }
+        );
 
         if (stripeError) {
-          throw new Error(stripeError.message ?? "Unable to confirm card payment.");
+          throw new Error(
+            stripeError.message ?? "Unable to confirm card payment."
+          );
         }
 
         const confirmation = await confirmStripePayment(intent.payment_id);
@@ -727,13 +841,23 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         paymentIdOverride: nextPaymentId,
       });
     } catch (error: any) {
-      console.error("Payment confirmation failed", error?.response?.data || error);
+      console.error(
+        "Payment confirmation failed",
+        error?.response?.data || error
+      );
       const message =
-        error?.response?.data?.detail || error?.message || "Unable to complete payment.";
+        error?.response?.data?.detail ||
+        error?.message ||
+        "Unable to complete payment.";
       setPaymentError(message);
       const detail: string | undefined = error?.response?.data?.detail;
-      if (detail && detail.toLowerCase().includes("stripe secret key not configured")) {
-        setPricingQuote((prev) => (prev ? { ...prev, card_available: false } : prev));
+      if (
+        detail &&
+        detail.toLowerCase().includes("stripe secret key not configured")
+      ) {
+        setPricingQuote((prev) =>
+          prev ? { ...prev, card_available: false } : prev
+        );
         setSelectedPaymentMethod(null);
         setCurrentStep(1);
       }
@@ -748,11 +872,14 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>Upload Character Images *</Text>
         <Text style={styles.stepDescription}>
-          Select 1-4 images of your character for better consistency throughout the book.
+          Select 1-4 images of your character for better consistency throughout
+          the book.
         </Text>
 
         <View style={styles.imageCountBadge}>
-          <Text style={styles.imageCountText}>{form.images.length}/4 images selected</Text>
+          <Text style={styles.imageCountText}>
+            {form.images.length}/4 images selected
+          </Text>
         </View>
 
         {form.images.length ? (
@@ -761,22 +888,38 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
               {form.images.map((uri, index) => (
                 <View key={index} style={styles.imageWrapper}>
                   <Image source={{ uri }} style={styles.galleryImage} />
-                  <IconButton icon="close" size={18} style={styles.removeImageButton} onPress={() => removeImage(index)} />
+                  <IconButton
+                    icon="close"
+                    size={18}
+                    style={styles.removeImageButton}
+                    onPress={() => removeImage(index)}
+                  />
                 </View>
               ))}
             </View>
             {form.images.length < 4 && (
-              <Button title="+ Add More Images" onPress={pickImage} variant="secondary" />
+              <Button
+                title="+ Add More Images"
+                onPress={pickImage}
+                variant="secondary"
+              />
             )}
           </View>
         ) : (
-          <Button title="Select Images (1-4)" onPress={pickImage} variant="primary" />
+          <Button
+            title="Select Images (1-4)"
+            onPress={pickImage}
+            variant="primary"
+          />
         )}
 
         <Text style={styles.helpText}>
-          Tip: Multiple images help AI understand your character better! Choose clear images with good lighting.
+          Tip: Multiple images help AI understand your character better! Choose
+          clear images with good lighting.
         </Text>
-        {imageError ? <Text style={styles.errorTextInline}>{imageError}</Text> : null}
+        {imageError ? (
+          <Text style={styles.errorTextInline}>{imageError}</Text>
+        ) : null}
 
         <View style={styles.sectionDivider} />
 
@@ -795,7 +938,8 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
         {readonlyTemplate ? (
           <Text style={styles.helperText}>
-            This story template is pre-selected for this book. You can review the details on the next step.
+            This story template is pre-selected for this book. You can review
+            the details on the next step.
           </Text>
         ) : (
           <View style={styles.templateList}>
@@ -809,7 +953,7 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
             mode="outlined"
             style={styles.textInput}
             outlineStyle={{ borderRadius: radii.md }}
-            outlineColor={'rgba(37, 99, 235, 0.25)'}
+            outlineColor={"rgba(37, 99, 235, 0.25)"}
             activeOutlineColor={colors.primary}
             placeholder="Enter a character name"
             value={form.templateInput.name}
@@ -820,17 +964,22 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
               }
             }}
           />
-          {nameError ? <Text style={styles.errorTextInline}>{nameError}</Text> : null}
+          {nameError ? (
+            <Text style={styles.errorTextInline}>{nameError}</Text>
+          ) : null}
         </View>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Character Pronouns</Text>
           <SegmentedButtons
             value={form.templateInput.gender}
-            onValueChange={(val: string) => updateTemplateInput('gender', val)}
+            onValueChange={(val: string) => updateTemplateInput("gender", val)}
             density="small"
             style={styles.segmented}
-            buttons={GENDER_OPTIONS.map(opt => ({ value: opt.value, label: opt.label }))}
+            buttons={GENDER_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
           />
         </View>
       </View>
@@ -849,47 +998,45 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
       )}
 
       <View style={styles.reviewDetails}>
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Book Title</Text>
-          <PaperTextInput
-            mode="outlined"
-            style={styles.textInput}
-            outlineStyle={{ borderRadius: radii.md }}
-            outlineColor={'rgba(37, 99, 235, 0.25)'}
-            activeOutlineColor={colors.primary}
-            value={form.title}
-            placeholder={autoTitle || "Story Title"}
-            onChangeText={handleTitleChange}
-          />
-          {!form.title.trim() ? (
-            <Text style={styles.errorTextInline}>Book title is required.</Text>
-          ) : null}
-        </View>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
         <Text style={styles.reviewDetail}>
-          Template: {selectedTemplate?.name ?? "Custom"} - {form.pageCount} pages
+          Template: {selectedTemplate?.name ?? "Custom"} - {form.pageCount}{" "}
+          pages
         </Text>
-        <Text style={styles.reviewDetail}>Images: {form.images.length} reference image(s)</Text>
+        <Text style={styles.reviewDetail}>
+          Images: {form.images.length} reference image(s)
+        </Text>
         {form.templateInput.name.trim() ? (
-          <Text style={styles.reviewDetail}>Lead Character: {form.templateInput.name.trim()}</Text>
+          <Text style={styles.reviewDetail}>
+            Lead Character: {form.templateInput.name.trim()}
+          </Text>
         ) : null}
         {storylinePreview ? (
           <View style={styles.reviewStorylineWrapper}>
-            <Text style={styles.reviewStorylineHeading}>Storyline Preview</Text>
+            <Text style={styles.reviewStorylineHeading}>
+              Storyline Description
+            </Text>
             <Text style={styles.reviewStoryline}>{storylinePreview}</Text>
           </View>
         ) : null}
-        {storylinePagesDetailed.length > 0 ? (
-          <View style={[styles.reviewStorylineWrapper, styles.storylinePagesContainer]}>
+        {/* {storylinePagesDetailed.length > 0 ? (
+          <View
+            style={[
+              styles.reviewStorylineWrapper,
+              styles.storylinePagesContainer,
+            ]}
+          >
             <Text style={styles.reviewStorylineHeading}>Full Storyline</Text>
             {storylinePagesDetailed.map((page) => (
               <View key={page.pageNumber} style={styles.storylinePageRow}>
-                <Text style={styles.storylinePageNumber}>Page {page.pageNumber}</Text>
+                <Text style={styles.storylinePageNumber}>
+                  Page {page.pageNumber}
+                </Text>
                 <Text style={styles.storylinePageText}>{page.text}</Text>
               </View>
             ))}
           </View>
-        ) : null}
+        ) : null} */}
       </View>
 
       <View style={styles.reviewPricingCard}>
@@ -899,43 +1046,72 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         ) : pricingQuote ? (
           <View>
             <View style={styles.pricingRowBetween}>
-              <Text style={styles.pricingLabel}>Base price</Text>
-              <Text style={styles.pricingValue}>{formatCurrency(pricingQuote.base_price, pricingQuote.currency)}</Text>
+              <Text style={styles.pricingLabel}>Available credits</Text>
+              <Text style={styles.pricingValue}>
+                {formatCredits(pricingQuote.credits_balance ?? 0)}
+              </Text>
             </View>
-            {pricingQuote.discount_price !== null && pricingQuote.discount_price < pricingQuote.base_price ? (
+            <View style={styles.pricingRowBetween}>
+              <Text style={styles.pricingLabel}>Base price</Text>
+              <Text style={styles.pricingValue}>
+                {formatCurrency(pricingQuote.base_price, pricingQuote.currency)}
+              </Text>
+            </View>
+            {pricingQuote.discount_price !== null &&
+            pricingQuote.discount_price < pricingQuote.base_price ? (
               <View style={styles.pricingRowBetween}>
                 <Text style={styles.pricingLabel}>Discounted price</Text>
-                <Text style={styles.pricingValue}>{formatCurrency(pricingQuote.discount_price, pricingQuote.currency)}</Text>
+                <Text style={styles.pricingValue}>
+                  {formatCurrency(
+                    pricingQuote.discount_price,
+                    pricingQuote.currency
+                  )}
+                </Text>
               </View>
             ) : null}
             {pricingQuote.free_trial_slug ? (
               <View style={styles.pricingRowBetween}>
                 <Text style={styles.pricingLabel}>Free trial</Text>
                 <Text style={styles.pricingValue}>
-                  {pricingQuote.free_trial_consumed ? "Already used" : "Available"}
+                  {pricingQuote.free_trial_consumed
+                    ? "Not Available"
+                    : "Available"}
                 </Text>
               </View>
             ) : null}
             <View style={styles.pricingRowBetween}>
-              <Text style={[styles.pricingLabel, styles.pricingLabelStrong]}>Total due</Text>
+              <Text style={[styles.pricingLabel, styles.pricingLabelStrong]}>
+                Total due
+              </Text>
               <Text style={[styles.pricingValue, styles.pricingValueStrong]}>
-                {formatCurrency(pricingQuote.final_price, pricingQuote.currency)}
+                {formatCurrency(
+                  pricingQuote.final_price,
+                  pricingQuote.currency
+                )}
               </Text>
             </View>
             {renderReviewPaymentDetails()}
           </View>
         ) : (
-          <Text style={styles.errorTextInline}>{pricingError || "Pricing unavailable"}</Text>
+          <Text style={styles.errorTextInline}>
+            {pricingError || "Pricing unavailable"}
+          </Text>
         )}
       </View>
 
-      <View style={styles.paymentOptionsContainer}>{renderPaymentOptionsRadios()}</View>
+      <View style={styles.paymentOptionsContainer}>
+        {renderPaymentOptionsRadios()}
+      </View>
     </View>
   );
 
   const renderPaymentOptionsRadios = () => {
     if (!pricingQuote) {
-      return <Text style={styles.errorTextInline}>Pricing not loaded. Please go back and retry.</Text>;
+      return (
+        <Text style={styles.errorTextInline}>
+          Pricing not loaded. Please go back and retry.
+        </Text>
+      );
     }
 
     const freeTrialAvailable = Boolean(
@@ -943,18 +1119,22 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
     );
     const creditsRequired = pricingQuote.credits_required ?? 0;
     const creditsBalanceValue = pricingQuote.credits_balance ?? 0;
-    const creditsDisabled = !(creditsRequired > 0 && creditsBalanceValue >= creditsRequired);
+    const creditsDisabled = !(
+      creditsRequired > 0 && creditsBalanceValue >= creditsRequired
+    );
     const cardAvailable =
-      cardPaymentsSupported && pricingQuote.card_available !== false && pricingQuote.final_price > 0;
+      cardPaymentsSupported &&
+      pricingQuote.card_available !== false &&
+      pricingQuote.final_price > 0;
     const cardDisabled = !cardAvailable;
 
     const onChange = (val: string) => {
-      if (val === 'free_trial') return handleUseFreeTrial();
-      if (val === 'credits') return handlePayWithCredits();
-      if (val === 'card') return handlePayWithCard();
+      if (val === "free_trial") return handleUseFreeTrial();
+      if (val === "credits") return handlePayWithCredits();
+      if (val === "card") return handlePayWithCard();
     };
 
-    const radioValue = selectedPaymentMethod ?? '';
+    const radioValue = selectedPaymentMethod ?? "";
 
     const items: React.ReactNode[] = [];
     if (freeTrialAvailable) {
@@ -996,7 +1176,11 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
           mode="android"
         />
       );
-      if (cardDisabled && cardPaymentsSupported && pricingQuote.card_available === false) {
+      if (
+        cardDisabled &&
+        cardPaymentsSupported &&
+        pricingQuote.card_available === false
+      ) {
         items.push(
           <Text key="card-disabled-note" style={styles.helperText}>
             Card payments are currently unavailable.
@@ -1007,7 +1191,9 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
     if (items.length === 0) {
       return (
-        <Text style={styles.helperText}>No payment required for this selection.</Text>
+        <Text style={styles.helperText}>
+          No payment required for this selection.
+        </Text>
       );
     }
 
@@ -1029,12 +1215,16 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
         return "Free trial";
       }
       if (selectedPaymentMethod === "credits") {
-        return creditsRequired > 0 ? `Credits (${formatCredits(creditsRequired)})` : "Credits";
+        return creditsRequired > 0
+          ? `Credits (${formatCredits(creditsRequired)})`
+          : "Credits";
       }
       if (selectedPaymentMethod === "card") {
         return "Card";
       }
-      return pricingQuote.final_price > 0 ? "Not selected" : "No payment needed";
+      return pricingQuote.final_price > 0
+        ? "Not selected"
+        : "No payment needed";
     })();
 
     return (
@@ -1048,29 +1238,41 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
           <>
             <View style={styles.pricingRowBetween}>
               <Text style={styles.pricingLabel}>Credits to use</Text>
-              <Text style={styles.pricingValue}>{formatCredits(creditsRequired)}</Text>
+              <Text style={styles.pricingValue}>
+                {formatCredits(creditsRequired)}
+              </Text>
             </View>
             <View style={styles.pricingRowBetween}>
               <Text style={styles.pricingLabel}>Current balance</Text>
-              <Text style={styles.pricingValue}>{formatCredits(creditsBalanceValue)}</Text>
+              <Text style={styles.pricingValue}>
+                {formatCredits(creditsBalanceValue)}
+              </Text>
             </View>
           </>
         ) : null}
-        {selectedPaymentMethod === "card" && pricingQuote.card_available === false ? (
+        {selectedPaymentMethod === "card" &&
+        pricingQuote.card_available === false ? (
           <Text style={styles.helperText}>
-            Card payments are currently disabled. Please choose credits or a free trial.
+            Card payments are currently disabled. Please choose credits or a
+            free trial.
           </Text>
         ) : null}
-        {selectedPaymentMethod === "card" && pricingQuote.card_available !== false && pricingQuote.final_price > 0 ? (
+        {selectedPaymentMethod === "card" &&
+        pricingQuote.card_available !== false &&
+        pricingQuote.final_price > 0 ? (
           <Text style={styles.helperText}>
             Enter your card details in the next step to complete payment.
           </Text>
         ) : null}
         {selectedPaymentMethod === null && pricingQuote.final_price > 0 ? (
-          <Text style={styles.helperText}>Choose a payment method below to continue.</Text>
+          <Text style={styles.helperText}>
+            Choose a payment method below to continue.
+          </Text>
         ) : null}
         {pricingQuote.final_price <= 0 ? (
-          <Text style={styles.helperText}>No payment is required for this selection.</Text>
+          <Text style={styles.helperText}>
+            No payment is required for this selection.
+          </Text>
         ) : null}
       </>
     );
@@ -1091,108 +1293,131 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
 
     const confirmDisabled = Boolean(
       isPaymentLoading ||
-      isCreating ||
-      (paymentRequired && !selectedPaymentMethod) ||
-      cardDetailsRequired
+        isCreating ||
+        (paymentRequired && !selectedPaymentMethod) ||
+        cardDetailsRequired
     );
 
     return (
       <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Payment</Text>
-      <Text style={styles.stepDescription}>
-        Confirm your payment choice to start generating your personalized children's book.
-      </Text>
+        <Text style={styles.stepTitle}>Payment</Text>
+        <Text style={styles.stepDescription}>
+          Confirm your payment choice to start generating your personalized
+          children's book.
+        </Text>
 
-      {pricingLoading ? (
-        <PaperActivityIndicator />
-      ) : pricingQuote ? (
-        <View style={styles.paymentInfoCard}>
-          <View style={styles.pricingRowBetween}>
-            <Text style={styles.pricingLabel}>Total due</Text>
-            <Text style={[styles.pricingValue, styles.pricingValueStrong]}>
-              {formatCurrency(pricingQuote.final_price, pricingQuote.currency)}
-            </Text>
-          </View>
-          {selectedPaymentMethod === "credits" ? (
-            <View>
-              <View style={styles.pricingRowBetween}>
-                <Text style={styles.pricingLabel}>Credits to deduct</Text>
-                <Text style={styles.pricingValue}>{formatCredits(pricingQuote.credits_required ?? 0)}</Text>
-              </View>
-              <View style={styles.pricingRowBetween}>
-                <Text style={styles.pricingLabel}>Current balance</Text>
-                <Text style={styles.pricingValue}>{formatCredits(pricingQuote.credits_balance ?? 0)}</Text>
-              </View>
-              <Text style={styles.helperText}>
-                Your credits will be deducted once you confirm this payment.
+        {pricingLoading ? (
+          <PaperActivityIndicator />
+        ) : pricingQuote ? (
+          <View style={styles.paymentInfoCard}>
+            <View style={styles.pricingRowBetween}>
+              <Text style={styles.pricingLabel}>Total due</Text>
+              <Text style={[styles.pricingValue, styles.pricingValueStrong]}>
+                {formatCurrency(
+                  pricingQuote.final_price,
+                  pricingQuote.currency
+                )}
               </Text>
             </View>
-          ) : null}
-          {selectedPaymentMethod === "card" ? (
-            pricingQuote.card_available === false ? (
+            {selectedPaymentMethod === "credits" ? (
+              <View>
+                <View style={styles.pricingRowBetween}>
+                  <Text style={styles.pricingLabel}>Credits to deduct</Text>
+                  <Text style={styles.pricingValue}>
+                    {formatCredits(pricingQuote.credits_required ?? 0)}
+                  </Text>
+                </View>
+                <View style={styles.pricingRowBetween}>
+                  <Text style={styles.pricingLabel}>Current balance</Text>
+                  <Text style={styles.pricingValue}>
+                    {formatCredits(pricingQuote.credits_balance ?? 0)}
+                  </Text>
+                </View>
+                <Text style={styles.helperText}>
+                  Your credits will be deducted once you confirm this payment.
+                </Text>
+              </View>
+            ) : null}
+            {selectedPaymentMethod === "card" ? (
+              pricingQuote.card_available === false ? (
+                <Text style={styles.helperText}>
+                  Card payments are currently disabled. Please choose credits or
+                  a free trial.
+                </Text>
+              ) : (
+                <Text style={styles.helperText}>
+                  Enter your card details below. Your card will only be charged
+                  after you tap Confirm & Pay.
+                </Text>
+              )
+            ) : null}
+            {selectedPaymentMethod === "free_trial" ? (
               <Text style={styles.helperText}>
-                Card payments are currently disabled. Please choose credits or a free trial.
+                This book will be unlocked using your available free trial. No
+                payment required.
               </Text>
-            ) : (
+            ) : null}
+            {!selectedPaymentMethod && paymentRequired ? (
               <Text style={styles.helperText}>
-                Enter your card details below. Your card will only be charged after you tap Confirm & Pay.
+                Go back to the review step to choose a payment option before
+                confirming.
               </Text>
-            )
-          ) : null}
-          {selectedPaymentMethod === "free_trial" ? (
-            <Text style={styles.helperText}>
-              This book will be unlocked using your available free trial. No payment required.
-            </Text>
-          ) : null}
-          {!selectedPaymentMethod && paymentRequired ? (
-            <Text style={styles.helperText}>
-              Go back to the review step to choose a payment option before confirming.
-            </Text>
-          ) : null}
-          {!paymentRequired ? (
-            <Text style={styles.helperText}>
-              No payment is required for this selection. Confirm to start your book creation.
-            </Text>
-          ) : null}
-        </View>
-      ) : (
-        <Text style={styles.errorTextInline}>{pricingError || "Pricing unavailable."}</Text>
-      )}
+            ) : null}
+            {!paymentRequired ? (
+              <Text style={styles.helperText}>
+                No payment is required for this selection. Confirm to start your
+                book creation.
+              </Text>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={styles.errorTextInline}>
+            {pricingError || "Pricing unavailable."}
+          </Text>
+        )}
 
-      {selectedPaymentMethod === "card" && pricingQuote?.card_available !== false && cardPaymentsSupported ? (
-        <View style={styles.cardFieldContainer}>
-          <CardField
-            postalCodeEnabled={false}
-            placeholders={{ number: "4242 4242 4242 4242" }}
-            cardStyle={{
-              // Use hex to avoid Android parseColor("rgba(...)") errors
-              backgroundColor: '#FFFFFF',
-              textColor: colors.textPrimary,
-              placeholderColor: colors.textMuted,
-              borderRadius: radii.md,
-              fontSize: 16,
-            }}
-            style={styles.cardField}
-            onCardChange={(details: CardDetailsChange) => {
-              const complete = details?.complete ?? false;
-              setCardDetailsComplete(complete);
-              setCardFieldError(complete ? null : "Enter full card details to continue.");
-            }}
-          />
-          {cardFieldError ? <Text style={styles.errorTextInline}>{cardFieldError}</Text> : null}
-        </View>
-      ) : null}
+        {selectedPaymentMethod === "card" &&
+        pricingQuote?.card_available !== false &&
+        cardPaymentsSupported ? (
+          <View style={styles.cardFieldContainer}>
+            <CardField
+              postalCodeEnabled={false}
+              placeholders={{ number: "4242 4242 4242 4242" }}
+              cardStyle={{
+                // Use hex to avoid Android parseColor("rgba(...)") errors
+                backgroundColor: "#FFFFFF",
+                textColor: colors.textPrimary,
+                placeholderColor: colors.textMuted,
+                borderRadius: radii.md,
+                fontSize: 16,
+              }}
+              style={styles.cardField}
+              onCardChange={(details: CardDetailsChange) => {
+                const complete = details?.complete ?? false;
+                setCardDetailsComplete(complete);
+                setCardFieldError(
+                  complete ? null : "Enter full card details to continue."
+                );
+              }}
+            />
+            {cardFieldError ? (
+              <Text style={styles.errorTextInline}>{cardFieldError}</Text>
+            ) : null}
+          </View>
+        ) : null}
 
-      {paymentError ? <Text style={styles.errorTextInline}>{paymentError}</Text> : null}
+        {paymentError ? (
+          <Text style={styles.errorTextInline}>{paymentError}</Text>
+        ) : null}
 
-      <Button
-        title="Confirm & Pay"
-        onPress={handleConfirmPaymentAndCreate}
-        disabled={confirmDisabled}
-        loading={isPaymentLoading || isCreating}
-        variant="primary"
-      />
-    </View>
+        <Button
+          title="Confirm & Pay"
+          onPress={handleConfirmPaymentAndCreate}
+          disabled={confirmDisabled}
+          loading={isPaymentLoading || isCreating}
+          variant="primary"
+        />
+      </View>
     );
   };
 
@@ -1229,102 +1454,135 @@ export default function BookCreationScreen({ navigation, route }: BookCreationSc
   };
   return (
     <ScreenWrapper>
-    <Portal>
-      <Dialog visible={creationDialog.visible} onDismiss={() => setCreationDialog({ visible: false, bookId: null })}>
-        <Dialog.Title>Book Creation Started</Dialog.Title>
-        <Dialog.Content>
-          <Text>Your book is being created. This may take several minutes.</Text>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button title="View Progress" onPress={() => { if (creationDialog.bookId) navigation.navigate('BookStatus', { bookId: creationDialog.bookId }); setCreationDialog({ visible: false, bookId: null }); }} />
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Create Children-s Book</Text>
-        <Text style={styles.subtitle}>Pick a story template and bring it to life with your photos.</Text>
-      </View>
+      <Portal>
+        <Dialog
+          visible={creationDialog.visible}
+          onDismiss={() => setCreationDialog({ visible: false, bookId: null })}
+        >
+          <Dialog.Title>Book Creation Started</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Your book is being created. This may take several minutes.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              title="View Progress"
+              onPress={() => {
+                if (creationDialog.bookId)
+                  navigation.navigate("BookStatus", {
+                    bookId: creationDialog.bookId,
+                  });
+                setCreationDialog({ visible: false, bookId: null });
+              }}
+            />
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Create Children-s Book</Text>
+          <Text style={styles.subtitle}>
+            Pick a story template and bring it to life with your photos.
+          </Text>
+        </View>
 
-      <View style={styles.stepIndicator}>
-        {steps.map((step, index) => (
-          <View key={index} style={styles.stepContainer}>
-            <View
-              style={[
-                styles.stepCircle,
-                index === currentStep && styles.stepCircleActive,
-                index < currentStep && styles.stepCircleCompleted,
-              ]}
-            >
-              <Text
+        <View style={styles.stepIndicator}>
+          {steps.map((step, index) => (
+            <View key={index} style={styles.stepContainer}>
+              <View
                 style={[
-                  styles.stepNumber,
-                  index <= currentStep && styles.stepNumberActive,
+                  styles.stepCircle,
+                  index === currentStep && styles.stepCircleActive,
+                  index < currentStep && styles.stepCircleCompleted,
                 ]}
               >
-                {index + 1}
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    index <= currentStep && styles.stepNumberActive,
+                  ]}
+                >
+                  {index + 1}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  index === currentStep && styles.stepLabelActive,
+                ]}
+              >
+                {step}
               </Text>
             </View>
-            <Text
-              style={[
-                styles.stepLabel,
-                index === currentStep && styles.stepLabelActive,
-              ]}
-            >
-              {step}
-            </Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
 
-      {renderStepContent()}
+        {renderStepContent()}
 
-      <View style={styles.navigationRow}>
-        {currentStep > 0 && currentStep < steps.length - 1 ? (
-          <Button
-            title=""
-            onPress={goToPrevStep}
-            variant="secondary"
-            style={styles.navButton}
-            size="sm"
-            leftIcon={<MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />}
-          />
-        ) : (
-          <View style={styles.navSpacer} />
-        )}
+        <View style={styles.navigationRow}>
+          {currentStep > 0 && currentStep < steps.length - 1 ? (
+            <Button
+              title=""
+              onPress={goToPrevStep}
+              variant="secondary"
+              style={styles.navButton}
+              size="sm"
+              leftIcon={
+                <MaterialCommunityIcons
+                  name="arrow-left"
+                  size={25}
+                  color={colors.textPrimary}
+                />
+              }
+            />
+          ) : (
+            <View style={styles.navSpacer} />
+          )}
 
-        {currentStep < steps.length - 1 ? (
-          <Button
-            title=""
-            onPress={goToNextStep}
-            disabled={!canProceedToNext()}
-            variant="primary"
-            style={[styles.navButton, styles.nextButton]}
-             size="sm"
-            rightIcon={<MaterialCommunityIcons name="arrow-right" size={20} color={canProceedToNext() ? colors.surface : colors.neutral500} />}
-          />
-        ) : (
-          <View style={styles.navSpacer} />
-        )}
-      </View>
+          {currentStep < steps.length - 1 ? (
+            <Button
+              title=""
+              onPress={goToNextStep}
+              disabled={!canProceedToNext()}
+              variant="primary"
+              style={[styles.navButton, styles.nextButton]}
+              size="sm"
+              rightIcon={
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={25}
+                  color={
+                    canProceedToNext() ? colors.surface : colors.neutral500
+                  }
+                />
+              }
+            />
+          ) : (
+            <View style={styles.navSpacer} />
+          )}
+        </View>
 
-      <Button
-        title="Cancel"
-        onPress={() => navigation.navigate("BookLibrary")}
-        variant="secondary"
-        style={[styles.cancelButton, styles.cancelStandalone]}
-      />
-    </ScrollView>
-    <Snackbar visible={snackbar.visible} onDismiss={() => setSnackbar({ visible: false, message: '' })} duration={3000}>
-      {snackbar.message}
-    </Snackbar>
+        <Button
+          title="Cancel"
+          onPress={() => navigation.navigate("BookLibrary")}
+          variant="secondary"
+          style={[styles.cancelButton, styles.cancelStandalone]}
+        />
+      </ScrollView>
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ visible: false, message: "" })}
+        duration={3000}
+      >
+        {snackbar.message}
+      </Snackbar>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-  },
+  container: {},
   header: {
     paddingHorizontal: spacing(6),
     paddingBottom: spacing(6),
@@ -1344,7 +1602,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingVertical: spacing(4),
     paddingHorizontal: spacing(5),
-    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    backgroundColor: "rgba(135, 206, 235, 0.18)",
     borderRadius: radii.lg,
     marginHorizontal: spacing(4),
     marginBottom: spacing(4),
@@ -1357,7 +1615,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(135, 206, 235, 0.25)',
+    backgroundColor: "rgba(135, 206, 235, 0.25)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: spacing(1.5),
@@ -1366,7 +1624,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   stepCircleCompleted: {
-    backgroundColor: 'rgba(37, 99, 235, 0.45)',
+    backgroundColor: "rgba(37, 99, 235, 0.45)",
   },
   stepNumber: {
     fontSize: 12,
@@ -1391,7 +1649,7 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     height: spacing(5),
-    width: '100%',
+    width: "100%",
   },
   stepTitle: {
     ...typography.headingL,
@@ -1452,7 +1710,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   formGroup: {
-    marginBottom: spacing(5),
+    marginBottom: spacing(3),
+    marginTop: spacing(3),
   },
   label: {
     fontSize: 14,
@@ -1462,18 +1721,18 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.15)',
+    borderColor: "rgba(37, 99, 235, 0.15)",
     borderRadius: radii.md,
     paddingVertical: spacing(1.5),
     paddingHorizontal: spacing(2.5),
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     fontSize: 15,
   },
   segmented: {
-    backgroundColor: 'rgba(135, 206, 235, 0.12)',
+    backgroundColor: "rgba(135, 206, 235, 0.12)",
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: "rgba(37, 99, 235, 0.2)",
   },
   optionGroup: {
     flexDirection: "row",
@@ -1484,11 +1743,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    borderColor: "rgba(37, 99, 235, 0.2)",
     borderRadius: radii.pill,
     paddingVertical: spacing(2.5),
     paddingHorizontal: spacing(3.5),
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
   },
   optionPillActive: {
     borderColor: colors.primary,
@@ -1522,14 +1781,14 @@ const styles = StyleSheet.create({
     padding: spacing(4),
     borderRadius: radii.lg,
     borderWidth: 0,
-    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    backgroundColor: "rgba(135, 206, 235, 0.18)",
     marginBottom: spacing(3),
     ...shadow.subtle,
   },
   templateCardActive: {
     borderWidth: 1,
     borderColor: colors.primary,
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
   },
   templateTitle: {
     ...typography.headingM,
@@ -1578,7 +1837,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   reviewDetails: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: radii.lg,
     padding: 0,
     marginBottom: spacing(4),
@@ -1597,7 +1856,7 @@ const styles = StyleSheet.create({
     marginTop: spacing(3),
     padding: spacing(3.5),
     borderRadius: radii.lg,
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
     borderWidth: 0,
   },
   reviewStorylineHeading: {
@@ -1632,7 +1891,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   reviewPricingCard: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: radii.lg,
     padding: 0,
     borderWidth: 0,
@@ -1692,7 +1951,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing(4),
   },
   paymentInfoCard: {
-    backgroundColor: 'rgba(135, 206, 235, 0.18)',
+    backgroundColor: "rgba(135, 206, 235, 0.18)",
     borderRadius: radii.lg,
     padding: spacing(4),
     borderWidth: 0,
@@ -1741,11 +2000,10 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   cancelButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderWidth: 0,
   },
-  nextButton: {
-  },
+  nextButton: {},
   cancelStandalone: {
     marginHorizontal: spacing(6),
     marginBottom: spacing(8),

@@ -19,7 +19,6 @@ export interface BookCreationData {
   applyFreeTrial?: boolean;
 }
 
-
 export interface StorylinePageSummary {
   page_number: number;
   image_prompt: string;
@@ -38,21 +37,33 @@ export interface StoryTemplateSummary {
   credits_balance?: number; // included by /books/stories/templates for current user
 }
 
-export async function getStoryTemplates(): Promise<{ stories: StoryTemplateSummary[] }> {
+export async function getStoryTemplates(): Promise<{
+  stories: StoryTemplateSummary[];
+}> {
   const response = await api.get("/books/stories/templates");
   return response.data;
 }
 
-export function getStoryCoverUrl(coverPath?: string | null): string | null {
+export function getStoryCoverUrl(
+  coverPath?: string | null,
+  token?: string | null
+): string | null {
   if (!coverPath) return null;
   const baseUrl = API_BASE_ORIGIN;
+  if (token) {
+    return `${baseUrl}/books/stories/cover-public?path=${encodeURIComponent(
+      coverPath
+    )}&token=${encodeURIComponent(token)}`;
+  }
   return `${baseUrl}/books/stories/cover?path=${encodeURIComponent(coverPath)}`;
 }
 
 export function getBookCoverUrl(bookId: number, token?: string): string {
   const baseUrl = API_BASE_ORIGIN;
   if (token) {
-    return `${baseUrl}/books/${bookId}/cover-public?token=${encodeURIComponent(token)}`;
+    return `${baseUrl}/books/${bookId}/cover-public?token=${encodeURIComponent(
+      token
+    )}`;
   }
   return `${baseUrl}/books/${bookId}/cover`;
 }
@@ -109,15 +120,18 @@ export interface BookPreview {
   total_pages: number;
 }
 
-export async function createBook(token: string, data: BookCreationData): Promise<Book> {
+export async function createBook(
+  token: string,
+  data: BookCreationData
+): Promise<Book> {
   try {
     const formData = new FormData();
 
     // Add all image files (1-4 images)
     data.files.forEach((fileUri, index) => {
       // Detect file type from URI
-      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      const fileExtension = fileUri.split(".").pop()?.toLowerCase() || "jpg";
+      const mimeType = fileExtension === "png" ? "image/png" : "image/jpeg";
 
       formData.append("files", {
         uri: fileUri,
@@ -165,12 +179,18 @@ export async function createBook(token: string, data: BookCreationData): Promise
 
     return response.data;
   } catch (error: any) {
-    console.error("Create book API error:", error.response?.data || error.message);
+    console.error(
+      "Create book API error:",
+      error.response?.data || error.message
+    );
     throw error;
   }
 }
 
-export async function getBookStatus(token: string, bookId: number): Promise<Book> {
+export async function getBookStatus(
+  token: string,
+  bookId: number
+): Promise<Book> {
   const response = await api.get(`/books/${bookId}/status`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -179,7 +199,10 @@ export async function getBookStatus(token: string, bookId: number): Promise<Book
   return response.data;
 }
 
-export async function getBookDetails(token: string, bookId: number): Promise<BookWithPages> {
+export async function getBookDetails(
+  token: string,
+  bookId: number
+): Promise<BookWithPages> {
   const response = await api.get(`/books/${bookId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -189,7 +212,7 @@ export async function getBookDetails(token: string, bookId: number): Promise<Boo
 }
 
 export async function getBookList(token: string): Promise<{ books: Book[] }> {
-  const response = await api.get('/books/list', {
+  const response = await api.get("/books/list", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -197,7 +220,10 @@ export async function getBookList(token: string): Promise<{ books: Book[] }> {
   return response.data;
 }
 
-export async function getBookPreview(token: string, bookId: number): Promise<BookPreview> {
+export async function getBookPreview(
+  token: string,
+  bookId: number
+): Promise<BookPreview> {
   const response = await api.get(`/books/${bookId}/preview`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -211,17 +237,23 @@ export function getBookPdfUrl(bookId: number): string {
   return `${baseUrl}/books/${bookId}/pdf`;
 }
 
-export async function downloadBookPdf(token: string, bookId: number): Promise<Blob> {
+export async function downloadBookPdf(
+  token: string,
+  bookId: number
+): Promise<Blob> {
   const response = await api.get(`/books/${bookId}/pdf`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    responseType: 'blob',
+    responseType: "blob",
   });
   return response.data;
 }
 
-export async function deleteBook(token: string, bookId: number): Promise<{ message: string }> {
+export async function deleteBook(
+  token: string,
+  bookId: number
+): Promise<{ message: string }> {
   const response = await api.delete(`/books/${bookId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -230,20 +262,34 @@ export async function deleteBook(token: string, bookId: number): Promise<{ messa
   return response.data;
 }
 
-export async function retryBookCreation(token: string, bookId: number): Promise<{ message: string; job_id: string }> {
-  const response = await api.post(`/books/${bookId}/retry`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export async function retryBookCreation(
+  token: string,
+  bookId: number
+): Promise<{ message: string; job_id: string }> {
+  const response = await api.post(
+    `/books/${bookId}/retry`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   return response.data;
 }
 
-export async function adminRegenerateBook(token: string, bookId: number): Promise<{ message: string; job_id: string }> {
-  const response = await api.post(`/books/${bookId}/admin-regenerate`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export async function adminRegenerateBook(
+  token: string,
+  bookId: number
+): Promise<{ message: string; job_id: string }> {
+  const response = await api.post(
+    `/books/${bookId}/admin-regenerate`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   return response.data;
 }

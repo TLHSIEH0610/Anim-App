@@ -4,6 +4,7 @@ import base64
 from datetime import datetime, timezone
 from decimal import Decimal
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, Query
+import logging
 from typing import List, Optional
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -20,6 +21,7 @@ from rq import Queue
 import redis
 
 router = APIRouter(prefix="/books", tags=["books"])
+logger = logging.getLogger(__name__)
 
 # RQ connection (same Redis as compose)
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -292,6 +294,27 @@ def download_book_pdf(book_id: int, user = Depends(current_user), db: Session = 
         media_type="application/pdf",
         filename=f"{book.title.replace(' ', '_')}_book.pdf"
     )
+
+@router.get("/stories/cover-public")
+def get_story_cover_public(path: str = Query(...), token: str = Query(...)):
+    """Serve a story template cover image via token query param (for Image components).
+
+    Placed before /{book_id}/cover-public to avoid route matching 'stories' as book_id.
+    The token is validated, file must live under MEDIA_ROOT.
+    """
+    if not path:
+        raise HTTPException(status_code=400, detail="Missing path")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    file_path = _resolve_media_path(path)
+    try:
+        size = os.path.getsize(file_path)
+    except Exception:
+        size = -1
+    logger.info(f"cover-public: user={payload.get('sub')} path={file_path} size={size}")
+    return FileResponse(file_path)
 
 @router.get("/{book_id}/cover")
 def get_book_cover(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
@@ -566,9 +589,6 @@ def get_story_cover(path: str, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return FileResponse(file_path)
-
-
-
 
 
 

@@ -2360,3 +2360,100 @@
 {"event": "comfyui.wait_for_completion", "status": "ok", "context": {"prompt_id": "afb0094a-b9ef-4fa7-b163-38181c0137bd", "poll_interval": 2, "timeout": 1800, "attempts": 11, "result": "completed"}, "duration_ms": 20089.68, "timestamp": "2025-11-02T07:50:52.288833+00:00"}
 {"event": "comfyui.download_result", "status": "ok", "context": {"server": "http://host.docker.internal:8188", "output_dir": "/data/media/outputs", "filename": "ComfyUI_00339_.png", "node_id": "115"}, "duration_ms": 44.42, "timestamp": "2025-11-02T07:50:52.335679+00:00"}
 {"event": "comfyui.process_strict", "status": "ok", "context": {"uploads": 1, "prompt_id": "afb0094a-b9ef-4fa7-b163-38181c0137bd"}, "duration_ms": 20158.2, "timestamp": "2025-11-02T07:50:52.337914+00:00"}
+{"event": "comfyui.upload_image", "status": "ok", "context": {"server": "http://host.docker.internal:8188", "file": "/data/media/controlnet/keypoints/space_explorer_free_1.png", "bytes": 2410234, "response": "space_explorer_free_1.png"}, "duration_ms": 99.21, "timestamp": "2025-11-02T13:26:48.436793+00:00"}
+{"event": "comfyui.upload_image", "status": "ok", "context": {"server": "http://host.docker.internal:8188", "file": "/data/media/book_inputs/45_character_main_0.png", "bytes": 596233, "response": "45_character_main_0.png"}, "duration_ms": 13.61, "timestamp": "2025-11-02T13:26:48.454074+00:00"}
+{"event": "comfyui.queue_prompt", "status": "ok", "context": {"server": "http://host.docker.internal:8188", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "workflow_nodes": 15}, "duration_ms": 11.99, "timestamp": "2025-11-02T13:26:48.472811+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 1, "context": {}, "timestamp": "2025-11-02T13:26:48.483460+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 2, "context": {}, "timestamp": "2025-11-02T13:26:50.506518+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 3, "context": {}, "timestamp": "2025-11-02T13:26:52.543800+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 4, "context": {}, "timestamp": "2025-11-02T13:26:54.576308+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 5, "context": {}, "timestamp": "2025-11-02T13:26:56.591510+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 6, "context": {}, "timestamp": "2025-11-02T13:26:58.615170+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 7, "context": {}, "timestamp": "2025-11-02T13:27:00.658592+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 8, "context": {}, "timestamp": "2025-11-02T13:27:02.710439+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 9, "context": {}, "timestamp": "2025-11-02T13:27:04.734699+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 10, "context": {}, "timestamp": "2025-11-02T13:27:06.774542+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 11, "context": {}, "timestamp": "2025-11-02T13:27:08.819814+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 12, "context": {}, "timestamp": "2025-11-02T13:27:10.839240+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 13, "context": {}, "timestamp": "2025-11-02T13:27:12.882784+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 14, "context": {}, "timestamp": "2025-11-02T13:27:14.910761+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 15, "context": {}, "timestamp": "2025-11-02T13:27:16.942207+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 16, "context": {}, "timestamp": "2025-11-02T13:27:18.979790+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 17, "context": {}, "timestamp": "2025-11-02T13:27:21.015985+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 18, "context": {}, "timestamp": "2025-11-02T13:27:23.042685+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 19, "context": {}, "timestamp": "2025-11-02T13:27:25.068294+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 20, "context": {}, "timestamp": "2025-11-02T13:27:27.103194+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 21, "context": {}, "timestamp": "2025-11-02T13:27:29.125204+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 22, "context": {}, "timestamp": "2025-11-02T13:27:31.161817+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 23, "context": {}, "timestamp": "2025-11-02T13:27:33.182549+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 24, "context": {}, "timestamp": "2025-11-02T13:27:35.199328+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 25, "context": {}, "timestamp": "2025-11-02T13:27:37.230722+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 26, "context": {}, "timestamp": "2025-11-02T13:27:39.262280+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 27, "context": {}, "timestamp": "2025-11-02T13:27:41.295914+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 28, "context": {}, "timestamp": "2025-11-02T13:27:43.311457+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 29, "context": {}, "timestamp": "2025-11-02T13:27:45.344073+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 30, "context": {}, "timestamp": "2025-11-02T13:27:47.371181+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 31, "context": {}, "timestamp": "2025-11-02T13:27:49.427877+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 32, "context": {}, "timestamp": "2025-11-02T13:27:51.446154+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 33, "context": {}, "timestamp": "2025-11-02T13:27:53.487904+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 34, "context": {}, "timestamp": "2025-11-02T13:27:55.520073+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 35, "context": {}, "timestamp": "2025-11-02T13:27:57.577423+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 36, "context": {}, "timestamp": "2025-11-02T13:27:59.617215+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 37, "context": {}, "timestamp": "2025-11-02T13:28:01.635864+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 38, "context": {}, "timestamp": "2025-11-02T13:28:03.683287+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 39, "context": {}, "timestamp": "2025-11-02T13:28:05.700456+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 40, "context": {}, "timestamp": "2025-11-02T13:28:07.732867+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 41, "context": {}, "timestamp": "2025-11-02T13:28:09.770210+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 42, "context": {}, "timestamp": "2025-11-02T13:28:11.804615+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 43, "context": {}, "timestamp": "2025-11-02T13:28:13.828776+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 44, "context": {}, "timestamp": "2025-11-02T13:28:15.858725+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 45, "context": {}, "timestamp": "2025-11-02T13:28:17.889157+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 46, "context": {}, "timestamp": "2025-11-02T13:28:19.913319+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 47, "context": {}, "timestamp": "2025-11-02T13:28:21.934304+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 48, "context": {}, "timestamp": "2025-11-02T13:28:23.985507+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 49, "context": {}, "timestamp": "2025-11-02T13:28:26.019858+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 50, "context": {}, "timestamp": "2025-11-02T13:28:28.037124+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 51, "context": {}, "timestamp": "2025-11-02T13:28:30.072442+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 52, "context": {}, "timestamp": "2025-11-02T13:28:32.112037+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 53, "context": {}, "timestamp": "2025-11-02T13:28:34.137524+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 54, "context": {}, "timestamp": "2025-11-02T13:28:36.168087+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 55, "context": {}, "timestamp": "2025-11-02T13:28:38.224896+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 56, "context": {}, "timestamp": "2025-11-02T13:28:40.246060+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 57, "context": {}, "timestamp": "2025-11-02T13:28:42.271667+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 58, "context": {}, "timestamp": "2025-11-02T13:28:44.304030+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 59, "context": {}, "timestamp": "2025-11-02T13:28:46.324089+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 60, "context": {}, "timestamp": "2025-11-02T13:28:48.338692+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 61, "context": {}, "timestamp": "2025-11-02T13:28:50.362361+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 62, "context": {}, "timestamp": "2025-11-02T13:28:52.383870+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 63, "context": {}, "timestamp": "2025-11-02T13:28:54.422150+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 64, "context": {}, "timestamp": "2025-11-02T13:28:56.447137+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 65, "context": {}, "timestamp": "2025-11-02T13:28:58.465657+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 66, "context": {}, "timestamp": "2025-11-02T13:29:00.481913+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 67, "context": {}, "timestamp": "2025-11-02T13:29:02.524268+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 68, "context": {}, "timestamp": "2025-11-02T13:29:04.552409+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 69, "context": {}, "timestamp": "2025-11-02T13:29:06.586840+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 70, "context": {}, "timestamp": "2025-11-02T13:29:08.615077+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 71, "context": {}, "timestamp": "2025-11-02T13:29:10.660531+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 72, "context": {}, "timestamp": "2025-11-02T13:29:12.682781+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 73, "context": {}, "timestamp": "2025-11-02T13:29:14.718722+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 74, "context": {}, "timestamp": "2025-11-02T13:29:16.745347+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 75, "context": {}, "timestamp": "2025-11-02T13:29:18.780617+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 76, "context": {}, "timestamp": "2025-11-02T13:29:20.797488+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 77, "context": {}, "timestamp": "2025-11-02T13:29:22.828248+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 78, "context": {}, "timestamp": "2025-11-02T13:29:24.864506+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 79, "context": {}, "timestamp": "2025-11-02T13:29:26.916300+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 80, "context": {}, "timestamp": "2025-11-02T13:29:28.940356+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 81, "context": {}, "timestamp": "2025-11-02T13:29:30.964089+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 82, "context": {}, "timestamp": "2025-11-02T13:29:32.997893+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 83, "context": {}, "timestamp": "2025-11-02T13:29:35.027592+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 84, "context": {}, "timestamp": "2025-11-02T13:29:37.053896+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 85, "context": {}, "timestamp": "2025-11-02T13:29:39.103330+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 86, "context": {}, "timestamp": "2025-11-02T13:29:41.139043+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 87, "context": {}, "timestamp": "2025-11-02T13:29:43.170711+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 88, "context": {}, "timestamp": "2025-11-02T13:29:45.186624+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 89, "context": {}, "timestamp": "2025-11-02T13:29:47.210959+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "pending", "attempt": 90, "context": {}, "timestamp": "2025-11-02T13:29:49.229725+00:00"}
+{"event": "comfyui.poll", "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "status": "completed", "attempt": 91, "context": {}, "timestamp": "2025-11-02T13:29:51.267507+00:00"}
+{"event": "comfyui.wait_for_completion", "status": "ok", "context": {"prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "poll_interval": 2, "timeout": 1800, "attempts": 91, "result": "completed"}, "duration_ms": 182800.49, "timestamp": "2025-11-02T13:29:51.275798+00:00"}
+{"event": "comfyui.download_result", "status": "ok", "context": {"server": "http://host.docker.internal:8188", "output_dir": "/data/media/outputs", "filename": "ComfyUI_temp_ntpod_00005_.png", "node_id": "15", "fallback": true}, "duration_ms": 66.67, "timestamp": "2025-11-02T13:29:51.447025+00:00"}
+{"event": "comfyui.process_image_to_animation", "status": "ok", "context": {"reference_images": 1, "custom_prompt": true, "prompt_id": "e64511b8-8115-4e82-8474-02a1212033d0", "result": "success"}, "duration_ms": 183016.34, "timestamp": "2025-11-02T13:29:51.453311+00:00"}

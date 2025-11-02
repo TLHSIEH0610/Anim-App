@@ -1151,6 +1151,7 @@ class StoryTemplatePagePayload(BaseModel):
     image_kp: str
     workflow: Optional[str] = None
     seed: Optional[int] = None
+    cover_text: Optional[str] = None
 
 
 class StoryTemplatePayload(BaseModel):

@@ -28,37 +28,84 @@ function TemplateItem({
 }) {
   const { token } = useAuth();
   const [failed, setFailed] = useState(false);
-  const coverUrl = getStoryCoverUrl(item.cover_path);
-  const source =
-    !coverUrl || failed
-      ? fallbackCover
-      : ({
-          uri: coverUrl,
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        } as any);
+  const [imgWidth, setImgWidth] = useState<number>(130);
+  const targetHeight = 140;
+  // Only attempt to load when token is available to avoid 401s that set failed=true
+  const canLoad = !!token && !!item.cover_path;
+  const coverUrl = canLoad ? getStoryCoverUrl(item.cover_path, token ?? null) : null;
+  const source = coverUrl && !failed ? ({ uri: coverUrl } as any) : fallbackCover;
+
+  // Reset failure state when URL changes (e.g., when token becomes available)
+  React.useEffect(() => {
+    setFailed(false);
+  }, [coverUrl]);
+
+  const handleImageLoad = (e: any) => {
+    const natW = e?.nativeEvent?.source?.width;
+    const natH = e?.nativeEvent?.source?.height;
+    if (natW && natH) {
+      const scaled = Math.max(100, Math.min(200, Math.round((targetHeight / natH) * natW)));
+      setImgWidth(scaled + 8);
+    }
+  };
+
+  React.useEffect(() => {
+    if (coverUrl) {
+      console.log('[Books] Cover URL', { slug: item.slug, coverUrl });
+      // Try prefetch to surface any network errors early
+      // Note: boolean result indicates cache success; failures will reject
+      // @ts-ignore RN Image API
+      Image.prefetch(coverUrl)
+        .then((ok: boolean) => console.log('[Books] Prefetch result', { slug: item.slug, ok }))
+        .catch((err: any) => console.log('[Books] Prefetch error', { slug: item.slug, err: String(err) }));
+    } else {
+      console.log('[Books] No cover URL available yet', { slug: item.slug, tokenPresent: !!token, cover_path: item.cover_path });
+    }
+  }, [coverUrl]);
+
   return (
     <Card style={styles.card}>
-      <View style={styles.coverWrap}>
-        <Image
-          source={source as any}
-          style={styles.coverImg}
-          onError={() => setFailed(true)}
-        />
+      {/* Title row */}
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+          {item.name}
+        </Text>
       </View>
-      <Text style={styles.title}>{item.name}</Text>
-      {item.description ? (
-        <Text style={styles.desc}>{item.description}</Text>
-      ) : null}
-      <Text style={styles.meta}>
-        Suggested Age: {item.age || "n/a"} • {item.page_count} pages
-      </Text>
 
-      <Button
-        title="View book"
-        onPress={() => onChoose(item.slug)}
-        variant="primary"
-        style={styles.cardButton}
-      />
+      {/* Content row: cover | details */}
+      <View style={styles.row}>
+        <View style={styles.leftCol}>
+          <View style={[styles.coverThumbWrap, { width: imgWidth }]}> 
+            <Image
+              key={coverUrl || 'fallback'}
+              source={source as any}
+              style={[styles.coverThumb, { width: imgWidth - 8, height: targetHeight }]}
+              resizeMode="contain"
+              onError={() => setFailed(true)}
+              onLoad={handleImageLoad}
+            />
+          </View>
+        </View>
+        <View style={styles.rightCol}>
+          <View>
+            {item.description ? (
+              <Text style={styles.desc}>{item.description}</Text>
+            ) : null}
+            <Text style={styles.meta}>
+              Suggested Age: {item.age || "n/a"} • {item.page_count} pages
+            </Text>
+          </View>
+          <View style={[styles.primaryActions, styles.actionsRight]}>
+            <Button
+              title="View book"
+              onPress={() => onChoose(item.slug)}
+              variant="primary"
+              size="sm"
+            />
+          </View>
+        </View>
+      </View>
+      
     </Card>
   );
 }
@@ -137,32 +184,60 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF8E1",
     borderRadius: radii.lg,
     ...shadow.subtle,
+    padding: spacing(2),
   },
-  cardButton: {
-    marginTop: spacing(3),
-    backgroundColor: "#5554c1ff",
-    borderWidth: 0,
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing(2),
   },
-  coverWrap: {
-    borderRadius: radii.lg,
+  row: {
+    flexDirection: "row",
+    gap: spacing(3),
+    alignItems: "stretch",
+  },
+  leftCol: {
+    flexShrink: 0,
+    marginRight: spacing(2),
+  },
+  rightCol: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  coverThumbWrap: {
+    width: "100%",
+    backgroundColor: colors.neutral100,
+    borderRadius: radii.md,
     overflow: "hidden",
-    marginBottom: spacing(3),
+    alignSelf: "flex-start",
+    alignItems: "center",
+    padding: spacing(1),
   },
-  coverImg: { width: "100%", height: 180, resizeMode: "cover" },
+  coverThumb: {
+    height: 140,
+    borderRadius: radii.md,
+  },
   title: {
     ...typography.headingM,
     color: colors.textPrimary,
-    marginBottom: spacing(1),
   },
   desc: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: spacing(1),
+    marginBottom: spacing(1.5),
   },
   meta: {
     ...typography.caption,
     color: colors.textMuted,
-    marginBottom: spacing(2),
+  },
+  primaryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
+  },
+  actionsRight: {
+    alignSelf: 'flex-end',
   },
   error: {
     color: colors.danger,

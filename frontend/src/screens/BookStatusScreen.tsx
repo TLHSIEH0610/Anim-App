@@ -1,35 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
-import { ActivityIndicator as PaperActivityIndicator, Banner, Chip, ProgressBar, Portal, Dialog } from 'react-native-paper';
-import { getBookStatus, retryBookCreation, Book } from '../api/books';
-import { useAuth } from '../context/AuthContext';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppStackParamList } from '../navigation/types';
-import ScreenWrapper from '../components/ScreenWrapper';
-import { colors } from '../styles/theme';
-import Button from '../components/Button';
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  ActivityIndicator as PaperActivityIndicator,
+  Banner,
+  Chip,
+  ProgressBar,
+  Portal,
+  Dialog,
+} from "react-native-paper";
+import { getBookStatus, retryBookCreation, Book } from "../api/books";
+import { useAuth } from "../context/AuthContext";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { AppStackParamList } from "../navigation/types";
+import ScreenWrapper from "../components/ScreenWrapper";
+import { colors } from "../styles/theme";
+import Button from "../components/Button";
 
 const STATUS_MESSAGES: Record<string, string> = {
   creating: "🚀 Starting your book creation...",
   generating_story: "📖 Writing your magical story...",
-  generating_images: "🎨 Creating beautiful illustrations...", 
+  generating_images: "🎨 Creating beautiful illustrations...",
   composing: "📚 Putting your book together...",
   completed: "✅ Your book is ready!",
-  failed: "❌ Something went wrong"
+  failed: "❌ Something went wrong",
 };
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
   creating: "Preparing your book creation process",
-  generating_story: "Our AI storyteller is crafting a unique tale based on your character and preferences",
-  generating_images: "Creating stunning illustrations for each page of your story",
+  generating_story:
+    "Our AI storyteller is crafting a unique tale based on your character and preferences",
+  generating_images:
+    "Creating stunning illustrations for each page of your story",
   composing: "Combining text and images into a beautiful PDF book",
   completed: "Your book is complete and ready to read!",
-  failed: "There was an error creating your book. You can try again."
+  failed: "There was an error creating your book. You can try again.",
 };
 
-type BookStatusScreenProps = NativeStackScreenProps<AppStackParamList, 'BookStatus'>;
+type BookStatusScreenProps = NativeStackScreenProps<
+  AppStackParamList,
+  "BookStatus"
+>;
 
-export default function BookStatusScreen({ route, navigation }: BookStatusScreenProps) {
+export default function BookStatusScreen({
+  route,
+  navigation,
+}: BookStatusScreenProps) {
   const { bookId } = route.params;
   const { token } = useAuth();
   const [book, setBook] = useState<Book | null>(null);
@@ -39,19 +54,18 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
 
   const loadBookStatus = async () => {
     if (!token) return;
-    
+
     try {
       const bookData = await getBookStatus(token, bookId);
       setBook(bookData);
-      
+
       // Auto-refresh if book is still in progress
-      if (!['completed', 'failed'].includes(bookData.status)) {
+      if (!["completed", "failed"].includes(bookData.status)) {
         setTimeout(loadBookStatus, 3000); // Poll every 3 seconds
       }
-      
     } catch (error: any) {
-      console.error('Error loading book status:', error);
-      Alert.alert('Error', 'Failed to load book status');
+      console.error("Error loading book status:", error);
+      Alert.alert("Error", "Failed to load book status");
     } finally {
       setLoading(false);
     }
@@ -77,12 +91,12 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
 
   const handleViewBook = () => {
     if (book) {
-      navigation.navigate('BookViewer', { bookId: book.id });
+      navigation.navigate("BookViewer", { bookId: book.id });
     }
   };
 
   const handleBackToHome = () => {
-    navigation.navigate('BookLibrary');
+    navigation.navigate("BookLibrary");
   };
 
   useEffect(() => {
@@ -102,110 +116,140 @@ export default function BookStatusScreen({ route, navigation }: BookStatusScreen
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Book not found</Text>
-        <Button title="Go Back" onPress={handleBackToHome} variant="secondary" />
+        <Button
+          title="Go Back"
+          onPress={handleBackToHome}
+          variant="secondary"
+        />
       </View>
     );
   }
 
   const getProgressColor = () => {
-    if (book.status === 'completed') return colors.success;
-    if (book.status === 'failed') return colors.danger;
+    if (book.status === "completed") return colors.success;
+    if (book.status === "failed") return colors.danger;
     return colors.primary;
   };
 
   const getEstimatedTimeRemaining = () => {
-    if (book.status === 'completed') return null;
-    if (book.status === 'failed') return null;
-    
+    if (book.status === "completed") return null;
+    if (book.status === "failed") return null;
+
     const progress = book.progress_percentage || 0;
-    if (progress < 20) return '10-15 minutes';
-    if (progress < 50) return '8-12 minutes';
-    if (progress < 80) return '3-8 minutes';
-    return '1-3 minutes';
+    if (progress < 20) return "10-15 minutes";
+    if (progress < 50) return "8-12 minutes";
+    if (progress < 80) return "3-8 minutes";
+    return "1-3 minutes";
   };
 
   return (
     <ScreenWrapper>
-    <Portal>
-      <Dialog visible={retryDialog} onDismiss={() => setRetryDialog(false)}>
-        <Dialog.Title>Retry Book Creation?</Dialog.Title>
-        <Dialog.Content>
-          <Text>This will restart the book creation process from the beginning.</Text>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button title="Cancel" variant="secondary" onPress={() => setRetryDialog(false)} />
-          <Button title="Retry" onPress={performRetry} loading={retrying} />
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>📚 {book.title}</Text>
-      </View>
-
-      <View style={styles.statusCard}>
-        <View style={styles.statusHeader}>
-          <Chip style={{ alignSelf: 'center' }}>
-            {STATUS_MESSAGES[book.status] || book.status}
-          </Chip>
-          <Text style={styles.statusDescription}>
-            {STATUS_DESCRIPTIONS[book.status] || 'Processing your book...'}
-          </Text>
+      <Portal>
+        <Dialog visible={retryDialog} onDismiss={() => setRetryDialog(false)}>
+          <Dialog.Title>Retry Book Creation?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              This will restart the book creation process from the beginning.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              title="Cancel"
+              variant="secondary"
+              onPress={() => setRetryDialog(false)}
+            />
+            <Button title="Retry" onPress={performRetry} loading={retrying} />
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>📚 {book.title}</Text>
         </View>
 
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <ProgressBar progress={(book.progress_percentage || 0) / 100} color={getProgressColor()} />
-          <Text style={styles.progressText}>
-            {Math.round(book.progress_percentage || 0)}% Complete
-          </Text>
-        </View>
-
-        {/* Time Estimate */}
-        {getEstimatedTimeRemaining() && (
-          <View style={styles.timeEstimate}>
-            <Text style={styles.timeEstimateText}>
-              ⏱️ Estimated time remaining: {getEstimatedTimeRemaining()}
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <Chip style={{ alignSelf: "center" }}>
+              {STATUS_MESSAGES[book.status] || book.status}
+            </Chip>
+            <Text style={styles.statusDescription}>
+              {STATUS_DESCRIPTIONS[book.status] || "Processing your book..."}
             </Text>
           </View>
-        )}
 
-        {/* Error Message */}
-        {book.status === 'failed' && book.error_message ? (
-          <Banner visible icon="alert-circle">
-            {book.error_message}
-          </Banner>
-        ) : null}
+          {/* Progress Bar */}
+          <View style={styles.progressContainer}>
+            <ProgressBar
+              progress={(book.progress_percentage || 0) / 100}
+              color={getProgressColor()}
+            />
+            <Text style={styles.progressText}>
+              {Math.round(book.progress_percentage || 0)}% Complete
+            </Text>
+          </View>
 
-        {/* Book Details */}
-        <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>📋 Book Details</Text>
-          <Text style={styles.detailItem}>
-            Story: {book.story_source === 'template' ? `Template (${book.template_key || 'prebuilt'})` : 'Custom Story'}
-          </Text>
-          <Text style={styles.detailItem}>Age Group: {book.target_age || 'n/a'} years</Text>
-          <Text style={styles.detailItem}>Pages: {book.page_count}</Text>
-          <Text style={styles.detailItem}>
-            Created: {new Date(book.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          {book.status === 'completed' && (
-            <Button title="📖 View Book" onPress={handleViewBook} variant="primary" />
+          {/* Time Estimate */}
+          {getEstimatedTimeRemaining() && (
+            <View style={styles.timeEstimate}>
+              <Text style={styles.timeEstimateText}>
+                ⏱️ Estimated time remaining: {getEstimatedTimeRemaining()}
+              </Text>
+            </View>
           )}
 
-          {book.status === 'failed' && (
-            <Button title="🔄 Try Again" onPress={handleRetry} variant="primary" loading={retrying} disabled={retrying} />
-          )}
+          {/* Error Message */}
+          {book.status === "failed" && book.error_message ? (
+            <Banner visible icon="alert-circle">
+              {book.error_message}
+            </Banner>
+          ) : null}
 
-          <Button title="← Back to Library" onPress={handleBackToHome} variant="secondary" />
+          {/* Book Details */}
+          <View style={styles.detailsCard}>
+            <Text style={styles.detailsTitle}>📋 Book Details</Text>
+            <Text style={styles.detailItem}>
+              Story:{" "}
+              {book.story_source === "template"
+                ? `Template (${book.template_key || "prebuilt"})`
+                : "Custom Story"}
+            </Text>
+            <Text style={styles.detailItem}>
+              Age Group: {book.target_age || "n/a"} years
+            </Text>
+            <Text style={styles.detailItem}>Pages: {book.page_count}</Text>
+            <Text style={styles.detailItem}>
+              Created: {new Date(book.created_at).toLocaleDateString()}
+            </Text>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
+            {book.status === "completed" && (
+              <Button
+                title="📖 View Book"
+                onPress={handleViewBook}
+                variant="primary"
+              />
+            )}
+
+            {book.status === "failed" && (
+              <Button
+                title="🔄 Try Again"
+                onPress={handleRetry}
+                variant="primary"
+                loading={retrying}
+                disabled={retrying}
+              />
+            )}
+
+            <Button
+              title="← Back to Library"
+              onPress={handleBackToHome}
+              variant="info"
+            />
+          </View>
         </View>
-      </View>
-
-
-    </ScrollView>
+      </ScrollView>
     </ScreenWrapper>
   );
 }
@@ -216,8 +260,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: colors.background,
   },
   loadingText: {
@@ -227,8 +271,8 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 10,
     backgroundColor: colors.background,
   },
@@ -242,14 +286,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 5,
   },
   statusCard: {
@@ -257,7 +301,7 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: colors.background,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -269,7 +313,7 @@ const styles = StyleSheet.create({
   statusDescription: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
   progressContainer: {
@@ -277,30 +321,30 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   timeEstimate: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: "#fef3c7",
     padding: 10,
     borderRadius: 8,
     marginBottom: 15,
   },
   timeEstimateText: {
     fontSize: 14,
-    color: '#92400e',
-    textAlign: 'center',
+    color: "#92400e",
+    textAlign: "center",
   },
   detailsCard: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: "#FFF8E1",
     padding: 10,
     borderRadius: 8,
     marginBottom: 20,
   },
   detailsTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.textPrimary,
     marginBottom: 10,
   },
@@ -316,7 +360,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   primaryButton: {
     backgroundColor: colors.success,
@@ -328,20 +372,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral400,
   },
   primaryButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   secondaryButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
   },
   infoCard: {
     margin: 15,
     padding: 20,
-    backgroundColor: '#FFF8E1',
+    backgroundColor: "#FFF8E1",
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -349,13 +393,13 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.textPrimary,
     marginBottom: 15,
   },
   processStep: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 15,
   },
   processIcon: {
@@ -371,7 +415,7 @@ const styles = StyleSheet.create({
   },
   processTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: 2,
   },

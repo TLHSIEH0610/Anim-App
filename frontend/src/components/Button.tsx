@@ -1,19 +1,26 @@
-import React from 'react';
-import { GestureResponderEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Button as PaperButton } from 'react-native-paper';
-import { colors, radii, spacing, shadow, typography } from '../styles/theme';
+import React from "react";
+import {
+  GestureResponderEvent,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
+import { Button as PaperButton } from "react-native-paper";
+import { colors, radii, spacing, shadow, typography } from "../styles/theme";
 
 type Variant =
-  | 'primary'
-  | 'secondary'
-  | 'danger'
-  | 'destructive'
-  | 'success'
-  | 'warning'
-  | 'info'
-  | 'neutral'
-  | 'background';
-type Size = 'sm' | 'md' | 'lg';
+  | "primary"
+  | "secondary"
+  | "danger"
+  | "destructive"
+  | "success"
+  | "warning"
+  | "info"
+  | "neutral"
+  | "background";
+type Size = "sm" | "md" | "lg";
 
 type Props = {
   title: string;
@@ -27,72 +34,82 @@ type Props = {
   rightIcon?: React.ReactNode;
 };
 
-export default function Button({ title, onPress, variant = 'primary', size = 'md', disabled, loading, style, leftIcon, rightIcon }: Props) {
+export default function Button({
+  title,
+  onPress,
+  variant = "primary",
+  size = "md",
+  disabled,
+  loading,
+  style,
+  leftIcon,
+  rightIcon,
+}: Props) {
   const isDisabled = disabled || loading;
-  const resolvedVariant = variant === 'destructive' ? 'danger' : variant;
+  const resolvedVariant = variant === "destructive" ? "danger" : variant;
 
   const getVariantVisuals = (v: Variant) => {
     switch (v) {
-      case 'secondary':
+      case "secondary":
         return {
-          mode: 'outlined' as const,
+          mode: "outlined" as const,
           buttonColor: undefined,
           textColor: colors.textPrimary,
           disabledButtonColor: undefined,
           disabledTextColor: colors.neutral400,
         };
-      case 'danger':
+      case "danger":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.danger,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-      case 'success':
+      case "success":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.success,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-      case 'warning':
+      case "warning":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.warning,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-      case 'info':
+      case "info":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.info,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-      case 'neutral':
+      case "neutral":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.neutral400,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-            case 'background':
+      case "background":
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.background,
           textColor: colors.textPrimary,
           disabledButtonColor: colors.neutral200,
           disabledTextColor: colors.neutral500,
         };
-      case 'primary':
+      case "primary":
       default:
         return {
-          mode: 'contained' as const,
+          mode: "contained" as const,
           buttonColor: colors.primary,
           textColor: colors.surface,
           disabledButtonColor: colors.neutral200,
@@ -101,14 +118,24 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
     }
   };
 
-  const { mode, buttonColor, textColor, disabledButtonColor, disabledTextColor } = getVariantVisuals(resolvedVariant);
+  const {
+    mode,
+    buttonColor,
+    textColor,
+    disabledButtonColor,
+    disabledTextColor,
+  } = getVariantVisuals(resolvedVariant);
   const isIconOnly = !title || title.trim().length === 0;
   const contentStyle = [
-    size === 'sm' && styles.sizeSm,
-    size === 'lg' && styles.sizeLg,
-    isIconOnly && size === 'sm' && styles.iconOnlySm,
+    size === "sm" && styles.sizeSm,
+    size === "lg" && styles.sizeLg,
+    isIconOnly && size === "sm" && styles.iconOnlySm,
   ];
-  const labelStyle = [styles.label, size === 'sm' && styles.labelSm, size === 'lg' && styles.labelLg];
+  const labelStyle = [
+    styles.label,
+    size === "sm" && styles.labelSm,
+    size === "lg" && styles.labelLg,
+  ];
   const finalTextColor = isDisabled ? disabledTextColor : textColor;
 
   return (
@@ -120,11 +147,25 @@ export default function Button({ title, onPress, variant = 'primary', size = 'md
       buttonColor={isDisabled ? disabledButtonColor : buttonColor}
       textColor={finalTextColor}
       contentStyle={contentStyle as any}
-      compact={size === 'sm'}
+      compact={size === "sm"}
       style={[styles.paperBase, style]}
-      icon={leftIcon ? () => <View style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}>{leftIcon}</View> : undefined}
+      icon={
+        leftIcon
+          ? () => (
+              <View
+                style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}
+              >
+                {leftIcon}
+              </View>
+            )
+          : undefined
+      }
     >
-      {title ? <Text style={[labelStyle as any, { color: finalTextColor }]}>{title}</Text> : null}
+      {title ? (
+        <Text style={[labelStyle as any, { color: finalTextColor }]}>
+          {title}
+        </Text>
+      ) : null}
       {rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
     </PaperButton>
   );
@@ -135,23 +176,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
   },
   contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   sizeSm: {
-    paddingVertical: spacing(1.25),
-    paddingHorizontal: spacing(2.25),
-    borderRadius: radii.md,
-  },
-  iconOnlySm: {
-    paddingVertical: spacing(1),
     paddingHorizontal: spacing(1.5),
     borderRadius: radii.md,
   },
+  iconOnlySm: {
+    paddingHorizontal: spacing(0.5),
+    borderRadius: radii.md,
+  },
   sizeLg: {
-    paddingVertical: spacing(4),
-    paddingHorizontal: spacing(5),
+    paddingHorizontal: spacing(4),
   },
   primary: {
     backgroundColor: colors.primary,
@@ -178,7 +216,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.body,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   labelSm: {
     fontSize: 13,

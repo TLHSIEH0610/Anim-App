@@ -25,6 +25,10 @@ export default function TemplateDemoScreen() {
       .filter(Boolean) as string[];
   }, [template.demo_images]);
 
+  const storylinePages = useMemo(() => {
+    return (template.storyline_pages || []).filter((p) => p.page_number !== 0);
+  }, [template.storyline_pages]);
+
   const goCreate = () => {
     // Navigate to creation with this template
     // @ts-ignore navigation is untyped here; stack param handles it at runtime
@@ -72,14 +76,13 @@ export default function TemplateDemoScreen() {
           Story Line
         </Text>
         <View style={styles.promptsBox}>
-          {(template.storyline_pages || []).map((p) => (
+          {storylinePages.map((p) => (
             <View key={p.page_number} style={styles.promptItem}>
               <Text style={styles.promptTitle}>Page {p.page_number}</Text>
               <Text style={styles.promptText}>{p.image_prompt}</Text>
             </View>
           ))}
-          {(!template.storyline_pages ||
-            template.storyline_pages.length === 0) && (
+          {storylinePages.length === 0 && (
             <Text style={styles.muted}>
               No prompts provided for this template.
             </Text>
@@ -123,7 +126,9 @@ const styles = StyleSheet.create({
   },
   promptsBox: {
     borderRadius: radii.lg,
-    backgroundColor: colors.surface,
+    backgroundColor: "#F0FFF0",
+    // backgroundColor: "rgba(37, 99, 235, 0.12)",
+
     padding: spacing(2.5),
     ...shadow.subtle,
   },
@@ -137,7 +142,7 @@ const styles = StyleSheet.create({
   },
   promptText: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   muted: {
     ...typography.caption,
