@@ -39,6 +39,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from PIL import Image as PILImage
 import textwrap
 from typing import Dict, Optional, Any
@@ -290,7 +292,31 @@ class BookComposer:
     
     def __init__(self):
         self.page_width, self.page_height = A4
-        self.margin = 0.75 * inch
+        # Reduce margins to allow larger content while keeping a neat frame
+        self.margin = 0.5 * inch
+        # Register friendly fonts (Bitstream Vera is bundled with ReportLab)
+        try:
+            pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
+            pdfmetrics.registerFont(TTFont('Vera-Bold', 'VeraBd.ttf'))
+            pdfmetrics.registerFont(TTFont('Vera-It', 'VeraIt.ttf'))
+            # Optional override via env: PDF_FONT_TTF, PDF_FONT_BOLD_TTF, PDF_FONT_IT_TTF, PDF_FONT_NAME
+            import os
+            base_name = os.getenv('PDF_FONT_NAME')
+            regular_ttf = os.getenv('PDF_FONT_TTF')
+            bold_ttf = os.getenv('PDF_FONT_BOLD_TTF')
+            it_ttf = os.getenv('PDF_FONT_IT_TTF')
+            if base_name and regular_ttf:
+                try:
+                    pdfmetrics.registerFont(TTFont(base_name, regular_ttf))
+                    if bold_ttf:
+                        pdfmetrics.registerFont(TTFont(f"{base_name}-Bold", bold_ttf))
+                    if it_ttf:
+                        pdfmetrics.registerFont(TTFont(f"{base_name}-It", it_ttf))
+                except Exception as fe:
+                    print(f"[PDF] Custom font registration failed: {fe}")
+        except Exception as e:
+            # Fallback silently to built-ins if fonts not found
+            print(f"[PDF] Font registration warning: {e}")
         
     def create_book_pdf(self, book_data: dict, pages_data: list, output_path: str) -> str:
         """
@@ -324,33 +350,33 @@ class BookComposer:
             title_style = ParagraphStyle(
                 'BookTitle',
                 parent=styles['Heading1'],
-                fontSize=28,
+                fontSize=36,
                 spaceAfter=30,
                 textColor=colors.HexColor('#2E86AB'),
                 alignment=TA_CENTER,
-                fontName='Helvetica-Bold'
+                fontName='Vera-Bold'
             )
             
             subtitle_style = ParagraphStyle(
                 'BookSubtitle',
                 parent=styles['Normal'],
-                fontSize=16,
+                fontSize=20,
                 spaceAfter=20,
                 textColor=colors.HexColor('#A23B72'),
                 alignment=TA_CENTER,
-                fontName='Helvetica-Oblique'
+                fontName='Vera-It'
             )
             
             story_style = ParagraphStyle(
                 'StoryText',
                 parent=styles['Normal'],
-                fontSize=14,
+                fontSize=22,
                 spaceAfter=16,
                 alignment=TA_CENTER,
-                fontName='Helvetica',
-                leading=22,
-                leftIndent=20,
-                rightIndent=20
+                fontName='Vera',
+                leading=30,
+                leftIndent=8,
+                rightIndent=8
             )
             
             page_number_style = ParagraphStyle(
@@ -363,15 +389,19 @@ class BookComposer:
             )
             
             # Title page
-            story.append(Spacer(1, 50))
+            story.append(Spacer(1, 36))
             story.append(Paragraph(book_data['title'], title_style))
             story.append(Paragraph(f"A {book_data.get('theme', 'wonderful')} story for ages {book_data.get('target_age', '6-8')}", subtitle_style))
-            story.append(Spacer(1, 100))
+            story.append(Spacer(1, 36))
             
             # Add decorative element if we have the first page image
             if pages_data and pages_data[0].get('image_path') and os.path.exists(pages_data[0]['image_path']):
                 try:
-                    cover_img = self.resize_image_for_page(pages_data[0]['image_path'], max_width=4*inch, max_height=4*inch)
+                    cover_img = self.resize_image_for_page(
+                        pages_data[0]['image_path'],
+                        max_width=self.page_width - (2 * self.margin),
+                        max_height=(self.page_height - (2 * self.margin)) * 0.6,
+                    )
                     story.append(cover_img)
                 except Exception as e:
                     print(f"Warning: Could not add cover image: {e}")
@@ -380,34 +410,58 @@ class BookComposer:
             
             # Story pages
             for i, page_data in enumerate(pages_data, 1):
-                # Add image if available
-                if page_data.get('image_path') and os.path.exists(page_data['image_path']):
+                content_width = self.page_width - (2 * self.margin)
+                content_height = self.page_height - (2 * self.margin)
+
+                # Prepare text and measure its height within the frame
+                text_content = (page_data.get('text_content') or '').strip()
+                paragraph = Paragraph(text_content if text_content else "(Illustration)", story_style)
+                _, text_height = paragraph.wrap(content_width, content_height)
+
+                spacer_between = 12
+                page_num_block = 18 if i < len(pages_data) else 0
+                max_img_height = max(content_height - text_height - spacer_between - page_num_block, 0)
+
+                # Add image first, taking as much space as possible while leaving room for text
+                if page_data.get('image_path') and os.path.exists(page_data['image_path']) and max_img_height > 0:
                     try:
-                        img = self.resize_image_for_page(page_data['image_path'])
+                        with PILImage.open(page_data['image_path']) as pil_img:
+                            orig_w, orig_h = pil_img.size
+                        aspect = orig_w / float(orig_h or 1)
+                        # Try full content width
+                        img_w = content_width
+                        img_h = img_w / aspect
+                        if img_h > max_img_height:
+                            img_h = max_img_height
+                            img_w = img_h * aspect
+                        # Create image flowable
+                        img = Image(page_data['image_path'], width=img_w, height=img_h, hAlign='CENTER')
                         story.append(img)
-                        story.append(Spacer(1, 20))
+                        story.append(Spacer(1, spacer_between))
                     except Exception as e:
                         print(f"Warning: Could not add image for page {i}: {e}")
-                        story.append(Spacer(1, 100))  # Placeholder space
-                
-                # Add text with proper wrapping
-                text_content = page_data.get('text_content', '')
-                if text_content:
-                    # Clean and format text
-                    clean_text = text_content.strip()
-                    story.append(Paragraph(clean_text, story_style))
-                else:
-                    story.append(Paragraph("(Illustration)", story_style))
-                
-                story.append(Spacer(1, 30))
-                
+                        story.append(Spacer(1, 24))
+
+                # Add text underneath
+                story.append(paragraph)
+                story.append(Spacer(1, 14))
+
                 # Page number (skip last page to avoid blank page)
                 if i < len(pages_data):
                     story.append(Paragraph(f"Page {i}", page_number_style))
                     story.append(PageBreak())
             
-            # Build the PDF
-            doc.build(story)
+            # Build the PDF with a warm page background
+            def _bg(canvas, doc_obj):
+                canvas.saveState()
+                try:
+                    canvas.setFillColor(colors.HexColor('#FFF8E1'))
+                except Exception:
+                    canvas.setFillColor(colors.whitesmoke)
+                canvas.rect(0, 0, self.page_width, self.page_height, stroke=0, fill=1)
+                canvas.restoreState()
+
+            doc.build(story, onFirstPage=_bg, onLaterPages=_bg)
             
             return output_path
             
@@ -429,7 +483,8 @@ class BookComposer:
         if max_width is None:
             max_width = self.page_width - (2 * self.margin)
         if max_height is None:
-            max_height = (self.page_height - (2 * self.margin)) * 0.6
+            # Default: allow image to occupy up to ~78% of the content height
+            max_height = (self.page_height - (2 * self.margin)) * 0.78
         
         try:
             # Open image to get dimensions
@@ -439,7 +494,12 @@ class BookComposer:
             # Calculate scaling factor
             width_scale = max_width / original_width
             height_scale = max_height / original_height
-            scale = min(width_scale, height_scale, 1.0)  # Don't upscale
+            # Prefer large images; allow mild upscale up to 1.15x to avoid tiny renders
+            scale = min(width_scale, height_scale)
+            if scale < 1.0:
+                pass
+            else:
+                scale = min(scale, 1.15)
             
             final_width = original_width * scale
             final_height = original_height * scale

@@ -33,6 +33,7 @@ export interface StoryTemplateSummary {
   version?: number;
   page_count: number;
   cover_path?: string | null;
+  demo_images?: (string | null)[];
   storyline_pages?: StorylinePageSummary[];
   credits_balance?: number; // included by /books/stories/templates for current user
 }
@@ -46,6 +47,11 @@ export function getStoryCoverUrl(coverPath?: string | null): string | null {
   if (!coverPath) return null;
   const baseUrl = API_BASE_ORIGIN;
   return `${baseUrl}/books/stories/cover?path=${encodeURIComponent(coverPath)}`;
+}
+
+export function getMediaFileUrl(path?: string | null): string | null {
+  // Reuse the same endpoint; backend validates MEDIA_ROOT containment.
+  return getStoryCoverUrl(path ?? undefined);
 }
 
 export interface Book {

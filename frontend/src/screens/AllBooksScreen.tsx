@@ -1,33 +1,60 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert, Image } from 'react-native';
-import { ActivityIndicator } from 'react-native-paper';
-import { getStoryTemplates, StoryTemplateSummary, getStoryCoverUrl } from '../api/books';
-import ScreenWrapper from '../components/ScreenWrapper';
-import BottomNav from '../components/BottomNav';
-import Card from '../components/Card';
-import { colors, radii, shadow, spacing, typography } from '../styles/theme';
-import { useNavigation } from '@react-navigation/native';
-import Button from '../components/Button';
-import Header from '../components/Header';
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, FlatList, Alert, Image } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
+import {
+  getStoryTemplates,
+  StoryTemplateSummary,
+  getStoryCoverUrl,
+} from "../api/books";
+import ScreenWrapper from "../components/ScreenWrapper";
+import BottomNav from "../components/BottomNav";
+import Card from "../components/Card";
+import { colors, radii, shadow, spacing, typography } from "../styles/theme";
+import { useAuth } from "../context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
+import Button from "../components/Button";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { AppStackParamList } from "../navigation/types";
+import Header from "../components/Header";
 
-const fallbackCover = require('../../assets/icon.png');
+const fallbackCover = require("../../assets/icon.png");
 
-function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose: (slug: string) => void }) {
+function TemplateItem({
+  item,
+  onChoose,
+}: {
+  item: StoryTemplateSummary;
+  onChoose: (slug: string) => void;
+}) {
+  const { token } = useAuth();
   const [failed, setFailed] = useState(false);
   const coverUrl = getStoryCoverUrl(item.cover_path);
-  const source = !coverUrl || failed ? fallbackCover : { uri: coverUrl };
+  const source =
+    !coverUrl || failed
+      ? fallbackCover
+      : ({
+          uri: coverUrl,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        } as any);
   return (
     <Card style={styles.card}>
       <View style={styles.coverWrap}>
-        <Image source={source as any} style={styles.coverImg} onError={() => setFailed(true)} />
+        <Image
+          source={source as any}
+          style={styles.coverImg}
+          onError={() => setFailed(true)}
+        />
       </View>
       <Text style={styles.title}>{item.name}</Text>
-      {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
-      <Text style={styles.meta}>Suggested Age: {item.age || 'n/a'} • {item.page_count} pages</Text>
-     
-     
+      {item.description ? (
+        <Text style={styles.desc}>{item.description}</Text>
+      ) : null}
+      <Text style={styles.meta}>
+        Suggested Age: {item.age || "n/a"} • {item.page_count} pages
+      </Text>
+
       <Button
-        title="View this book"
+        title="View book"
         onPress={() => onChoose(item.slug)}
         variant="primary"
         style={styles.cardButton}
@@ -37,7 +64,8 @@ function TemplateItem({ item, onChoose }: { item: StoryTemplateSummary; onChoose
 }
 
 export default function AllBooksScreen() {
-  const navigation = useNavigation<any>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [templates, setTemplates] = useState<StoryTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +78,7 @@ export default function AllBooksScreen() {
         const res = await getStoryTemplates();
         setTemplates(res.stories || []);
       } catch (e) {
-        setError('Failed to load stories');
+        setError("Failed to load stories");
       } finally {
         setLoading(false);
       }
@@ -58,21 +86,31 @@ export default function AllBooksScreen() {
     load();
   }, []);
 
-  const handleChoose = (slug: string) => {
-    navigation.navigate('BookCreation', { templateSlug: slug });
+  const handleChoose = (slug: string, template?: StoryTemplateSummary) => {
+    if (template) {
+      navigation.navigate("TemplateDemo", { template });
+    } else {
+      navigation.navigate("TemplateDemo", {
+        template: templates.find((t) => t.slug === slug)!,
+      });
+    }
   };
 
   const renderItem = ({ item }: { item: StoryTemplateSummary }) => (
-    <TemplateItem item={item} onChoose={handleChoose} />
+    <TemplateItem item={item} onChoose={(slug) => handleChoose(slug, item)} />
   );
 
   return (
     <ScreenWrapper showIllustrations footer={<BottomNav active="all" />}>
       <Header title="Books" subtitle="Choose a story to personalize" />
       {loading ? (
-        <View style={styles.center}><ActivityIndicator /></View>
+        <View style={styles.center}>
+          <ActivityIndicator />
+        </View>
       ) : error ? (
-        <View style={styles.center}><Text style={styles.error}>{error}</Text></View>
+        <View style={styles.center}>
+          <Text style={styles.error}>{error}</Text>
+        </View>
       ) : (
         <FlatList
           data={templates}
@@ -86,32 +124,31 @@ export default function AllBooksScreen() {
 }
 
 const styles = StyleSheet.create({
-  
   center: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   list: {
     paddingBottom: spacing(24),
   },
   card: {
     marginBottom: spacing(3),
-    backgroundColor:'#FFF8E1',
+    backgroundColor: "#FFF8E1",
     borderRadius: radii.lg,
     ...shadow.subtle,
   },
   cardButton: {
     marginTop: spacing(3),
-    backgroundColor: '#5554c1ff',
+    backgroundColor: "#5554c1ff",
     borderWidth: 0,
   },
   coverWrap: {
     borderRadius: radii.lg,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: spacing(3),
   },
-  coverImg: { width: '100%', height: 180, resizeMode: 'cover' },
+  coverImg: { width: "100%", height: 180, resizeMode: "cover" },
   title: {
     ...typography.headingM,
     color: colors.textPrimary,

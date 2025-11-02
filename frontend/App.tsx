@@ -38,6 +38,7 @@ function AppContent() {
         {user ? (
           <>
             <Stack.Screen name="AllBooks" component={AllBooksScreen} />
+            <Stack.Screen name="TemplateDemo" component={require('./src/screens/TemplateDemoScreen').default} />
             <Stack.Screen name="BookLibrary" component={BookLibraryScreen} />
             <Stack.Screen name="Account" component={AccountScreen} />
             <Stack.Screen name="BookCreation" component={BookCreationScreen} />
