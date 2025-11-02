@@ -34,6 +34,8 @@ from ..worker.book_processor import (
     get_childbook_workflow,
     _load_story_template,
     _build_story_from_template,
+    BookComposer,
+    get_media_root,
 )
 from ..storage import save_upload, move_to
 from ..fixtures import (
@@ -167,6 +169,7 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
             "image_kp": page.keypoint_image,
             "workflow": page.workflow_slug,
             "seed": page.seed,
+            "cover_text": getattr(page, 'cover_text', None),
         }
         for page in sorted(template.pages, key=lambda p: p.page_number)
     ]
@@ -966,6 +969,7 @@ def admin_create_story_template(
             keypoint_image=keypoint_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
+            cover_text=page.cover_text or None,
         )
         db.add(page_row)
 
@@ -1067,6 +1071,7 @@ def admin_update_story_template(
             keypoint_image=keypoint_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
+            cover_text=page.cover_text or None,
         )
         db.add(page_row)
 
@@ -1181,6 +1186,233 @@ def admin_regenerate_book(
         job_timeout=1800,
     )
     return {"message": "Book regeneration queued", "job_id": job.id}
+
+
+@router.post("/books/{book_id}/rebuild-pdf")
+def admin_rebuild_pdf(
+    book_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Rebuild the PDF from existing page images without regenerating images."""
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    pages = (
+        db.query(BookPage)
+        .filter(BookPage.book_id == book.id)
+        .order_by(BookPage.page_number)
+        .all()
+    )
+    if not pages:
+        raise HTTPException(status_code=409, detail="No pages found for this book")
+
+    pages_data = []
+    for p in pages:
+        pages_data.append(
+            {
+                "text_content": p.text_content,
+                "image_path": p.image_path,
+                "page_number": p.page_number,
+            }
+        )
+
+    media_root = get_media_root()
+    books_dir = media_root / "books"
+    books_dir.mkdir(parents=True, exist_ok=True)
+    pdf_filename = f"book_{book.id}_{(book.title or 'book').replace(' ', '_')}.pdf"
+    pdf_path = books_dir / pdf_filename
+
+    composer = BookComposer()
+    try:
+        pdf_path_str = composer.create_book_pdf(
+            {
+                "title": book.title or "",
+                "theme": book.theme or "",
+                "target_age": book.target_age or "",
+                "preview_image_path": book.preview_image_path,
+            },
+            pages_data,
+            str(pdf_path),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to compose PDF: {exc}")
+
+    book.pdf_path = pdf_path_str
+    book.pdf_generated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {"message": "PDF rebuilt", "pdf_path": pdf_path_str}
+
+
+class PageRegeneratePayload(BaseModel):
+    mode: str  # 'edited' | 'template'
+    workflow_json: Optional[dict] = None
+
+
+@router.post("/books/{book_id}/pages/{page}/regenerate")
+def admin_regenerate_page(
+    book_id: int,
+    page: int,
+    payload: PageRegeneratePayload,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Regenerate a single page image for a book and store an exact workflow snapshot."""
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    page_rec = (
+        db.query(BookPage)
+        .filter(BookPage.book_id == book.id, BookPage.page_number == page)
+        .first()
+    )
+    if not page_rec:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    comfy_client = ComfyUIClient(COMFYUI_SERVER)
+
+    # Determine workflow and prompts
+    story_template = _load_story_template(book.template_key)
+    workflow_json: dict
+    workflow_slug: str = (story_template.workflow_slug if story_template else "base")
+    workflow_version: int = 0
+    positive_prompt: Optional[str] = None
+    negative_prompt: Optional[str] = None
+    keypoint_slug: Optional[str] = None
+
+    # Use template overrides when in template mode
+    overrides = {}
+    if book.story_source == "template" and story_template:
+        temp_book = SimpleNamespace(
+            title=book.title,
+            template_key=book.template_key,
+            page_count=book.page_count,
+            story_source=book.story_source,
+            template_params=book.template_params,
+            target_age=book.target_age or story_template.age,
+            character_description=book.character_description,
+        )
+        _, overrides = _build_story_from_template(temp_book, story_template)
+        ovr = overrides.get(page, {})
+        if isinstance(ovr, dict):
+            positive_prompt = ovr.get("positive") or page_rec.enhanced_prompt or book.positive_prompt
+            negative_prompt = ovr.get("negative") or book.negative_prompt
+            keypoint_slug = ovr.get("keypoint")
+            if ovr.get("workflow"):
+                workflow_slug = ovr.get("workflow")
+
+    # Pick prompts if not set
+    if not positive_prompt:
+        positive_prompt = page_rec.enhanced_prompt or book.positive_prompt or page_rec.image_description
+    if not negative_prompt:
+        negative_prompt = book.negative_prompt
+
+    # Resolve base workflow
+    if payload.mode == "edited":
+        if not payload.workflow_json or not isinstance(payload.workflow_json, dict):
+            raise HTTPException(status_code=400, detail="workflow_json required for edited mode")
+        workflow_json = copy.deepcopy(payload.workflow_json)
+        workflow_version = 0
+    elif payload.mode == "template":
+        base_wf, wf_version, wf_slug_active = get_childbook_workflow(workflow_slug)
+        workflow_version = wf_version
+        workflow_slug = wf_slug_active
+        workflow_json = copy.deepcopy(base_wf)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid mode; use 'edited' or 'template'")
+
+    # Upload keypoint image if provided in overrides
+    kp_uploaded: Optional[str] = None
+    if keypoint_slug:
+        kp_record = db.query(ControlNetImage).filter(ControlNetImage.slug == keypoint_slug).first()
+        if kp_record and kp_record.image_path and os.path.exists(kp_record.image_path):
+            try:
+                kp_uploaded = comfy_client._upload_image(kp_record.image_path)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
+
+    # Prepare input reference images
+    try:
+        input_paths = json.loads(book.original_image_paths) if book.original_image_paths else []
+    except Exception:
+        input_paths = [book.original_image_paths] if book.original_image_paths else []
+
+    # Run ComfyUI
+    if payload.mode == "edited":
+        # Strict mode: do not mutate the edited workflow; only upload inputs
+        result = comfy_client.process_strict(
+            workflow_json=workflow_json,
+            upload_image_paths=input_paths,
+            fixed_basename=f"book{book.id}_p{page}",
+        )
+    else:
+        result = comfy_client.process_image_to_animation(
+            input_image_paths=input_paths,
+            workflow_json=workflow_json,
+            custom_prompt=positive_prompt,
+            control_prompt=negative_prompt,
+            keypoint_filename=kp_uploaded,
+            fixed_basename=f"book{book.id}_p{page}",
+        )
+
+    if result.get("status") != "success" or not result.get("output_path"):
+        raise HTTPException(status_code=500, detail=f"Regeneration failed: {result.get('error')}")
+
+    # Move output and update DB
+    final_output_path = Path(result["output_path"])
+    target_dir = Path(get_media_root()) / "outputs"
+    new_name = f"{book.id}_page_{page}"
+    new_output_path = move_to(str(final_output_path), str(target_dir), new_name)
+
+    page_rec.image_path = new_output_path
+    page_rec.image_status = "completed"
+    page_rec.image_error = None
+    page_rec.image_completed_at = datetime.now(timezone.utc)
+    if page == 0:
+        book.preview_image_path = new_output_path
+
+    # VAE/control preview move
+    vae_preview_path = result.get("vae_preview_path")
+    if vae_preview_path:
+        target_dir2 = Path(get_media_root()) / "intermediates"
+        new_name2 = f"{book.id}_controlnet_{page}"
+        new_vae_path = move_to(vae_preview_path, str(target_dir2), new_name2)
+        result["vae_preview_path"] = new_vae_path
+
+    # Store exact workflow payload
+    # For auditing: if the mode was 'edited', persist exactly the edited JSON the admin submitted
+    if payload.mode == "edited":
+        workflow_payload = workflow_json
+    else:
+        workflow_payload = result.get("workflow") or workflow_json
+    try:
+        serialized_workflow = json.loads(json.dumps(workflow_payload))
+    except TypeError:
+        serialized_workflow = workflow_payload
+    # Tag workflow_slug so UI can indicate origin
+    tagged_slug = f"{workflow_slug}:{'edited' if payload.mode == 'edited' else 'template'}"
+    snapshot = BookWorkflowSnapshot(
+        book_id=book.id,
+        page_number=page,
+        prompt_id=result.get("prompt_id"),
+        workflow_json=serialized_workflow,
+        vae_image_path=result.get("vae_preview_path"),
+        workflow_version=workflow_version,
+        workflow_slug=tagged_slug,
+    )
+    db.add(snapshot)
+
+    db.commit()
+
+    return {
+        "message": "Page regenerated",
+        "output_path": new_output_path,
+        "page": page,
+    }
+
+
 
 
 @router.get("/workflows")
@@ -1448,6 +1680,17 @@ def admin_get_workflow(
         elif book.positive_prompt:
             prompt = book.positive_prompt
 
+        # Derive regenerate mode tag from workflow_slug suffix if present
+        regen_mode = None
+        try:
+            if isinstance(snapshot.workflow_slug, str):
+                if snapshot.workflow_slug.endswith(":edited"):
+                    regen_mode = "edited"
+                elif snapshot.workflow_slug.endswith(":template"):
+                    regen_mode = "template"
+        except Exception:
+            regen_mode = None
+
         return {
             "book_id": book.id,
             "image_filenames": filenames,
@@ -1459,6 +1702,8 @@ def admin_get_workflow(
             "prompt_id": snapshot.prompt_id,
             "workflow": snapshot.workflow_json,
             "source": "stored",
+            "regenerate_mode": regen_mode,
+            "snapshot_created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
             "page_count": book.page_count,
             "available_pages": available_pages,
             "workflow_version": snapshot.workflow_version,

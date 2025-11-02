@@ -191,6 +191,7 @@ class StoryTemplatePage(Base):
     keypoint_image = Column(String(150))
     workflow_slug = Column(String(100))
     seed = Column(BigInteger)
+    cover_text = Column(Text)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

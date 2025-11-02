@@ -217,6 +217,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   }
 
   const currentPageData = bookData.pages[currentPage];
+  const isCoverPage = currentPageData?.page_number === 0 || currentPage === 0;
 
   return (
     <ScreenWrapper>
@@ -227,7 +228,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.bookPage}>
           {/* Image Section */}
-          <View style={styles.imageSection}>
+          <View style={[styles.imageSection, isCoverPage && styles.imageSectionCover]}>
             {(() => {
               console.log(`🖼️ Page ${currentPage + 1} render:`, {
                 hasImageData: !!currentPageData?.image_data,
@@ -240,8 +241,8 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                 return (
                   <Image
                     source={{ uri: currentPageData.image_data }}
-                    style={styles.pageImage}
-                    resizeMode="contain"
+                    style={isCoverPage ? styles.pageImageCover : styles.pageImage}
+                    resizeMode={isCoverPage ? 'cover' : 'contain'}
                     onLoadStart={() => {
                       console.log('🔄 Started loading image for page', currentPage + 1);
                       setImageLoading(prev => ({ ...prev, [currentPage]: true }));
@@ -280,12 +281,14 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
             )}
           </View>
 
-          {/* Text Section */}
-          <View style={styles.textSection}>
-            <Text style={styles.pageText}>
-              {currentPageData?.text || 'Loading page content...'}
-            </Text>
-          </View>
+          {/* Text Section (hidden for cover) */}
+          {!isCoverPage && (
+            <View style={styles.textSection}>
+              <Text style={styles.pageText}>
+                {currentPageData?.text || 'Loading page content...'}
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -407,18 +410,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     position: 'relative',
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   pageImage: {
-    width: screenWidth - 10,
-    height: (screenWidth - 10) * 0.75, // 4:3 aspect ratio
-    borderRadius: 8,
-    resizeMode: 'cover',
+    width: '100%',
+    aspectRatio: 4 / 3, // 4:3 landscape for interior pages
+  },
+  pageImageCover: {
+    width: '100%',
+    aspectRatio: 1152 / 1600, // portrait for cover (matches workflow ~1152x1600)
+  },
+  imageSectionCover: {
+    marginBottom: 0,
   },
   placeholderImage: {
-    width: screenWidth - 80,
-    height: (screenWidth - 80) * 0.75,
+    width: '100%',
+    aspectRatio: 4 / 3,
     backgroundColor: colors.neutral100,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -442,8 +453,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 12,
   },
   textSection: {
     flex: 1,

@@ -271,12 +271,14 @@ class ComfyUIClient:
                 # Inject keypoint into the workflow if provided
                 if keypoint_filename:
                     try:
+                        meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
                         # Prefer wiring via ApplyInstantID*'s image_kps link
-                        apply_node_id = None
-                        for node_id, node in workflow.items():
-                            if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
-                                apply_node_id = node_id
-                                break
+                        apply_node_id = meta.get("instantid_apply_node")
+                        if not apply_node_id:
+                            for node_id, node in workflow.items():
+                                if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
+                                    apply_node_id = node_id
+                                    break
                         load_node_id = None
                         if apply_node_id:
                             apply_inputs = workflow[apply_node_id].get("inputs", {})
@@ -284,6 +286,10 @@ class ComfyUIClient:
                             if isinstance(link, list) and len(link) >= 1 and isinstance(link[0], str):
                                 load_node_id = link[0]
                         # Fallback to common node ids in our workflows
+                        if not load_node_id:
+                            kp_meta = meta.get("keypoint_load_node")
+                            if kp_meta:
+                                load_node_id = kp_meta
                         if not load_node_id:
                             for candidate in ["109", "100", "128"]:
                                 node = workflow.get(candidate)
@@ -339,14 +345,20 @@ class ComfyUIClient:
                 # Wait for completion
                 result = self.wait_for_completion(prompt_id)
 
+                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+                preview_nodes = []
+                if isinstance(meta, dict):
+                    preview_nodes = meta.get("preview_nodes", [])
+                if not preview_nodes:
+                    preview_nodes = ["102", "83", "84", "91", "15"]
                 vae_preview_path = self._download_intermediate_image(
                     result.get("outputs"),
-                    ["102", "83", "84", "91", "15"],
+                    preview_nodes,
                 )
 
                 if result["status"] == "completed" and result["outputs"]:
                     # Download the result
-                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename)
+                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename, meta=meta)
                     event["context"]["result"] = "success"
                     return {
                         "status": "success",
@@ -422,10 +434,11 @@ class ComfyUIClient:
         Returns:
             Updated workflow
         """
-        # Find the positive prompt CLIPTextEncode node and update it with custom prompt
-        # First, try to find nodes with "children's book illustration" (old workflow)
-        positive_nodes = ["39"]
-        negative_nodes = ["40"]
+        # Find the positive/negative CLIPTextEncode nodes; allow metadata override
+        meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+        pn = meta.get("prompt_nodes", {}) if isinstance(meta, dict) else {}
+        positive_nodes = pn.get("positive", ["39"])  # default
+        negative_nodes = pn.get("negative", ["40"])  # default
 
         for node_id, node in workflow.items():
             if node.get("class_type") == "CLIPTextEncode" and "text" in node.get("inputs", {}):
@@ -473,7 +486,7 @@ class ComfyUIClient:
         except Exception as snapshot_error:
             print(f"[ComfyUI] Failed to log workflow snapshot: {snapshot_error}")
 
-    def _download_result(self, outputs: Dict[str, Any], fixed_basename: Optional[str] = None) -> str:
+    def _download_result(self, outputs: Dict[str, Any], fixed_basename: Optional[str] = None, meta: Optional[Dict[str, Any]] = None) -> str:
         """Download the result and save to local storage"""
         # Cross-platform path handling
         media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
@@ -483,10 +496,14 @@ class ComfyUIClient:
             "comfyui.download_result",
             {"server": self.base_url, "output_dir": str(output_dir)},
         ) as event:
-            # First, try to find SaveImage node outputs (node 25 for advanced workflows, node 10 for simple workflows)
-            # These produce files with predictable names and are the intended final outputs
+            # First, try to find SaveImage node outputs (allow meta override)
+            preferred_save_nodes = []
+            if isinstance(meta, dict):
+                preferred_save_nodes = meta.get("save_nodes", [])
+            if not preferred_save_nodes:
+                preferred_save_nodes = ["25", "10"]
             for node_id, node_outputs in outputs.items():
-                if node_id in ["25", "10"] and "images" in node_outputs:  # SaveImage nodes
+                if node_id in preferred_save_nodes and "images" in node_outputs:
                     image_info = node_outputs["images"][0]
                     filename = image_info["filename"]
                     subfolder = image_info.get("subfolder", "")
@@ -509,7 +526,7 @@ class ComfyUIClient:
                     event["context"]["node_id"] = node_id
                     return str(output_path)
 
-            # If no SaveImage node found, look for any saved images (not temp files)
+            # If no preferred SaveImage node found, look for any saved images (not temp files)
             fallback_image = None
             fallback_info = None
 
@@ -605,6 +622,64 @@ class ComfyUIClient:
                     continue
 
         return None
+
+    def process_strict(
+        self,
+        workflow_json: Dict[str, Any],
+        upload_image_paths: Optional[list] = None,
+        fixed_basename: Optional[str] = None,
+    ) -> Dict:
+        """Queue the provided workflow JSON as-is without dynamic rewrites.
+
+        - Does not modify nodes (no prompt injection, no dynamic LoadImage wiring).
+        - Optionally uploads reference images to make filenames available on ComfyUI.
+        """
+        with record_comfy_stage(
+            "comfyui.process_strict",
+            {
+                "uploads": len(upload_image_paths or []),
+            },
+        ) as event:
+            try:
+                # Best-effort: upload images so referenced filenames exist on the server
+                for p in upload_image_paths or []:
+                    try:
+                        self._upload_image(p)
+                    except Exception:
+                        pass
+
+                import copy as _copy
+                workflow = _copy.deepcopy(workflow_json)
+                self._log_workflow_snapshot(workflow)
+                prompt_id = self.queue_prompt(workflow)
+                event["context"]["prompt_id"] = prompt_id
+                result = self.wait_for_completion(prompt_id)
+
+                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+                preview_nodes = []
+                if isinstance(meta, dict):
+                    preview_nodes = meta.get("preview_nodes", [])
+                if not preview_nodes:
+                    preview_nodes = ["102", "83", "84", "91", "15"]
+                vae_preview_path = self._download_intermediate_image(
+                    result.get("outputs"), preview_nodes
+                )
+
+                if result.get("status") == "completed" and result.get("outputs"):
+                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename, meta=meta)
+                    return {
+                        "status": "success",
+                        "output_path": output_path,
+                        "prompt_id": prompt_id,
+                        "workflow": workflow,
+                        "vae_preview_path": vae_preview_path,
+                    }
+
+                return {"status": "failed", "error": result.get("error", "Unknown error")}
+            except Exception as e:
+                if sentry_sdk is not None:
+                    sentry_sdk.capture_exception(e)
+                return {"status": "failed", "error": str(e)}
 
     def _get_default_media_root(self) -> str:
         """Get default media root based on platform"""

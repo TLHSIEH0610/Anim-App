@@ -432,18 +432,88 @@ async def view_workflow(book_id: int, request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    # Prettify JSON for human editing. If the backend returned a string, parse it first.
+    try:
+        wf_obj = workflow_json
+        if isinstance(wf_obj, str):
+            try:
+                wf_obj = json.loads(wf_obj)
+            except json.JSONDecodeError:
+                # Keep as raw string if it's not valid JSON
+                pass
+        if isinstance(wf_obj, (dict, list)):
+            workflow_text = json.dumps(wf_obj, indent=2, ensure_ascii=False)
+        else:
+            workflow_text = str(workflow_json)
+    except Exception:
+        workflow_text = str(workflow_json)
+
     return templates.TemplateResponse(
         "workflow.html",
         {
             "request": request,
             "book_id": book_id,
             "workflow": workflow_json,
+            "workflow_text": workflow_text,
             "metadata": data,
             "admin_email": session.get("email"),
             "current_page": data.get("page_number", page),
             "available_pages": data.get("available_pages", []),
         },
     )
+
+
+@app.post("/books/{book_id}/pages/{page}/regenerate-edited")
+async def regenerate_page_edited(book_id: int, page: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    form = await request.form()
+    wf_text = form.get("workflow_json", "")
+    try:
+        wf_json = json.loads(wf_text) if wf_text else None
+    except json.JSONDecodeError as exc:
+        return RedirectResponse(
+            f"/books/{book_id}/workflow?page={page}&error={quote_plus('Invalid JSON: ' + str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    try:
+        await backend_request(
+            "POST",
+            f"/admin/books/{book_id}/pages/{page}/regenerate",
+            json={"mode": "edited", "workflow_json": wf_json},
+        )
+        return RedirectResponse(
+            f"/books/{book_id}/workflow?page={page}&message=Page%20regenerated",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/books/{book_id}/workflow?page={page}&error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/books/{book_id}/pages/{page}/regenerate-template")
+async def regenerate_page_template(book_id: int, page: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        await backend_request(
+            "POST",
+            f"/admin/books/{book_id}/pages/{page}/regenerate",
+            json={"mode": "template"},
+        )
+        return RedirectResponse(
+            f"/books/{book_id}/workflow?page={page}&message=Page%20regenerated",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/books/{book_id}/workflow?page={page}&error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 @app.get("/books/{book_id}/images", response_class=HTMLResponse)
@@ -560,6 +630,25 @@ async def users_update(user_id: int, request: Request):
     except httpx.HTTPError as exc:
         return RedirectResponse(
             f"/users?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+
+
+@app.post("/books/{book_id}/rebuild-pdf")
+async def rebuild_pdf(book_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        await backend_request("POST", f"/admin/books/{book_id}/rebuild-pdf")
+        message = quote_plus("PDF rebuild started/completed")
+        return RedirectResponse(f"/dashboard?message={message}", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -1241,12 +1330,66 @@ async def update_workflow(workflow_id: int, request: Request):
 
     content_raw = form.get("content", "")
     try:
-        payload["content"] = json.loads(content_raw)
+        content_obj = json.loads(content_raw) if content_raw else {}
     except json.JSONDecodeError as exc:
         return RedirectResponse(
             f"/workflows/{workflow_id}?error={quote_plus('Invalid JSON: ' + str(exc))}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+
+    # Optional workflow hints (_meta)
+    meta: dict[str, any] = content_obj.get("_meta", {}) if isinstance(content_obj, dict) else {}
+    def _split_ids(text: str) -> list[str]:
+        return [x.strip() for x in text.split(',') if x and x.strip()]
+
+    kp_node = (form.get("meta_keypoint_load_node") or "").strip()
+    if kp_node:
+        meta["keypoint_load_node"] = kp_node
+
+    apply_node = (form.get("meta_instantid_apply_node") or "").strip()
+    if apply_node:
+        meta["instantid_apply_node"] = apply_node
+
+    kp_default = (form.get("meta_keypoint_default_image") or "").strip()
+    if kp_default and kp_node and isinstance(content_obj, dict) and kp_node in content_obj:
+        try:
+            inputs = content_obj[kp_node].setdefault("inputs", {})
+            inputs["image"] = kp_default
+            inputs["load_from_upload"] = True
+            meta["keypoint_default_image"] = kp_default
+        except Exception:
+            pass
+
+    pos_nodes = (form.get("meta_prompt_nodes_positive") or "").strip()
+    neg_nodes = (form.get("meta_prompt_nodes_negative") or "").strip()
+    if pos_nodes or neg_nodes:
+        pn = meta.get("prompt_nodes", {})
+        if pos_nodes:
+            pn["positive"] = _split_ids(pos_nodes)
+        if neg_nodes:
+            pn["negative"] = _split_ids(neg_nodes)
+        meta["prompt_nodes"] = pn
+
+    load_images = (form.get("meta_load_images") or "").strip()
+    if load_images:
+        meta["load_images"] = _split_ids(load_images)
+
+    save_nodes = (form.get("meta_save_nodes") or "").strip()
+    if save_nodes:
+        meta["save_nodes"] = _split_ids(save_nodes)
+
+    preview_nodes = (form.get("meta_preview_nodes") or "").strip()
+    if preview_nodes:
+        meta["preview_nodes"] = _split_ids(preview_nodes)
+
+    overlay_nodes = (form.get("meta_overlay_nodes") or "").strip()
+    if overlay_nodes:
+        meta["overlay_nodes"] = _split_ids(overlay_nodes)
+
+    if isinstance(content_obj, dict):
+        content_obj["_meta"] = meta
+
+    payload["content"] = content_obj
 
     try:
         await backend_request("PUT", f"/admin/workflows/{workflow_id}", json=payload)

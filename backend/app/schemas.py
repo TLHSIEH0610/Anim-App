@@ -66,6 +66,7 @@ class BookResponse(BaseModel):
     error_message: Optional[str] = None
     pdf_path: Optional[str] = None
     preview_image_path: Optional[str] = None
+    cover_url: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     

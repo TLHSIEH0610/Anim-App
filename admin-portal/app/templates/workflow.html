@@ -16,6 +16,20 @@
     {% if metadata.workflow_version is not none %}
     <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
     {% endif %}
+    {% if metadata.regenerate_mode %}
+    <p><strong>Regenerated Via:</strong>
+      {% if metadata.regenerate_mode == 'edited' %}
+        Edited Workflow
+      {% elif metadata.regenerate_mode == 'template' %}
+        From Template
+      {% else %}
+        Unknown
+      {% endif %}
+    </p>
+    {% endif %}
+    {% if metadata.snapshot_created_at %}
+    <p><strong>Snapshot Time:</strong> {{ metadata.snapshot_created_at }}</p>
+    {% endif %}
     {% if available_pages and available_pages|length > 1 %}
     <form method="get" action="/books/{{ book_id }}/workflow" class="form-grid one-col" style="margin-top: 8px; max-width: 360px;">
       <div class="full">
@@ -45,8 +59,42 @@
 
 <div class="mdc-card" style="padding: 16px;">
     <h3 class="mdc-typography--headline6">Workflow JSON</h3>
-    <pre>{{ workflow }}</pre>
+    <form method="post" action="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-edited" class="form-grid one-col">
+      <div class="full">
+        <label for="workflow_json">Edit workflow for page {{ current_page }}</label>
+        <textarea id="workflow_json" name="workflow_json" rows="26" wrap="off" style="width:100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; white-space: pre; tab-size: 2; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; overflow: auto;">{{ workflow_text | safe }}</textarea>
+      </div>
+      <div class="form-actions full" style="display:flex; gap: 8px; align-items:center;">
+        <button type="submit" class="mdc-button mdc-button--unelevated">Regenerate with edited workflow</button>
+        <a href="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-template" class="mdc-button mdc-button--outlined" onclick="event.preventDefault(); document.getElementById('regen-tpl').submit();">Regenerate from template</a>
+        <button type="button" class="mdc-button" onclick="(function(){try{var ta=document.getElementById('workflow_json');ta.value=JSON.stringify(JSON.parse(ta.value), null, 2);}catch(e){alert('Invalid JSON: '+e.message);}})()">Beautify</button>
+        <button type="button" class="mdc-button" onclick="(function(){var ta=document.getElementById('workflow_json');ta.select();document.execCommand('copy');})()">Copy</button>
+      </div>
+    </form>
+    <form id="regen-tpl" method="post" action="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-template"></form>
 </div>
+
+<script>
+  // Auto-beautify once on load if the JSON is valid but minified
+  (function(){
+    try {
+      var ta = document.getElementById('workflow_json');
+      var txt = ta && ta.value ? ta.value.trim() : '';
+      if (!txt) return;
+      // If it looks like a quoted JSON string (escaped), try to parse twice
+      var val = txt;
+      try {
+        val = JSON.parse(txt);
+      } catch (_) { /* ignore */ }
+      if (typeof val === 'string') {
+        try { val = JSON.parse(val); } catch (_) { /* ignore */ }
+      }
+      if (typeof val === 'object') {
+        ta.value = JSON.stringify(val, null, 2);
+      }
+    } catch (e) { /* no-op */ }
+  })();
+</script>
 
 <a href="/dashboard" class="mdc-button" style="margin-top: 16px;">Back to dashboard</a>
 {% endblock %}

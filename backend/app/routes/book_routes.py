@@ -3,12 +3,14 @@ import json
 import base64
 from datetime import datetime, timezone
 from decimal import Decimal
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, Query
 from typing import List, Optional
 from fastapi.responses import FileResponse
 from pathlib import Path
 from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
+from jose import jwt
+from app.auth import SECRET_KEY, ALGO
 from app.db import get_db
 from app.models import Book, BookPage, StoryTemplate, Payment
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
@@ -84,8 +86,6 @@ async def create_book(
             raise HTTPException(400, "template_params must be valid JSON")
 
     allowed_pages = [1, 4, 6, 8, 10, 12, 16]
-    if page_count not in allowed_pages:
-        raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
 
     pricing_quote = None
     payment_record = None
@@ -109,6 +109,21 @@ async def create_book(
         theme_value = story_template.slug
 
         pricing_quote = resolve_story_price(user, story_template)
+
+        # For templates, auto-derive page_count from the template's defined pages (excluding cover page 0 / 'cover' workflow)
+        try:
+            body_count = len([
+                p for p in (story_template.pages or [])
+                if not (
+                    getattr(p, 'page_number', None) == 0
+                    or str(getattr(p, 'workflow_slug', '') or '').strip().lower() == 'cover'
+                )
+            ])
+        except Exception:
+            body_count = 0
+        if body_count <= 0:
+            body_count = len(story_template.pages or [])
+        page_count = body_count or 1
 
         if pricing_quote.final_price <= Decimal("0"):
             if pricing_quote.free_trial_slug:
@@ -141,6 +156,9 @@ async def create_book(
     else:
         if target_age not in ["3-5", "6-8", "9-12"]:
             raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
+        # Enforce allowed page counts only for custom stories
+        if page_count not in allowed_pages:
+            raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
 
     try:
         character_desc_value = character_description.strip()
@@ -219,7 +237,13 @@ def list_user_books(user = Depends(current_user), db: Session = Depends(get_db))
     """Get list of user's books"""
     books = db.query(Book).filter(Book.user_id == user.id).order_by(Book.created_at.desc()).limit(20).all()
     
-    return BookListResponse(books=[BookResponse.from_orm(book) for book in books])
+    items = []
+    for book in books:
+        resp = BookResponse.from_orm(book)
+        data = resp.model_dump()
+        data["cover_url"] = f"/books/{book.id}/cover"
+        items.append(BookResponse(**data))
+    return BookListResponse(books=items)
 
 @router.get("/{book_id}", response_model=BookWithPagesResponse)  
 def get_book_details(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
@@ -232,6 +256,11 @@ def get_book_details(book_id: int, user = Depends(current_user), db: Session = D
     pages = db.query(BookPage).filter(BookPage.book_id == book_id).order_by(BookPage.page_number).all()
     
     book_response = BookWithPagesResponse.from_orm(book)
+    try:
+        # Attach a relative cover_url for convenience
+        setattr(book_response, 'cover_url', f"/books/{book.id}/cover")
+    except Exception:
+        pass
     book_response.pages = [BookPageResponse.from_orm(page) for page in pages]
     
     return book_response
@@ -263,6 +292,41 @@ def download_book_pdf(book_id: int, user = Depends(current_user), db: Session = 
         media_type="application/pdf",
         filename=f"{book.title.replace(' ', '_')}_book.pdf"
     )
+
+@router.get("/{book_id}/cover")
+def get_book_cover(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
+    """Serve the personalized cover image (page 0) if available."""
+    book = db.query(Book).filter(Book.id == book_id, Book.user_id == user.id).first()
+    if not book:
+        raise HTTPException(404, "Book not found")
+    path = book.preview_image_path
+    if not path:
+        page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
+        if page0 and page0.image_path:
+            path = page0.image_path
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Cover not available")
+    return FileResponse(path)
+
+@router.get("/{book_id}/cover-public")
+def get_book_cover_public(book_id: int, token: str = Query(...), db: Session = Depends(get_db)):
+    """Serve the personalized cover via token query param (for Image components)."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
+        uid = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+    book = db.query(Book).filter(Book.id == book_id, Book.user_id == uid).first()
+    if not book:
+        raise HTTPException(404, "Book not found")
+    path = book.preview_image_path
+    if not path:
+        page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
+        if page0 and page0.image_path:
+            path = page0.image_path
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Cover not available")
+    return FileResponse(path)
 
 @router.get("/{book_id}/preview")
 def get_book_preview(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):

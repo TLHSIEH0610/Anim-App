@@ -56,6 +56,9 @@
                         <div class="actions-wrap">
                           <a href="/books/{{ book.id }}/workflow" class="mdc-button btn-sm"><span class="mdc-button__label">Workflow</span></a>
                           <a href="/books/{{ book.id }}/images" class="mdc-button btn-sm"><span class="mdc-button__label">Images</span></a>
+                          <form method="post" action="/books/{{ book.id }}/rebuild-pdf">
+                            <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Rebuild PDF</span></button>
+                          </form>
                           <form method="post" action="/books/{{ book.id }}/regenerate">
                             <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Regenerate</span></button>
                           </form>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Alert, RefreshControl, Image } from 'react-native';
 import { ActivityIndicator, Chip, ProgressBar, Portal, Dialog } from 'react-native-paper';
-import { getBookList, deleteBook, adminRegenerateBook, Book } from '../api/books';
+import { getBookList, deleteBook, adminRegenerateBook, Book, getBookCoverUrl } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import { colors, radii, shadow, spacing, statusColors, typography } from '../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -99,6 +99,11 @@ export default function BookLibraryScreen({ navigation }: BookLibraryScreenProps
 
   const renderBookItem = ({ item: book }: { item: Book }) => (
     <Card style={styles.bookItem}>
+        {book.status === 'completed' ? (
+          <View style={styles.coverThumbWrap}>
+            <Image source={{ uri: getBookCoverUrl(book.id, token || undefined) }} style={styles.coverThumb} />
+          </View>
+        ) : null}
         <TouchableRipple onPress={() => handleBookPress(book)}>
           <View>
             <View style={styles.bookHeader}>
@@ -322,6 +327,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     overflow: 'hidden',
     ...shadow.subtle,
+  },
+  coverThumbWrap: {
+    width: '100%',
+    backgroundColor: colors.neutral100,
+  },
+  coverThumb: {
+    width: '100%',
+    height: 180,
+    resizeMode: 'cover',
   },
   bookHeader: {
     flexDirection: 'row',

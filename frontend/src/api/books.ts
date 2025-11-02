@@ -49,6 +49,14 @@ export function getStoryCoverUrl(coverPath?: string | null): string | null {
   return `${baseUrl}/books/stories/cover?path=${encodeURIComponent(coverPath)}`;
 }
 
+export function getBookCoverUrl(bookId: number, token?: string): string {
+  const baseUrl = API_BASE_ORIGIN;
+  if (token) {
+    return `${baseUrl}/books/${bookId}/cover-public?token=${encodeURIComponent(token)}`;
+  }
+  return `${baseUrl}/books/${bookId}/cover`;
+}
+
 export function getMediaFileUrl(path?: string | null): string | null {
   // Reuse the same endpoint; backend validates MEDIA_ROOT containment.
   return getStoryCoverUrl(path ?? undefined);

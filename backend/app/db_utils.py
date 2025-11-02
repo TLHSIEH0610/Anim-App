@@ -16,6 +16,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_template_pages ADD COLUMN negative_prompt TEXT",
         "ALTER TABLE controlnet_images ADD COLUMN preview_path TEXT",
         "ALTER TABLE controlnet_images ADD COLUMN metadata JSON",
+        "ALTER TABLE story_template_pages ADD COLUMN IF NOT EXISTS cover_text TEXT",
         "ALTER TABLE story_templates ADD COLUMN price_dollars NUMERIC(10,2) DEFAULT 1.5",
         "ALTER TABLE story_templates ADD COLUMN discount_price NUMERIC(10,2)",
         "ALTER TABLE story_templates ADD COLUMN free_trial_slug VARCHAR(120)",

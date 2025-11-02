@@ -188,11 +188,68 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         raise ValueError(f"Story template '{template.slug}' has no pages configured")
 
     pages = []
-    overrides: Dict[int, Dict[str, str]] = {}
+    overrides: Dict[int, Dict[str, Any]] = {}
+
+    # Optional cover page (page_number == 0 or workflow 'cover')
+    cover_candidates = [p for p in template_pages if getattr(p, 'page_number', None) == 0 or (getattr(p, 'workflow_slug', None) or '').strip().lower() == 'cover']
+    body_templates = [p for p in template_pages if p not in cover_candidates]
+
+    if cover_candidates:
+        cover_t = cover_candidates[0]
+        cover_story = _format_template_text(cover_t.story_text, replacements)
+        cover_img_prompt = _format_template_text(cover_t.image_prompt, replacements)
+        cover_pos = _format_template_text(cover_t.positive_prompt, replacements) if cover_t.positive_prompt else ""
+        cover_neg = _format_template_text(cover_t.negative_prompt, replacements) if getattr(cover_t, 'negative_prompt', None) else ""
+        cover_pose = _format_template_text(cover_t.pose_prompt, replacements) if cover_t.pose_prompt else ""
+        cover_kp = cover_t.keypoint_image
+        cover_workflow = (getattr(cover_t, 'workflow_slug', None) or '').strip() or 'cover'
+        cover_text_value = None
+        try:
+            cover_text_value = getattr(cover_t, 'cover_text', None)
+            if isinstance(cover_text_value, str) and cover_text_value.strip():
+                cover_text_value = _format_template_text(cover_text_value, replacements)
+            else:
+                cover_text_value = None
+        except Exception:
+            cover_text_value = None
+
+        pages.append({
+            "page": 0,
+            "text": cover_story,
+            "image_description": cover_img_prompt,
+            "image_kp": cover_kp,
+            "workflow": cover_workflow,
+            "seed": getattr(cover_t, 'seed', None) if getattr(cover_t, 'seed', None) not in ("", None) else None,
+        })
+
+        cov_override: Dict[str, Any] = {}
+        if cover_pos.strip():
+            cov_override["positive"] = cover_pos.strip()
+        if cover_neg.strip():
+            cov_override["negative"] = cover_neg.strip()
+        if cover_kp:
+            cov_override["keypoint"] = cover_kp
+        if cover_pose and cover_pose.strip():
+            cov_override["pose"] = cover_pose.strip()
+        if cover_workflow:
+            cov_override["workflow"] = cover_workflow
+        seed_val = getattr(cover_t, 'seed', None)
+        try:
+            cov_seed = int(seed_val) if seed_val not in (None, "") else None
+        except (TypeError, ValueError):
+            cov_seed = None
+        if cov_seed is not None:
+            cov_override["seed"] = cov_seed
+        if cover_text_value:
+            cov_override["cover_text"] = cover_text_value
+        overrides[0] = cov_override
+
+    if not body_templates:
+        body_templates = template_pages
 
     for index in range(book.page_count):
         page_number = index + 1
-        page_template = template_pages[index % len(template_pages)]
+        page_template = body_templates[index % len(body_templates)]
 
         story_text = _format_template_text(page_template.story_text, replacements)
         image_prompt = _format_template_text(page_template.image_prompt, replacements)
@@ -388,28 +445,38 @@ class BookComposer:
                 fontName='Helvetica'
             )
             
-            # Title page
-            story.append(Spacer(1, 36))
-            story.append(Paragraph(book_data['title'], title_style))
-            story.append(Paragraph(f"A {book_data.get('theme', 'wonderful')} story for ages {book_data.get('target_age', '6-8')}", subtitle_style))
-            story.append(Spacer(1, 36))
+            # Cover is handled inside the unified loop below
             
-            # Add decorative element if we have the first page image
-            if pages_data and pages_data[0].get('image_path') and os.path.exists(pages_data[0]['image_path']):
-                try:
-                    cover_img = self.resize_image_for_page(
-                        pages_data[0]['image_path'],
-                        max_width=self.page_width - (2 * self.margin),
-                        max_height=(self.page_height - (2 * self.margin)) * 0.6,
-                    )
-                    story.append(cover_img)
-                except Exception as e:
-                    print(f"Warning: Could not add cover image: {e}")
-            
-            story.append(PageBreak())
-            
-            # Story pages
-            for i, page_data in enumerate(pages_data, 1):
+            # Story pages (including cover if present). Render cover (page 0) as image-only.
+            pages_for_body = sorted(pages_data, key=lambda p: (p.get('page_number') is None, p.get('page_number')))
+            visible_page_index = 0
+            for pidx, page_data in enumerate(pages_for_body):
+                pgnum = page_data.get('page_number')
+                if isinstance(pgnum, int) and pgnum == 0:
+                    # Render cover page as an image-only page
+                    img_path = page_data.get('image_path')
+                    if (not img_path or not os.path.exists(img_path)) and (book_data.get('preview_image_path')):
+                        img_path = book_data.get('preview_image_path')
+                    if img_path and os.path.exists(img_path):
+                        try:
+                            cover_img = self.resize_image_for_page(
+                                img_path,
+                                max_width=self.page_width - (2 * self.margin),
+                                max_height=self.page_height - (2 * self.margin),
+                            )
+                            story.append(cover_img)
+                        except Exception:
+                            pass
+                    else:
+                        # Fallback title if no image available
+                        story.append(Spacer(1, 36))
+                        story.append(Paragraph(book_data['title'], title_style))
+                        story.append(Paragraph(f"A {book_data.get('theme', 'wonderful')} story for ages {book_data.get('target_age', '6-8')}", subtitle_style))
+                    story.append(PageBreak())
+                    continue
+
+                visible_page_index += 1
+                i = visible_page_index
                 content_width = self.page_width - (2 * self.margin)
                 content_height = self.page_height - (2 * self.margin)
 
@@ -447,7 +514,7 @@ class BookComposer:
                 story.append(Spacer(1, 14))
 
                 # Page number (skip last page to avoid blank page)
-                if i < len(pages_data):
+                if i < (len(pages_for_body) - (1 if any((isinstance(p.get('page_number'), int) and p.get('page_number') == 0) for p in pages_for_body) else 0)):
                     story.append(Paragraph(f"Page {i}", page_number_style))
                     story.append(PageBreak())
             
@@ -461,6 +528,7 @@ class BookComposer:
                 canvas.rect(0, 0, self.page_width, self.page_height, stroke=0, fill=1)
                 canvas.restoreState()
 
+            # Build with background on all pages; cover page renders as content
             doc.build(story, onFirstPage=_bg, onLaterPages=_bg)
             
             return output_path
@@ -685,6 +753,28 @@ def create_childbook(book_id: int):
                     seed_override = prompt_override.get("seed")
                     _randomize_k_sampler_seeds(workflow, seed_override)
 
+                    # If this is a cover page and cover_text is provided, update overlay text
+                    if page.page_number == 0:
+                        cover_text_value = prompt_override.get("cover_text")
+                        if cover_text_value:
+                            try:
+                                # Try meta override first
+                                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+                                overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
+                                if overlay_nodes:
+                                    for nid in overlay_nodes:
+                                        node = workflow.get(nid)
+                                        if node and isinstance(node.get("inputs"), dict):
+                                            node["inputs"]["text"] = cover_text_value
+                                else:
+                                    # Scan for any Text Overlay nodes
+                                    for nid, node in workflow.items():
+                                        if node.get("class_type") == "Text Overlay" and isinstance(node.get("inputs"), dict):
+                                            node["inputs"]["text"] = cover_text_value
+                                print(f"Applied cover text to overlay nodes for page 0")
+                            except Exception as ov_err:
+                                print(f"Warning: failed to apply cover overlay text: {ov_err}")
+
                     result = comfyui_client.process_image_to_animation(
                         image_paths,
                         copy.deepcopy(workflow),
@@ -704,6 +794,10 @@ def create_childbook(book_id: int):
                         new_output_path = move_to(str(final_output_path), str(target_dir), new_name)
                         result["output_path"] = new_output_path
                         page.image_path = new_output_path
+                        # Use cover as preview image
+                        if page.page_number == 0:
+                            book.preview_image_path = new_output_path
+                            session.commit()
 
                     if vae_preview_path:
                         target_dir = Path(get_media_root()) / "intermediates"
@@ -794,7 +888,8 @@ def create_childbook(book_id: int):
             {
                 'title': book.title,
                 'theme': book.theme,
-                'target_age': book.target_age
+                'target_age': book.target_age,
+                'preview_image_path': book.preview_image_path,
             },
             pages_data,
             str(pdf_path)
