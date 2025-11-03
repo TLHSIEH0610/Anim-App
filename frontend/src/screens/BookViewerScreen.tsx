@@ -27,6 +27,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
+  const [pageAspect, setPageAspect] = useState<Record<number, number>>({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
 
@@ -259,6 +260,9 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
 
   const currentPageData = bookData.pages[currentPage];
   const isCoverPage = currentPageData?.page_number === 0 || currentPage === 0;
+  const defaultCoverAspect = 1152 / 1600;
+  const defaultPageAspect = 4 / 3;
+  const currentAspect = pageAspect[currentPage] || (isCoverPage ? defaultCoverAspect : defaultPageAspect);
 
   return (
     <ScreenWrapper>
@@ -283,7 +287,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                 return (
                   <Image
                     source={{ uri: url }}
-                    style={isCoverPage ? styles.pageImageCover : styles.pageImage}
+                    style={{ width: '100%', aspectRatio: currentAspect }}
                     contentFit={isCoverPage ? 'cover' : 'contain'}
                     cachePolicy={bookData.status === 'completed' ? 'memory-disk' : 'none'}
                     placeholder={{ blurhash: BLURHASH }}
@@ -291,7 +295,12 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                     onLoadStart={() => {
                       setImageLoading(prev => ({ ...prev, [currentPage]: true }));
                     }}
-                    onLoad={() => {
+                    onLoad={(e: any) => {
+                      const w = e?.source?.width;
+                      const h = e?.source?.height;
+                      if (w && h) {
+                        setPageAspect(prev => ({ ...prev, [currentPage]: w / h }));
+                      }
                       setImageLoading(prev => ({ ...prev, [currentPage]: false }));
                     }}
                     onError={() => {
@@ -435,12 +444,15 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
-    padding: 10,
+    paddingTop: 10,
+    paddingHorizontal: 10,
+    paddingBottom: 0,
   },
   bookPage: {
     backgroundColor: colors.primarySoft,
     borderRadius: 12,
-    padding: 10,
+    padding: 0,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -450,11 +462,10 @@ const styles = StyleSheet.create({
   },
   imageSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     position: 'relative',
     width: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
+    borderRadius: 0,
   },
   pageImage: {
     width: '100%',
@@ -501,6 +512,7 @@ const styles = StyleSheet.create({
   textSection: {
     flex: 1,
     justifyContent: 'center',
+    padding: 10,
   },
   pageText: {
     fontSize: 18,
