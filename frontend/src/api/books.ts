@@ -35,6 +35,16 @@ export interface StoryTemplateSummary {
   demo_images?: (string | null)[];
   storyline_pages?: StorylinePageSummary[];
   credits_balance?: number; // included by /books/stories/templates for current user
+  // Optional pricing fields returned by /books/stories/templates
+  currency?: string | null;
+  price_dollars?: number | null;
+  discount_price?: number | null;
+  final_price?: number | null;
+  promotion_type?: string | null;
+  promotion_label?: string | null;
+  free_trial_slug?: string | null;
+  free_trial_consumed?: boolean | null;
+  credits_required?: number | null;
 }
 
 export async function getStoryTemplates(): Promise<{
@@ -58,6 +68,22 @@ export function getStoryCoverUrl(
   return `${baseUrl}/books/stories/cover?path=${encodeURIComponent(coverPath)}`;
 }
 
+export function getStoryThumbUrl(
+  coverPath?: string | null,
+  token?: string | null,
+  width: number = 320,
+  version?: string | number
+): string | null {
+  if (!coverPath) return null;
+  const baseUrl = API_BASE_ORIGIN;
+  if (token) {
+    const v = version != null ? `&v=${encodeURIComponent(String(version))}` : '';
+    return `${baseUrl}/books/media/resize-public?path=${encodeURIComponent(coverPath)}&w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(token)}${v}`;
+  }
+  // Fallback to original (non-token) cover if token absent
+  return getStoryCoverUrl(coverPath, token);
+}
+
 export function getBookCoverUrl(bookId: number, token?: string): string {
   const baseUrl = API_BASE_ORIGIN;
   if (token) {
@@ -68,9 +94,93 @@ export function getBookCoverUrl(bookId: number, token?: string): string {
   return `${baseUrl}/books/${bookId}/cover`;
 }
 
+export function getBookCoverThumbUrl(
+  bookId: number,
+  token?: string | null,
+  width: number = 320,
+  version?: string | number
+): string {
+  const baseUrl = API_BASE_ORIGIN;
+  if (token) {
+    const v = version != null ? `&v=${encodeURIComponent(String(version))}` : '';
+    return `${baseUrl}/books/${bookId}/cover-thumb-public?w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(token)}${v}`;
+  }
+  // Without token we can't access thumb; fall back to base cover
+  return getBookCoverUrl(bookId, undefined);
+}
+
 export function getMediaFileUrl(path?: string | null): string | null {
   // Reuse the same endpoint; backend validates MEDIA_ROOT containment.
   return getStoryCoverUrl(path ?? undefined);
+}
+
+export function getMediaThumbUrl(
+  path?: string | null,
+  token?: string | null,
+  width: number = 320
+): string | null {
+  if (!path) return null;
+  const baseUrl = API_BASE_ORIGIN;
+  if (token) {
+    return `${baseUrl}/books/media/resize-public?path=${encodeURIComponent(
+      path
+    )}&w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(
+      token
+    )}`;
+  }
+  return getMediaFileUrl(path);
+}
+
+// Unified thumbnail URL helper
+export type ThumbUrlOptions = {
+  token?: string | null;
+  width?: number;
+  height?: number;
+  version?: string | number | null;
+  bookId?: number;
+  path?: string | null;
+};
+
+export function getThumbUrl(opts: ThumbUrlOptions): string | null {
+  const { token, width = 320, height, version } = opts;
+  const v = version != null ? String(version) : undefined;
+  if (typeof opts.bookId === 'number') {
+    return getBookCoverThumbUrl(opts.bookId, token ?? null, width, v);
+  }
+  if (opts.path) {
+    // Use generic media resize for arbitrary media paths
+    const baseUrl = API_BASE_ORIGIN;
+    if (token) {
+      const params = new URLSearchParams({
+        path: opts.path,
+        w: String(width),
+        token,
+      });
+      if (height && height > 0) params.set('h', String(height));
+      if (v) params.set('v', v);
+      return `${baseUrl}/books/media/resize-public?${params.toString()}`;
+    }
+    return getMediaFileUrl(opts.path);
+  }
+  return null;
+}
+
+// Book viewer page image URL (binary), optionally resized
+export function getBookPageImageUrl(
+  bookId: number,
+  pageNumber: number,
+  token?: string | null,
+  width?: number,
+  height?: number,
+  version?: string | number | null
+): string {
+  const baseUrl = API_BASE_ORIGIN;
+  const params = new URLSearchParams();
+  if (width && width > 0) params.set('w', String(width));
+  if (height && height > 0) params.set('h', String(height));
+  if (token) params.set('token', token);
+  if (version != null) params.set('v', String(version));
+  return `${baseUrl}/books/${bookId}/pages/${pageNumber}/image-public?${params.toString()}`;
 }
 
 export interface Book {

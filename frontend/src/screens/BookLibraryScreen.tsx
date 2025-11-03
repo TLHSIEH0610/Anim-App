@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Alert,
-  RefreshControl,
-  Image,
-  Share,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, Alert, RefreshControl, Share, Platform } from "react-native";
+import { Image } from "expo-image";
 import {
   ActivityIndicator,
   Chip,
@@ -24,6 +15,7 @@ import {
   Book,
   getBookCoverUrl,
   getBookPdfUrl,
+  getBookCoverThumbUrl,
 } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -42,6 +34,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Header from "../components/Header";
 import * as FileSystem from "expo-file-system";
+const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
 const STATUS_COLORS: Record<string, string> = {
   ...statusColors,
@@ -80,7 +73,12 @@ function BookListCard({
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
 
-  const coverUri = getBookCoverUrl(book.id, token || undefined);
+  const coverUri = getBookCoverThumbUrl(
+    book.id,
+    token || undefined,
+    320,
+    book.completed_at || book.updated_at || book.created_at
+  );
 
   const handleImageLoad = (e: any) => {
     const natW = e?.nativeEvent?.source?.width;
@@ -133,7 +131,10 @@ function BookListCard({
                   styles.coverThumb,
                   { width: imgWidth - 8, height: targetHeight },
                 ]}
-                resizeMode="contain"
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                placeholder={{ blurhash: BLURHASH }}
+                transition={150}
                 onLoad={handleImageLoad}
               />
             </View>

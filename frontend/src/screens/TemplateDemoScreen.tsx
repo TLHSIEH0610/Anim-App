@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, Image, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { Image } from "expo-image";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { AppStackParamList } from "../navigation/types";
-import { StoryTemplateSummary, getMediaFileUrl } from "../api/books";
+import { StoryTemplateSummary, getThumbUrl } from "../api/books";
 import ScreenWrapper from "../components/ScreenWrapper";
 import Header from "../components/Header";
 import Button from "../components/Button";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
+const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 import { useAuth } from "../context/AuthContext";
 
 type TemplateDemoRoute = RouteProp<AppStackParamList, "TemplateDemo">;
@@ -21,9 +23,9 @@ export default function TemplateDemoScreen() {
     const list = template.demo_images || [];
     return list
       .filter(Boolean)
-      .map((p) => getMediaFileUrl(p!))
+      .map((p) => getThumbUrl({ path: p!, token, width: 360, version: template.version }))
       .filter(Boolean) as string[];
-  }, [template.demo_images]);
+  }, [template.demo_images, token, template.version]);
 
   const storylinePages = useMemo(() => {
     return (template.storyline_pages || []).filter((p) => p.page_number !== 0);
@@ -54,18 +56,7 @@ export default function TemplateDemoScreen() {
           ) : (
             demoImageUrls.map((url, idx) => (
               <View key={idx} style={styles.thumb}>
-                <Image
-                  source={
-                    {
-                      uri: url,
-                      headers: token
-                        ? { Authorization: `Bearer ${token}` }
-                        : undefined,
-                    } as any
-                  }
-                  style={styles.image}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: url } as any} style={styles.image} contentFit="cover" cachePolicy="memory-disk" placeholder={{ blurhash: BLURHASH }} transition={150} />
               </View>
             ))
           )}

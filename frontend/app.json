@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "AnimApp",
-    "slug": "anim-app",
+    "name": "Kid to Story",
+    "slug": "kid-to-story",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "animapp",
+    "scheme": "kidtostory",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arnie.animapp"
+      "bundleIdentifier": "com.arnie.kidtostory"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,15 +24,17 @@
       },
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
-      "package": "com.arnie.animapp"
+      "package": "com.arnie.kidtostory"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "extra": {
       "eas": {
-        "projectId": "3e5696ec-5c50-4902-b144-2e6d80a7bf53"
+        "projectId": "ba07289d-d39d-4d6b-b7e1-b50fbd2cd72f"
       }
-    }
+    },
+    "owner": "tlhsieh0610"
   }
 }

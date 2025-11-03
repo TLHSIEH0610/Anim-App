@@ -43,11 +43,13 @@ const LoginScreen = () => {
     }
 
     GoogleSignin.configure({
+      // Use the Web client ID to obtain an ID token for backend verification
       webClientId:
         googleClientConfig.webClientId || googleClientConfig.clientId,
       iosClientId: googleClientConfig.iosClientId,
-      offlineAccess: true,
-      forceCodeForRefreshToken: true,
+      // Request only the ID token; avoid server auth code/refresh token flow to reduce errors on emulators
+      offlineAccess: false,
+      forceCodeForRefreshToken: false,
       profileImageSize: 120,
       scopes: ["profile", "email"],
     });
@@ -59,16 +61,35 @@ const LoginScreen = () => {
       return;
     }
     try {
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Light connectivity probe to catch emulator/proxy issues early
+      try {
+        await fetch("https://clients3.google.com/generate_204", { method: "GET" });
+      } catch {
+        throw new Error("Network is unavailable. Please check your emulator/device connectivity.");
+      }
+
       const signInResult = await GoogleSignin.signIn();
-      const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
-      const nativeResult: any = signInResult;
-      const idToken =
-        tokens?.idToken || nativeResult?.idToken || nativeResult?.data?.idToken;
+      // Prefer the native idToken returned by the SDK; avoid getTokens() unless needed
+      const nativeResult: any = signInResult ?? {};
+      const idToken = nativeResult?.idToken || nativeResult?.data?.idToken || null;
       if (!idToken) {
-        throw new Error("Unable to obtain a Google ID token");
+        // Fallback: attempt to fetch tokens if the SDK didn’t include idToken (older Play Services)
+        const tokens = (await GoogleSignin.getTokens().catch(() => null)) ?? null;
+        if (!tokens?.idToken) {
+          throw new Error(
+            "Unable to obtain a Google ID token. Ensure your Web + Android client IDs are correct and the device has network access."
+          );
+        }
+        const backendAuth = await loginWithGoogle(tokens.idToken);
+        await login(backendAuth.token, {
+          id: String(backendAuth.user.id),
+          email: backendAuth.user.email,
+          name: backendAuth.user.name || backendAuth.user.email,
+          role: backendAuth.user.role ?? null,
+        });
+        setAuthError(null);
+        return;
       }
 
       const backendAuth = await loginWithGoogle(idToken);
@@ -86,6 +107,10 @@ const LoginScreen = () => {
         setAuthError("Google sign-in is already in progress.");
       } else if (error?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         setAuthError("Google Play Services are unavailable or out of date.");
+      } else if (error?.code === statusCodes.NETWORK_ERROR) {
+        setAuthError(
+          "Network error during Google sign-in. Check emulator/device internet connectivity and any proxy/VPN settings."
+        );
       } else if (error?.response?.data?.detail) {
         setAuthError(error.response.data.detail);
       } else if (error?.message) {

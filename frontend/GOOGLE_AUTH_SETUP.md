@@ -1,14 +1,17 @@
 # Google Authentication Setup
 
-The mobile app now uses [`@react-native-google-signin/google-signin`](https://react-native-google-signin.github.io/docs/install), so you authenticate through the native Google SDKs instead of the Expo browser flow. Follow the steps below to provision the correct credentials and wire them into the Android/iOS projects.
+The mobile app uses [`@react-native-google-signin/google-signin`](https://react-native-google-signin.github.io/docs/install), so you authenticate through the native Google SDKs instead of the Expo browser flow. Follow the steps below to provision the correct credentials and wire them into the Android/iOS projects.
 
 ## 1. Create OAuth 2.0 credentials
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) → select your project → **APIs & Services → Credentials**.
 2. Create (or reuse) the following OAuth clients:
    - **Web client** – required. Use it for server-side verification and when calling `GoogleSignin.getTokens()`. Add any deployed domains that will talk to Google on your behalf (no redirect URIs are needed for mobile).
-   - **Android client** – choose *Android*, set the package name to `com.arnie.animapp`, and provide the SHA-1 fingerprint of the keystore you build with (current debug keystore: `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`). If you sign releases with another keystore, register that SHA-1 as well.
-   - **iOS client (optional)** – choose *iOS*, set the bundle ID to `com.arnie.animapp`, and download the `GoogleService-Info.plist` if you plan to ship on iOS later.
+   - **Android client** – choose *Android*, set the package name to `com.arnie.kidtostory`, and provide the SHA-1 fingerprints for every keystore you will use (Dev Client, local debug, and release if applicable).
+     - Dev Client (EAS build): in Expo Dashboard → Project → Android → Credentials, copy the **SHA-1**; or run `eas credentials -p android`.
+     - Local debug (optional): `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`.
+     - Release (if you sign a release): `keytool -list -v -keystore <your-release.jks> -alias <alias>`.
+   - **iOS client (optional)** – choose *iOS*, set the bundle ID to `com.arnie.kidtostory`, and download the `GoogleService-Info.plist` if you plan to ship on iOS later.
 
 ## 2. Update environment variables
 
@@ -34,9 +37,11 @@ Restart Metro/Gradle after editing the file so the new IDs are compiled into the
 
 ## 4. Android configuration
 
-1. The Gradle project already includes `implementation("com.google.android.gms:play-services-auth:21.2.0")`. When you run `npx react-native run-android`, the Google Sign-In native module is linked automatically.
-2. Ensure the OAuth **Android** client in Google Cloud lists **every** SHA-1 you plan to sign with (debug + release). Mismatched SHA-1 fingerprints are the most common “App Not Authorized” error.
-3. No additional manifest entries are needed—the library wires up the required activities via autolinking.
+1. Ensure the OAuth **Android** client in Google Cloud lists **every** SHA‑1 you plan to sign with (Dev Client / Debug / Release). Mismatched SHA‑1 fingerprints are the most common `DEVELOPER_ERROR/10/12500` issues.
+2. Rebuild and reinstall the **Dev Client** any time you change native modules or keystores:
+   - `adb uninstall com.arnie.kidtostory`
+   - `eas build:run --profile development --platform android` (or `eas build --profile development --platform android --local` + `adb install <apk>`)
+3. No additional manifest entries are needed—the config plugin wires up the required activities via autolinking.
 
 ## 5. iOS configuration (when you add the iOS project)
 

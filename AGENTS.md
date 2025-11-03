@@ -58,3 +58,31 @@ Curated pointers for working on AnimApp without re-reading every guide. Update t
 - **Google sign-in**: ensure Android SHA-1s are registered in Google Cloud (debug vs. EAS keystores) and that `EXPO_PUBLIC_GOOGLE_*_CLIENT_ID` are populated.
 
 > Keep this file synced whenever instructions elsewhere change (new services, env vars, payment routes, etc.) so agents can jump straight here for context.
+
+## 9. Images: Delivery, Thumbnails, Caching (2025‑11)
+- Client image component: migrated to `expo-image` across Books, Purchased, and Template Demo screens for built‑in memory/disk caching, placeholders, and smooth transitions.
+  - Usage: `contentFit` for sizing, `cachePolicy` (`memory-disk` for lists, `none` for viewer), `transition={150}`, and a blurhash placeholder.
+- Tokenized URLs: all list/demo covers use tokenized URLs (query `token=`) so React Native can fetch protected images without setting headers.
+- Thumbnails (on‑the‑fly + cached): new backend endpoints resize originals and cache the result under `MEDIA_ROOT/thumbs`.
+  - `GET /books/media/resize-public?path=…&w=…&h=…&token=…` (template/demo/general media)
+  - `GET /books/{book_id}/cover-thumb-public?w=…&h=…&token=…` (purchased cover)
+  - Client helper: `getThumbUrl({ bookId?, path?, token?, width?, height?, version? })` in `frontend/src/api/books.ts`.
+  - Lists use ~320–360px thumbnails to avoid large downloads for small card slots.
+- Cache headers & revalidation:
+  - Template covers: `Cache-Control: public, max-age=600`.
+  - Thumbnails: `public, max-age=86400`.
+  - Purchased covers: `private, max-age=3600`.
+  - Page images (viewer): `private, no-store` (always refetch) with ETag support.
+  - All image routes now include ETag and return `304 Not Modified` when `If-None-Match` matches.
+- Update safety (no stale images):
+  - URLs include a `v=` query when available to bust client caches on updates:
+    - Books tab covers: `v=template.version`.
+    - Purchased covers: `v=book.completed_at || updated_at || created_at`.
+  - Server thumbnail cache auto‑invalidates when the source mtime changes.
+- Book Viewer images: switched from base64 `image_data` to binary URLs via `GET /books/{book_id}/pages/{page_number}/image-public` with optional width; UI sets `cachePolicy="none"` and shows a blurhash placeholder.
+- Route fix: `GET /books/stories/cover-public` is registered before dynamic book routes to prevent `422` from path mis‑match ("stories" incorrectly treated as `{book_id}`).
+
+Developer tips
+- Prefer `getThumbUrl({ … })` in list/grid UIs; pass a `version` so changes reflect immediately.
+- For high‑fidelity/detail screens (viewer), use `getBookPageImageUrl` with an appropriate width (e.g., device width), `cachePolicy="none"`, and a placeholder.
+- If you ever see 422 on a cover URL, double‑check route order and the request path (should be `/books/stories/…`, not `/books/{id}/…`).

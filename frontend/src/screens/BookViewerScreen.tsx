@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image, Dimensions, Share, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Dimensions, Share, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar } from 'react-native-paper';
-import { getBookPreview, getBookPdfUrl, adminRegenerateBook, BookPreview } from '../api/books';
+import { getBookPreview, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
+const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../navigation/types';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -237,22 +239,30 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                 imageDataPreview: currentPageData?.image_data?.substring(0, 50) || 'none'
               });
               
-              if (currentPageData?.image_data) {
+              if (currentPageData?.image_status === 'completed') {
+                const url = getBookPageImageUrl(
+                  bookId,
+                  currentPageData.page_number,
+                  token,
+                  Math.min(Math.round(screenWidth), 1200),
+                  undefined,
+                  currentPageData?.image_status // optional version; not critical as server uses no-store
+                );
                 return (
                   <Image
-                    source={{ uri: currentPageData.image_data }}
+                    source={{ uri: url }}
                     style={isCoverPage ? styles.pageImageCover : styles.pageImage}
-                    resizeMode={isCoverPage ? 'cover' : 'contain'}
+                    contentFit={isCoverPage ? 'cover' : 'contain'}
+                    cachePolicy="none"
+                    placeholder={{ blurhash: BLURHASH }}
+                    transition={150}
                     onLoadStart={() => {
-                      console.log('🔄 Started loading image for page', currentPage + 1);
                       setImageLoading(prev => ({ ...prev, [currentPage]: true }));
                     }}
-                    onLoadEnd={() => {
-                      console.log('✅ Successfully loaded image for page', currentPage + 1);
+                    onLoad={() => {
                       setImageLoading(prev => ({ ...prev, [currentPage]: false }));
                     }}
-                    onError={(error) => {
-                      console.log('❌ Failed to load image for page', currentPage + 1, 'Error:', error.nativeEvent.error);
+                    onError={() => {
                       setImageLoading(prev => ({ ...prev, [currentPage]: false }));
                     }}
                   />

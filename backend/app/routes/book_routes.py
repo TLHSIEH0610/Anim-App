@@ -6,7 +6,8 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, Query
 import logging
 from typing import List, Optional
-from fastapi.responses import FileResponse
+from fastapi import Request
+from fastapi.responses import FileResponse, Response
 from pathlib import Path
 from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
@@ -18,6 +19,7 @@ from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookLis
 from app.storage import save_upload
 from app.pricing import resolve_story_price
 from rq import Queue
+from PIL import Image as PILImage
 import redis
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -296,7 +298,7 @@ def download_book_pdf(book_id: int, user = Depends(current_user), db: Session = 
     )
 
 @router.get("/stories/cover-public")
-def get_story_cover_public(path: str = Query(...), token: str = Query(...)):
+def get_story_cover_public(path: str = Query(...), token: str = Query(...), request: Request = None):
     """Serve a story template cover image via token query param (for Image components).
 
     Placed before /{book_id}/cover-public to avoid route matching 'stories' as book_id.
@@ -314,10 +316,25 @@ def get_story_cover_public(path: str = Query(...), token: str = Query(...)):
     except Exception:
         size = -1
     logger.info(f"cover-public: user={payload.get('sub')} path={file_path} size={size}")
-    return FileResponse(file_path)
+    return _file_response_with_etag(file_path, "public, max-age=600", request)
+
+
+@router.get("/media/resize-public")
+def get_media_resize_public(path: str = Query(...), token: str = Query(...), w: int = Query(320), h: Optional[int] = Query(None), request: Request = None):
+    """Serve a resized/cached derivative of a media file via token."""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    file_path = _resolve_media_path(path)
+    try:
+        thumb = _build_thumb(file_path, w, h)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
+    return _file_response_with_etag(thumb, "public, max-age=86400", request)
 
 @router.get("/{book_id}/cover")
-def get_book_cover(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
+def get_book_cover(book_id: int, request: Request, user = Depends(current_user), db: Session = Depends(get_db)):
     """Serve the personalized cover image (page 0) if available."""
     book = db.query(Book).filter(Book.id == book_id, Book.user_id == user.id).first()
     if not book:
@@ -329,10 +346,10 @@ def get_book_cover(book_id: int, user = Depends(current_user), db: Session = Dep
             path = page0.image_path
     if not path or not os.path.exists(path):
         raise HTTPException(404, "Cover not available")
-    return FileResponse(path)
+    return _file_response_with_etag(Path(path), "private, max-age=3600", request)
 
 @router.get("/{book_id}/cover-public")
-def get_book_cover_public(book_id: int, token: str = Query(...), db: Session = Depends(get_db)):
+def get_book_cover_public(book_id: int, request: Request, token: str = Query(...), db: Session = Depends(get_db)):
     """Serve the personalized cover via token query param (for Image components)."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
@@ -349,7 +366,74 @@ def get_book_cover_public(book_id: int, token: str = Query(...), db: Session = D
             path = page0.image_path
     if not path or not os.path.exists(path):
         raise HTTPException(404, "Cover not available")
-    return FileResponse(path)
+    return _file_response_with_etag(Path(path), "private, max-age=3600", request)
+
+
+@router.get("/{book_id}/cover-thumb-public")
+def get_book_cover_thumb_public(book_id: int, request: Request, token: str = Query(...), w: int = Query(320), h: Optional[int] = Query(None), db: Session = Depends(get_db)):
+    """Serve a resized cover for a book via token query param (for Image components)."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
+        uid = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+    book = db.query(Book).filter(Book.id == book_id, Book.user_id == uid).first()
+    if not book:
+        raise HTTPException(404, "Book not found")
+    path = book.preview_image_path
+    if not path:
+        page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
+        if page0 and page0.image_path:
+            path = page0.image_path
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Cover not available")
+    try:
+        thumb = _build_thumb(Path(path), w, h)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
+    return _file_response_with_etag(thumb, "private, max-age=3600", request)
+
+
+@router.get("/{book_id}/pages/{page_number}/image-public")
+def get_book_page_image_public(book_id: int, page_number: int, token: str = Query(...), w: int = Query(0), h: Optional[int] = Query(None), request: Request = None, db: Session = Depends(get_db)):
+    """Serve a page image (optionally resized) for a user's book via token.
+
+    Uses no-store to ensure rapid update visibility in the viewer.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
+        uid = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+    book = db.query(Book).filter(Book.id == book_id, Book.user_id == uid).first()
+    if not book:
+        raise HTTPException(404, "Book not found")
+    page = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == page_number).first()
+    if not page or not page.image_path:
+        raise HTTPException(404, "Image not available")
+    path = page.image_path
+    if not os.path.exists(path):
+        raise HTTPException(404, "Image file not found")
+    # Optional resize
+    file_to_send = Path(path)
+    if int(w) > 0:
+        try:
+            file_to_send = _build_thumb(file_to_send, int(w), int(h) if h else None)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
+    # Add ETag for validation
+    try:
+        etag = f'W/"{int(os.path.getmtime(file_to_send))}-{os.path.getsize(file_to_send)}"'
+    except Exception:
+        etag = None
+    headers = {"Cache-Control": "private, no-store"}
+    if etag:
+        headers["ETag"] = etag
+        if request is not None:
+            inm = request.headers.get("if-none-match")
+            if inm and inm.strip() == etag:
+                return Response(status_code=304, headers=headers)
+    return FileResponse(str(file_to_send), headers=headers)
 
 @router.get("/{book_id}/preview")
 def get_book_preview(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
@@ -583,19 +667,75 @@ def _resolve_media_path(raw_path: str) -> Path:
     return candidate
 
 
+def _thumbs_dir() -> Path:
+    media_root = Path(os.getenv("MEDIA_ROOT", "/data/media")).resolve()
+    d = media_root / "thumbs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> Path:
+    """Create or return a cached thumbnail for the given file and size.
+
+    Preserves aspect ratio; if height is None, computes based on width.
+    Saves under MEDIA_ROOT/thumbs with a deterministic name.
+    """
+    file_path = Path(file_path)
+    w = max(1, int(width))
+    h = int(height) if (height and int(height) > 0) else 0
+    # Cache filename: <stem>_w{w}_h{h}<ext>
+    stem = file_path.stem
+    ext = file_path.suffix.lower() or ".jpg"
+    target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
+    try:
+        # If cached newer than source, reuse
+        if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
+            return target
+    except Exception:
+        pass
+    # Build thumbnail
+    with PILImage.open(str(file_path)) as img:
+        ow, oh = img.size
+        if h <= 0:
+            ratio = w / float(ow)
+            h_eff = max(1, int(round(oh * ratio)))
+        else:
+            h_eff = h
+        img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+        img_thumb = img.copy()
+        img_thumb.thumbnail((w, h_eff))
+        # Save to cache (keep ext)
+        save_kwargs = {}
+        if ext in (".jpg", ".jpeg"):
+            save_kwargs.update({"quality": 82, "optimize": True, "progressive": True})
+        img_thumb.save(str(target), **save_kwargs)
+    return target
+
+
+def _make_etag(path: Path) -> Optional[str]:
+    try:
+        return f'W/"{int(os.path.getmtime(path))}-{os.path.getsize(path)}"'
+    except Exception:
+        return None
+
+
+def _file_response_with_etag(path: Path, cache_control: str, request: Optional[Request] = None) -> Response:
+    etag = _make_etag(path)
+    headers = {"Cache-Control": cache_control}
+    if etag:
+        headers["ETag"] = etag
+        if request is not None:
+            inm = request.headers.get("if-none-match")
+            if inm and inm.strip() == etag:
+                return Response(status_code=304, headers=headers)
+    return FileResponse(str(path), headers=headers)
+
 @router.get("/stories/cover")
-def get_story_cover(path: str, user = Depends(current_user)):
+def get_story_cover(path: str, request: Request, user = Depends(current_user)):
     if not path:
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
-    return FileResponse(file_path)
-
-
-
-
-
-
-
+    return _file_response_with_etag(file_path, "private, max-age=600", request)
 
 
 
