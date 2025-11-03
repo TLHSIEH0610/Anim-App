@@ -1,6 +1,5 @@
 ﻿import os
 import json
-import base64
 from datetime import datetime, timezone
 from decimal import Decimal
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, Query
@@ -426,7 +425,13 @@ def get_book_page_image_public(book_id: int, page_number: int, token: str = Quer
         etag = f'W/"{int(os.path.getmtime(file_to_send))}-{os.path.getsize(file_to_send)}"'
     except Exception:
         etag = None
-    headers = {"Cache-Control": "private, no-store"}
+    # Use caching for completed books; no-store for in-progress
+    try:
+        book_status = db.query(Book.status).filter(Book.id == book_id, Book.user_id == uid).scalar()
+    except Exception:
+        book_status = None
+    cache_control = "private, max-age=3600" if (book_status == "completed") else "private, no-store"
+    headers = {"Cache-Control": cache_control}
     if etag:
         headers["ETag"] = etag
         if request is not None:
@@ -437,7 +442,13 @@ def get_book_page_image_public(book_id: int, page_number: int, token: str = Quer
 
 @router.get("/{book_id}/preview")
 def get_book_preview(book_id: int, user = Depends(current_user), db: Session = Depends(get_db)):
-    """Get book preview with all pages as base64 images for mobile viewing"""
+    """Lightweight book preview for mobile viewing.
+
+    Images are not inlined. The mobile client should fetch page images via
+    `GET /books/{book_id}/pages/{page_number}/image-public?token=...` with
+    optional `w`/`h` for resizing. This avoids large JSON payloads and
+    server-side base64 encoding overhead.
+    """
     book = db.query(Book).filter(Book.id == book_id, Book.user_id == user.id).first()
     if not book:
         raise HTTPException(404, "Book not found")
@@ -447,29 +458,12 @@ def get_book_preview(book_id: int, user = Depends(current_user), db: Session = D
     
     preview_pages = []
     for page in pages:
-        page_data = {
+        # Return only metadata; clients load images via image-public route
+        preview_pages.append({
             "page_number": page.page_number,
             "text": page.text_content,
             "image_status": page.image_status,
-            "image_data": None
-        }
-        
-        # Add image data if available
-        if page.image_status == "completed" and page.image_path and os.path.exists(page.image_path):
-            try:
-                print(f"Loading image for page {page.page_number} from {page.image_path}")
-                with open(page.image_path, "rb") as img_file:
-                    image_data = base64.b64encode(img_file.read()).decode()
-                    file_ext = page.image_path.lower().split('.')[-1]
-                    mime_type = "image/png" if file_ext == "png" else "image/jpeg"
-                    page_data["image_data"] = f"data:{mime_type};base64,{image_data}"
-                    print(f"âœ… Successfully loaded image for page {page.page_number}, size: {len(image_data)} chars")
-            except Exception as e:
-                print(f"âŒ Error loading image for page {page.page_number}: {e}")
-        else:
-            print(f"âš ï¸ Page {page.page_number}: status={page.image_status}, path={page.image_path}, exists={os.path.exists(page.image_path) if page.image_path else 'N/A'}")
-        
-        preview_pages.append(page_data)
+        })
     
     return {
         "book_id": book_id,

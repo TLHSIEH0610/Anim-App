@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Dimensions, Share, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar } from 'react-native-paper';
-import { getBookPreview, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
+import { getBookDetails, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
@@ -23,6 +23,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const { bookId } = route.params;
   const { token, user } = useAuth();
   const [bookData, setBookData] = useState<BookPreview | null>(null);
+  const [bookImageVersion, setBookImageVersion] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
@@ -33,15 +34,38 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     if (!token) return;
     
     try {
-      const preview = await getBookPreview(token, bookId);
-      console.log('📖 Book preview loaded:', {
-        title: preview.title,
-        pages: preview.pages?.length || 0,
-        firstPageHasImage: !!preview.pages?.[0]?.image_data,
-        firstPageImageLength: preview.pages?.[0]?.image_data?.length || 0,
-        firstPageStatus: preview.pages?.[0]?.image_status
-      });
-      setBookData(preview);
+      // Fetch lightweight book metadata + pages (no base64 images)
+      const details = await getBookDetails(token, bookId);
+      const mapped: BookPreview = {
+        book_id: details.id,
+        title: details.title,
+        status: details.status,
+        progress: details.progress_percentage || 0,
+        pages: (details.pages || []).map((p: any) => ({
+          page_number: p.page_number,
+          text: p.text_content,
+          image_status: p.image_status,
+          image_completed_at: p.image_completed_at,
+        })),
+        total_pages: (details.pages || []).length,
+      };
+      setBookData(mapped);
+      // Version token for caching; changes when the book updates/regenerates
+      const v: any = (details as any).completed_at || (details as any).updated_at || (details as any).created_at || null;
+      setBookImageVersion(v);
+      // Prefetch first couple of page images for snappier display
+      try {
+        const width = Math.min(Math.round(screenWidth), 1200);
+        const prefetchIndexes = [0, 1];
+        prefetchIndexes.forEach((idx) => {
+          const pg: any = mapped.pages[idx] as any;
+          if (pg && pg.image_status === 'completed') {
+            const pv = pg.image_completed_at || v;
+            const url = getBookPageImageUrl(bookId, pg.page_number, token, width, undefined, pv);
+            Image.prefetch?.(url);
+          }
+        });
+      } catch {}
     } catch (error: any) {
       console.error('Error loading book:', error);
       setSnackbar({ visible: true, message: 'Failed to load book preview' });
@@ -200,6 +224,21 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     loadBookData();
   }, [bookId, token]);
 
+  // Prefetch current and next page when page changes
+  useEffect(() => {
+    if (!bookData || !token) return;
+    const width = Math.min(Math.round(screenWidth), 1200);
+    const indices = [currentPage, currentPage + 1];
+    indices.forEach((idx) => {
+      const pg: any = bookData.pages[idx] as any;
+      if (pg && pg.image_status === 'completed') {
+        const pv = pg.image_completed_at || bookImageVersion || undefined;
+        const url = getBookPageImageUrl(bookId, pg.page_number, token, width, undefined, pv);
+        Image.prefetch?.(url);
+      }
+    });
+  }, [bookData, currentPage, token, bookId, bookImageVersion]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -232,13 +271,6 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
           {/* Image Section */}
           <View style={[styles.imageSection, isCoverPage && styles.imageSectionCover]}>
             {(() => {
-              console.log(`🖼️ Page ${currentPage + 1} render:`, {
-                hasImageData: !!currentPageData?.image_data,
-                imageDataLength: currentPageData?.image_data?.length || 0,
-                imageStatus: currentPageData?.image_status,
-                imageDataPreview: currentPageData?.image_data?.substring(0, 50) || 'none'
-              });
-              
               if (currentPageData?.image_status === 'completed') {
                 const url = getBookPageImageUrl(
                   bookId,
@@ -246,14 +278,14 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                   token,
                   Math.min(Math.round(screenWidth), 1200),
                   undefined,
-                  currentPageData?.image_status // optional version; not critical as server uses no-store
+                  ((currentPageData as any)?.image_completed_at) || bookImageVersion || undefined
                 );
                 return (
                   <Image
                     source={{ uri: url }}
                     style={isCoverPage ? styles.pageImageCover : styles.pageImage}
                     contentFit={isCoverPage ? 'cover' : 'contain'}
-                    cachePolicy="none"
+                    cachePolicy={bookData.status === 'completed' ? 'memory-disk' : 'none'}
                     placeholder={{ blurhash: BLURHASH }}
                     transition={150}
                     onLoadStart={() => {

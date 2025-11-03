@@ -81,8 +81,9 @@ function BookListCard({
   );
 
   const handleImageLoad = (e: any) => {
-    const natW = e?.nativeEvent?.source?.width;
-    const natH = e?.nativeEvent?.source?.height;
+    // expo-image now puts payload directly on the event (no nativeEvent)
+    const natW = e?.source?.width;
+    const natH = e?.source?.height;
     if (natW && natH) {
       // Scale width to maintain aspect at targetHeight
       const scaled = Math.max(
