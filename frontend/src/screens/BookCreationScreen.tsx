@@ -13,6 +13,7 @@ import {
   RadioButton,
 } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
 import {
   createBook,
@@ -193,6 +194,74 @@ export default function BookCreationScreen({
   const [imageError, setImageError] = useState<string | null>(null);
   const [autoTitle, setAutoTitle] = useState<string>("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+
+  // Upload constraints
+  const MAX_FILES = 4;
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const MAX_LONGEST_EDGE = 2048; // px
+  const MIN_SHORTEST_EDGE = 512; // px
+
+  const processAssetWithinLimits = async (
+    asset: ImagePicker.ImagePickerAsset
+  ): Promise<string> => {
+    try {
+      const width = asset.width ?? 0;
+      const height = asset.height ?? 0;
+      if (width && height) {
+        const shortest = Math.min(width, height);
+        if (shortest < MIN_SHORTEST_EDGE) {
+          const name = asset.fileName || "Selected image";
+          throw new Error(
+            `${name} is too small (${width}×${height}). Minimum shortest edge is ${MIN_SHORTEST_EDGE}px.`
+          );
+        }
+      }
+
+      let uri = asset.uri;
+      let size = asset.fileSize;
+      if (!size) {
+        try {
+          const info = await FileSystem.getInfoAsync(uri);
+          size = info.size ?? undefined;
+        } catch {}
+      }
+
+      const longest = Math.max(width || 0, height || 0);
+      if (longest > MAX_LONGEST_EDGE || (size && size > MAX_FILE_SIZE_BYTES)) {
+        // Try to downscale via expo-image-manipulator if available
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const ImageManipulator: any = require("expo-image-manipulator");
+          const target = width >= height ? { width: MAX_LONGEST_EDGE } : { height: MAX_LONGEST_EDGE };
+          const result = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: target }],
+            { compress: 0.85, format: ImageManipulator.SaveFormat?.JPEG ?? ImageManipulator.SaveFormat?.jpeg ?? 'jpeg' }
+          );
+          uri = result.uri;
+          try {
+            const info2 = await FileSystem.getInfoAsync(uri);
+            size = info2.size ?? size;
+          } catch {}
+        } catch (e) {
+          throw new Error(
+            "Image is too large and could not be resized. Please choose an image under 2048px on the longest edge and under 10MB."
+          );
+        }
+      }
+
+      if (size && size > MAX_FILE_SIZE_BYTES) {
+        const name = asset.fileName || "Selected image";
+        throw new Error(
+          `${name} exceeds ${Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024))}MB after resizing. Please choose a smaller image.`
+        );
+      }
+
+      return uri;
+    } catch (err: any) {
+      throw err;
+    }
+  };
 
   const selectedTemplate = useMemo(() => {
     if (!form.templateKey) {
@@ -462,31 +531,33 @@ export default function BookCreationScreen({
         allowsEditing: false,
         quality: 0.9,
         allowsMultipleSelection: true,
-        selectionLimit: 4,
+        selectionLimit: MAX_FILES,
       });
 
       if (!result.canceled) {
         const selectedAssets = result.assets;
-        if (selectedAssets.length > 4) {
+        if (selectedAssets.length > MAX_FILES) {
           setSnackbar({
             visible: true,
-            message: "You can select up to 4 images maximum",
+            message: `You can select up to ${MAX_FILES} images maximum`,
           });
           return;
         }
 
+        // Enforce pixel/size limits with auto downscale when possible
+        const processedUris: string[] = [];
         for (const asset of selectedAssets) {
-          if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-            setSnackbar({
-              visible: true,
-              message: `${asset.fileName || "An image"} is larger than 10MB.`,
-            });
-            return;
+          try {
+            const finalUri = await processAssetWithinLimits(asset);
+            processedUris.push(finalUri);
+          } catch (e: any) {
+            setImageError(e?.message || "Selected image did not meet requirements.");
+            setSnackbar({ visible: true, message: e?.message || "Selected image did not meet requirements." });
+            return; // abort all on first error for clarity
           }
         }
 
-        const imageUris = selectedAssets.map((asset) => asset.uri);
-        updateImages(imageUris);
+        updateImages(processedUris);
       }
     } catch (error) {
       setSnackbar({ visible: true, message: "Failed to pick images" });
