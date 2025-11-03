@@ -72,14 +72,17 @@ Curated pointers for working on AnimApp without re-reading every guide. Update t
   - Template covers: `Cache-Control: public, max-age=600`.
   - Thumbnails: `public, max-age=86400`.
   - Purchased covers: `private, max-age=3600`.
-  - Page images (viewer): `private, no-store` (always refetch) with ETag support.
+  - Page images (viewer):
+    - In-progress: `private, no-store`.
+    - Completed: `private, max-age=3600`.
+    - All include ETag and return `304 Not Modified` when `If-None-Match` matches.
   - All image routes now include ETag and return `304 Not Modified` when `If-None-Match` matches.
 - Update safety (no stale images):
   - URLs include a `v=` query when available to bust client caches on updates:
     - Books tab covers: `v=template.version`.
     - Purchased covers: `v=book.completed_at || updated_at || created_at`.
   - Server thumbnail cache auto‑invalidates when the source mtime changes.
-- Book Viewer images: switched from base64 `image_data` to binary URLs via `GET /books/{book_id}/pages/{page_number}/image-public` with optional width; UI sets `cachePolicy="none"` and shows a blurhash placeholder.
+- Book Viewer images: switched from base64 `image_data` to binary URLs via `GET /books/{book_id}/pages/{page_number}/image-public` with optional width. Viewer caches only after completion (`cachePolicy="memory-disk"`) and disables caching while in progress. URLs include `v=` using per-page `image_completed_at` when present, else `book.completed_at || updated_at || created_at` to bust caches on regeneration/updates.
 - Route fix: `GET /books/stories/cover-public` is registered before dynamic book routes to prevent `422` from path mis‑match ("stories" incorrectly treated as `{book_id}`).
 
 Developer tips

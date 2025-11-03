@@ -628,6 +628,29 @@ npm start
 
 ---
 
+## 🔎 Observability
+
+### ComfyUI metrics log
+- The backend writes lightweight ComfyUI metrics to a newline-delimited JSON file at `infra/observability/comfyui_metrics.ndjson` (configurable via `COMFYUI_METRICS_LOG`).
+- Built-in rotation/retention can be controlled via environment variables (set in `infra/.env` for Docker or the backend env in local dev):
+
+```env
+# Optional log path override
+COMFYUI_METRICS_LOG=infra/observability/comfyui_metrics.ndjson
+
+# Rotate when file exceeds this size in bytes (0 = disabled)
+COMFYUI_METRICS_MAX_BYTES=20000000   # 20 MB
+
+# Delete rotated files older than this many days (0 = disabled)
+COMFYUI_METRICS_MAX_AGE_DAYS=7
+
+# Keep only this many rotated files (0 = unlimited)
+COMFYUI_METRICS_MAX_FILES=10
+```
+
+When rotation triggers, the active file is renamed to `comfyui_metrics-YYYYmmdd-HHMMSS.ndjson` and a fresh file is created. Age/count retention applies to the rotated files.
+
+
 ## ?? API Documentation
 
 ### Authentication Endpoints
