@@ -1,0 +1,9 @@
+tunnel: 620de6cc-b84e-4580-bb4a-8bf448ce7ef0
+credentials-file: /home/you/.cloudflared/620de6cc-b84e-4580-bb4a-8bf448ce7ef0.json
+
+ingress:
+  - hostname: kid-to-story.win
+    service: http://127.0.0.1:8000
+  - service: http_status:404
+
+# Copy to ~/.cloudflared/config.yml and replace /home/you with your home dir
