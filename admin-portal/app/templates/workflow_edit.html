@@ -47,7 +47,32 @@
     </select>
   </div>
 
+  {% set checkpoints = ["animapp_base_xl", "animapp_refiner_v2"] %}
+  {% set loras = ["kids-story-color", "character-expression", "storybook-backgrounds"] %}
+
   <div class="full">
+    <div class="badge-groups">
+      <div class="badge-group">
+        <span class="badge-group__label">Checkpoints</span>
+        {% if checkpoints %}
+          {% for checkpoint in checkpoints %}
+            <span class="badge badge--checkpoint">{{ checkpoint }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="badge badge--empty">None configured</span>
+        {% endif %}
+      </div>
+      <div class="badge-group">
+        <span class="badge-group__label">Loras</span>
+        {% if loras %}
+          {% for lora in loras %}
+            <span class="badge badge--lora">{{ lora }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="badge badge--empty">None configured</span>
+        {% endif %}
+      </div>
+    </div>
     <label for="content">Workflow JSON</label>
     <textarea id="content" name="content" style="min-height:320px;">{{ workflow.content | tojson(indent=2) }}</textarea>
   </div>

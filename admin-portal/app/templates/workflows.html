@@ -19,7 +19,7 @@
         <table class="mdc-data-table__table">
             <thead>
                 <tr class="mdc-data-table__header-row">
-                    <th class="mdc-data-table__header-cell">Slug</th>
+                    <th class="mdc-data-table__header-cell slug-column">Slug</th>
                     <th class="mdc-data-table__header-cell">Name</th>
                     <th class="mdc-data-table__header-cell">Type</th>
                     <th class="mdc-data-table__header-cell">Version</th>
@@ -30,7 +30,7 @@
             <tbody class="mdc-data-table__content">
                 {% for workflow in workflows %}
                 <tr class="mdc-data-table__row">
-                    <td class="mdc-data-table__cell">{{ workflow.slug }}</td>
+                    <td class="mdc-data-table__cell slug-column aa-wrap">{{ workflow.slug }}</td>
                     <td class="mdc-data-table__cell">{{ workflow.name }}</td>
                     <td class="mdc-data-table__cell">{{ workflow.type }}</td>
                     <td class="mdc-data-table__cell">{{ workflow.version }}</td>
@@ -40,6 +40,9 @@
                           <a href="/workflows/{{ workflow.id }}" class="mdc-button btn-sm"><span class="mdc-button__label">Edit</span></a>
                           <form method="post" action="/workflows/{{ workflow.id }}/export">
                             <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Export</span></button>
+                          </form>
+                          <form method="post" action="/workflows/{{ workflow.id }}/duplicate">
+                            <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Duplicate</span></button>
                           </form>
                           <form method="post" action="/workflows/{{ workflow.id }}/delete" onsubmit="return confirm('Delete workflow {{ workflow.slug }}?');">
                             <button type="submit" class="mdc-button btn-sm btn-danger"><span class="mdc-button__label">Delete</span></button>

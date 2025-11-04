@@ -67,8 +67,8 @@ async def create_book(
 
     if not files or len(files) < 1:
         raise HTTPException(400, "At least 1 image is required")
-    if len(files) > 4:
-        raise HTTPException(400, "Maximum 4 images allowed")
+    if len(files) > 3:
+        raise HTTPException(400, "Maximum 3 images allowed")
     for file in files:
         ext = (file.filename or "").split(".")[-1].lower()
         if ext not in {"jpg", "jpeg", "png"}:
@@ -730,7 +730,6 @@ def get_story_cover(path: str, request: Request, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return _file_response_with_etag(file_path, "private, max-age=600", request)
-
 
 
 

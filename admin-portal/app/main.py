@@ -1224,8 +1224,6 @@ async def export_story_template(slug: str, request: Request):
                 f"/dashboard?error={quote_plus(str(exc2))}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
-        form_defaults = dict(form)
-        form_defaults["pages"] = pages_raw
         return templates.TemplateResponse(
             "stories.html",
             {
@@ -1234,8 +1232,37 @@ async def export_story_template(slug: str, request: Request):
                 "stories": data.get("stories", []),
                 "workflows": wf_data.get("workflows", []),
                 "error": _format_backend_error(exc) if hasattr(exc, 'response') else str(exc),
-                "form_defaults": form_defaults,
             },
+        )
+
+
+@app.post("/stories/{slug}/duplicate")
+async def duplicate_story_template(slug: str, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("POST", f"/admin/story-templates/{slug}/duplicate")
+        data = resp.json()
+        new_slug = (data.get("story") or {}).get("slug")
+        message = data.get("message") or "Story template duplicated"
+        if new_slug:
+            message = f"{message}: {new_slug}"
+        return RedirectResponse(
+            f"/stories?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/stories?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/stories?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
         )
 
 
@@ -1433,6 +1460,36 @@ async def export_workflow(workflow_id: int, request: Request):
         path = data.get("path")
         if path:
             message = f"{message} -> {path}"
+        return RedirectResponse(
+            f"/workflows?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/workflows?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/workflows?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/workflows/{workflow_id}/duplicate")
+async def duplicate_workflow(workflow_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        resp = await backend_request("POST", f"/admin/workflows/{workflow_id}/duplicate")
+        data = resp.json()
+        new_slug = (data.get("workflow") or {}).get("slug")
+        message = data.get("message") or "Workflow duplicated"
+        if new_slug:
+            message = f"{message}: {new_slug}"
         return RedirectResponse(
             f"/workflows?message={quote_plus(message)}",
             status_code=status.HTTP_303_SEE_OTHER,

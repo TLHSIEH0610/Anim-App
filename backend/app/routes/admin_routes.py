@@ -1080,6 +1080,77 @@ def admin_update_story_template(
     return _story_template_to_dict(template)
 
 
+@router.post("/story-templates/{slug}/duplicate")
+def admin_duplicate_story_template(
+    slug: str,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.slug == slug)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Story template not found")
+
+    def _next_copy(value: Optional[str], field: str) -> str:
+        base = (value or "").strip() or "story-template"
+        candidate = f"{base}-copy"
+        while (
+            db.query(StoryTemplate)
+            .filter(getattr(StoryTemplate, field) == candidate)
+            .first()
+        ):
+            base = candidate
+            candidate = f"{base}-copy"
+        return candidate
+
+    new_slug = _next_copy(template.slug, "slug")
+    new_name = _next_copy(template.name or template.slug, "name")
+
+    clone = StoryTemplate(
+        slug=new_slug,
+        name=new_name,
+        description=template.description,
+        age=template.age,
+        version=1,
+        workflow_slug=template.workflow_slug,
+        is_active=template.is_active,
+        cover_image_url=template.cover_image_url,
+        free_trial_slug=template.free_trial_slug,
+        price_dollars=template.price_dollars,
+        discount_price=template.discount_price,
+    )
+    db.add(clone)
+    db.flush()
+
+    for page in sorted(template.pages or [], key=lambda p: p.page_number):
+        clone_page = StoryTemplatePage(
+            story_template_id=clone.id,
+            page_number=page.page_number,
+            story_text=page.story_text,
+            image_prompt=page.image_prompt,
+            positive_prompt=page.positive_prompt,
+            negative_prompt=page.negative_prompt,
+            pose_prompt=page.pose_prompt,
+            controlnet_image=page.controlnet_image,
+            keypoint_image=page.keypoint_image,
+            workflow_slug=page.workflow_slug,
+            seed=page.seed,
+            cover_text=page.cover_text,
+        )
+        db.add(clone_page)
+
+    db.commit()
+    db.refresh(clone)
+    return {
+        "message": "Story template duplicated",
+        "story": _story_template_to_dict(clone),
+    }
+
+
 @router.post("/story-templates/{slug}/export")
 def admin_export_story_template(
     slug: str,
@@ -1523,6 +1594,63 @@ def admin_update_workflow(
 
     db.commit()
     return {"message": "Workflow updated"}
+
+
+@router.post("/workflows/{workflow_id}/duplicate")
+def admin_duplicate_workflow(
+    workflow_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    definition = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
+    if not definition:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    def _next_copy(value: str, field: str) -> str:
+        base = (value or "").strip() or "workflow"
+        candidate = f"{base}-copy"
+        while (
+            db.query(WorkflowDefinition)
+            .filter(getattr(WorkflowDefinition, field) == candidate)
+            .first()
+        ):
+            base = candidate
+            candidate = f"{base}-copy"
+        return candidate
+
+    new_slug = _next_copy(definition.slug, "slug")
+    new_name = _next_copy(definition.name or definition.slug, "name")
+
+    content = definition.content
+    if isinstance(content, (dict, list)):
+        content_payload = copy.deepcopy(content)
+    else:
+        try:
+            content_payload = json.loads(content)
+        except Exception:
+            content_payload = content
+
+    clone = WorkflowDefinition(
+        slug=new_slug,
+        name=new_name,
+        type=definition.type,
+        version=1,
+        content=content_payload,
+        is_active=False,
+    )
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+
+    return {
+        "message": "Workflow duplicated",
+        "workflow": {
+            "id": clone.id,
+            "slug": clone.slug,
+            "name": clone.name,
+            "version": clone.version,
+        },
+    }
 
 
 @router.delete("/workflows/{workflow_id}")

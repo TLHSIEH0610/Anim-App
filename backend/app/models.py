@@ -49,7 +49,7 @@ class Book(Base):
     character_description = Column(Text)
     positive_prompt = Column(Text)
     negative_prompt = Column(Text)
-    original_image_paths = Column(Text)  # JSON array of image paths (1-4 images)
+    original_image_paths = Column(Text)  # JSON array of image paths (1-3 images)
     story_source = Column(String(20), default="custom")  # custom | template
     template_key = Column(String(64))
     template_params = Column(JSON)

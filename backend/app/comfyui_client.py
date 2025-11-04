@@ -5,7 +5,7 @@ import websocket
 import threading
 import time
 import platform
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 import os
 from datetime import datetime
@@ -148,11 +148,11 @@ class ComfyUIClient:
     
     def prepare_dynamic_workflow(self, workflow: Dict[str, Any], image_filenames: list) -> Dict[str, Any]:
         """
-        Dynamically adjust workflow based on number of images (1-4)
+        Dynamically adjust workflow based on number of images (1-3 supported via UI)
 
         Args:
             workflow: Base workflow JSON
-            image_filenames: List of uploaded image filenames (1-4 images)
+            image_filenames: List of uploaded image filenames (1-3 images)
 
         Returns:
             Modified workflow optimized for the number of images
@@ -178,34 +178,88 @@ class ComfyUIClient:
         if not apply_node_id:
             raise KeyError("ApplyInstantID node not found in workflow; cannot configure reference images")
 
-        # Modify workflow structure based on number of images
-        if num_images == 1:
-            # Single image: Connect node 13 directly to ApplyInstantID
-            workflow[apply_node_id]["inputs"]["image"] = ["13", 0]
-            # Remove unused nodes
-            for node_id in ["75", "94", "95", "98", "101"]:
-                if node_id in workflow:
-                    del workflow[node_id]
+        # Track AutoCropFaces nodes that wrap LoadImage outputs
+        auto_nodes_by_load: Dict[str, str] = {}
+        for node_id, node in list(workflow.items()):
+            if node.get("class_type") != "AutoCropFaces":
+                continue
+            link = node.get("inputs", {}).get("image")
+            if isinstance(link, list) and link and isinstance(link[0], str):
+                auto_nodes_by_load[str(link[0])] = node_id
 
-        elif num_images == 2:
-            # Two images: Use node 75 (batch 13+94) and feed ApplyInstantID
-            workflow[apply_node_id]["inputs"]["image"] = ["75", 0]
-            # Remove unused nodes
+        load_nodes_present = [nid for nid in image_nodes if nid in workflow]
+        if not load_nodes_present:
+            return workflow
+
+        # Always retain at least one load node, even if num_images is 0
+        used_load_nodes = load_nodes_present[: max(1, num_images)]
+        unused_load_nodes = [nid for nid in load_nodes_present if nid not in used_load_nodes]
+
+        def remove_node(node_id: str) -> None:
+            if node_id in workflow:
+                workflow.pop(node_id, None)
+
+        # Remove unused LoadImage/AutoCrop nodes
+        for load_id in unused_load_nodes:
+            remove_node(load_id)
+            auto_id = auto_nodes_by_load.get(load_id)
+            if auto_id:
+                remove_node(auto_id)
+
+        # Sources that will feed InstantID (AutoCrop output if available, otherwise the LoadImage)
+        used_sources: List[str] = []
+        for load_id in used_load_nodes:
+            source = auto_nodes_by_load.get(load_id, load_id)
+            used_sources.append(source if source in workflow else load_id)
+
+        apply_inputs = workflow.setdefault(apply_node_id, {}).setdefault("inputs", {})
+
+        if len(used_sources) <= 1:
+            target_source = used_sources[0]
+            for node_id in ["75", "95", "98", "101"]:
+                remove_node(node_id)
+            apply_inputs["image"] = [target_source, 0]
+
+        elif len(used_sources) == 2:
             for node_id in ["95", "98", "101"]:
-                if node_id in workflow:
-                    del workflow[node_id]
+                remove_node(node_id)
 
-        elif num_images == 3:
-            # Three images: Use nodes 75 (13+94) and 95 (75+98), feed ApplyInstantID
-            workflow[apply_node_id]["inputs"]["image"] = ["95", 0]
-            # Remove unused nodes
-            for node_id in ["101"]:
-                if node_id in workflow:
-                    del workflow[node_id]
+            if "75" not in workflow:
+                workflow["75"] = {
+                    "class_type": "ImageBatch",
+                    "inputs": {},
+                    "_meta": {"title": "Batch Images"},
+                }
 
-        else:  # num_images == 4
-            # Four images: Use all batch nodes (75, 95, 101) before ApplyInstantID
-            workflow[apply_node_id]["inputs"]["image"] = ["101", 0]
+            workflow["75"]["inputs"] = {
+                "image1": [used_sources[0], 0],
+                "image2": [used_sources[1], 0],
+            }
+            apply_inputs["image"] = ["75", 0]
+
+        else:
+            # Three images (current maximum)
+            if "75" not in workflow:
+                workflow["75"] = {
+                    "class_type": "ImageBatch",
+                    "inputs": {},
+                    "_meta": {"title": "Batch Images"},
+                }
+            if "95" not in workflow:
+                workflow["95"] = {
+                    "class_type": "ImageBatch",
+                    "inputs": {},
+                    "_meta": {"title": "Batch Images"},
+                }
+
+            workflow["75"]["inputs"]["image1"] = [used_sources[0], 0]
+            workflow["75"]["inputs"]["image2"] = [used_sources[2], 0]
+            workflow["95"]["inputs"]["image1"] = [used_sources[1], 0]
+            workflow["95"]["inputs"]["image2"] = ["75", 0]
+            apply_inputs["image"] = ["95", 0]
+
+            # Remove any additional LoadImage nodes beyond our supported three (e.g. node 101)
+            remove_node("101")
 
         return workflow
 
@@ -222,7 +276,7 @@ class ComfyUIClient:
         Process image(s) through ComfyUI workflow
 
         Args:
-            input_image_paths: List of paths to input images (1-4 images)
+            input_image_paths: List of paths to input images (1-3 images)
             workflow_json: ComfyUI workflow JSON
             custom_prompt: Optional custom prompt to override default
 
@@ -244,12 +298,12 @@ class ComfyUIClient:
                 # Validate number of images (allow zero for prompt-only tests)
                 if input_image_paths is None:
                     input_image_paths = []
-                if len(input_image_paths) > 4:
+                if len(input_image_paths) > 3:
                     event["status"] = "error"
                     event["context"]["reason"] = "invalid_image_count"
                     return {
                         "status": "failed",
-                        "error": f"Invalid number of images: {len(input_image_paths)}. Must be 0-4 images.",
+                        "error": f"Invalid number of images: {len(input_image_paths)}. Must be 0-3 images.",
                     }
 
                 print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")

@@ -237,7 +237,7 @@ export async function createBook(
   try {
     const formData = new FormData();
 
-    // Add all image files (1-4 images)
+    // Add all image files (1-3 images)
     data.files.forEach((fileUri, index) => {
       // Detect file type from URI
       const fileExtension = fileUri.split(".").pop()?.toLowerCase() || "jpg";

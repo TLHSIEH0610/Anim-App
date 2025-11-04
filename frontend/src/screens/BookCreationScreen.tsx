@@ -196,7 +196,7 @@ export default function BookCreationScreen({
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
 
   // Upload constraints
-  const MAX_FILES = 4;
+  const MAX_FILES = 3;
   const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   const MAX_LONGEST_EDGE = 2048; // px
   const MIN_SHORTEST_EDGE = 512; // px
@@ -943,13 +943,13 @@ export default function BookCreationScreen({
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>Upload Character Images *</Text>
         <Text style={styles.stepDescription}>
-          Select 1-4 images of your character for better consistency throughout
+          Select 1-3 images of your character for better consistency throughout
           the book.
         </Text>
 
         <View style={styles.imageCountBadge}>
           <Text style={styles.imageCountText}>
-            {form.images.length}/4 images selected
+            {form.images.length}/3 images selected
           </Text>
         </View>
 
@@ -968,7 +968,7 @@ export default function BookCreationScreen({
                 </View>
               ))}
             </View>
-            {form.images.length < 4 && (
+            {form.images.length < 3 && (
               <Button
                 title="+ Add More Images"
                 onPress={pickImage}
@@ -978,7 +978,7 @@ export default function BookCreationScreen({
           </View>
         ) : (
           <Button
-            title="Select Images (1-4)"
+            title="Select Images (1-3)"
             onPress={pickImage}
             variant="primary"
           />
