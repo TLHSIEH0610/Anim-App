@@ -18,7 +18,7 @@
   {% if not original_images %}
     <p class="mdc-typography--body2">No original uploads.</p>
   {% endif %}
-  </div>
+</div>
 
 <h3 class="mdc-typography--headline6" style="margin-top:2rem;">Generated Pages</h3>
 <div class="aa-grid aa-grid--sm">
@@ -38,23 +38,6 @@
     <p class="mdc-typography--body2">No generated pages.</p>
   {% endif %}
 </div>
-
-{% if control_images %}
-<h3 class="mdc-typography--headline6" style="margin-top:2rem;">ControlNet Inputs</h3>
-<div class="aa-grid aa-grid--sm">
-  {% for item in control_images %}
-  <div class="mdc-card aa-thumb">
-    {% if item.data_uri %}
-      <img src="{{ item.data_uri }}" alt="control">
-    {% elif item.path %}
-      <img src="/files-proxy?path={{ item.path | urlencode }}" alt="control">
-    {% endif %}
-    <h3>Page {{ item.page_number }}</h3>
-    <code>{{ item.path }}</code>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
 
 <a href="/dashboard" class="mdc-button" style="margin-top:2rem;">Back to dashboard</a>
 {% endblock %}

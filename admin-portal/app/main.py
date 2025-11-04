@@ -538,7 +538,6 @@ async def view_images(book_id: int, request: Request):
             "book_id": book_id,
             "original_images": data.get("original_images", []),
             "page_images": data.get("page_images", []),
-            "control_images": data.get("control_images", []),
             "admin_email": session.get("email"),
         },
     )
