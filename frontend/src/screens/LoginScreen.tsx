@@ -1,17 +1,22 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, Image, Linking } from "react-native";
+import { View, Text, StyleSheet, Image } from "react-native";
 import {
   GoogleSignin,
   GoogleSigninButton,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import ScreenWrapper from "../components/ScreenWrapper";
 // Using built-in Google sign-in button from the library
 import { loginWithGoogle } from "../api/auth";
 import { colors, spacing, typography } from "../styles/theme";
+import { AppStackParamList } from "../navigation/types";
 
 const LoginScreen = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -174,16 +179,14 @@ const LoginScreen = () => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text
-          onPress={() => Linking.openURL("https://your_privacy_policy_url.com")}
+          onPress={() => navigation.navigate("PrivacyPolicy")}
           style={styles.footerLink}
         >
           Privacy Policy
         </Text>
         <Text style={styles.footerSeparator}> | </Text>
         <Text
-          onPress={() =>
-            Linking.openURL("https://your_terms_of_service_url.com")
-          }
+          onPress={() => navigation.navigate("TermsOfService")}
           style={styles.footerLink}
         >
           Terms of Service
@@ -245,9 +248,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: "row",
-    marginTop: 20,
-    marginBottom: 0,
+    marginTop: spacing(6),
+    marginBottom: spacing(8),
     justifyContent: "center",
+    paddingHorizontal: spacing(6),
   },
   footerLink: {
     fontSize: 12,

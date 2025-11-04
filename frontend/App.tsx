@@ -18,6 +18,8 @@ import { materialTheme } from './src/styles/materialTheme';
 import { AppStackParamList } from "./src/navigation/types";
 import { ServerStatusProvider, useServerStatus } from "./src/context/ServerStatusContext";
 import ServerUnavailableScreen from "./src/screens/ServerUnavailableScreen";
+import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
+import TermsOfServiceScreen from "./src/screens/TermsOfServiceScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -49,6 +51,24 @@ function AppContent() {
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
         )}
+        <Stack.Screen
+          name="PrivacyPolicy"
+          component={PrivacyPolicyScreen}
+          options={{
+            headerShown: true,
+            title: "Privacy Policy",
+            presentation: "modal",
+          }}
+        />
+        <Stack.Screen
+          name="TermsOfService"
+          component={TermsOfServiceScreen}
+          options={{
+            headerShown: true,
+            title: "Terms of Service",
+            presentation: "modal",
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

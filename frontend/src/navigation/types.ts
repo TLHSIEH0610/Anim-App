@@ -8,4 +8,6 @@ export type AppStackParamList = {
   BookStatus: { bookId: number };
   BookViewer: { bookId: number };
   BillingHistory: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
 };
