@@ -6,172 +6,203 @@ const TermsOfServiceScreen = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Kid to Story Terms of Service</Text>
-      <Text style={styles.meta}>Effective date: January 10, 2026</Text>
+      <Text style={styles.meta}>Effective date: November 10, 2025</Text>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>1. Agreement to These Terms</Text>
         <Text style={styles.paragraph}>
-          These Terms of Service (&quot;Terms&quot;) govern your access to and use of the Kid to Story mobile
-          application, website, and related services (collectively, the &quot;Services&quot;). By creating an account,
-          purchasing credits, or otherwise using the Services you agree to be bound by these Terms and our Privacy
-          Policy. If you do not agree, do not use the Services.
+          These Terms of Service (&quot;Terms&quot;) govern your access to and
+          use of the Kid to Story mobile application, website, and related
+          services (collectively, the &quot;Services&quot;). By creating an
+          account, purchasing credits, or otherwise using the Services you agree
+          to be bound by these Terms and our Privacy Policy. If you do not
+          agree, do not use the Services.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>2. Eligibility</Text>
         <Text style={styles.paragraph}>
-          The Services are intended for parents, guardians, and educators who are at least 18 years old or the age
-          of majority in their jurisdiction. By using Kid to Story, you represent that you meet these requirements and that
-          you will obtain any permissions needed to submit personal information about children.
+          The Services are intended for parents, guardians, and educators who
+          are at least 18 years old or the age of majority in their
+          jurisdiction. By using Kid to Story, you represent that you meet these
+          requirements and that you will obtain any permissions needed to submit
+          personal information about children.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3. Accounts and Security</Text>
         <Text style={styles.paragraph}>
-          You are responsible for maintaining the confidentiality of your login credentials and for all activities that
-          occur under your account. Notify us immediately at <Text style={styles.link}>support@kidtostory.com</Text> if you suspect
-          unauthorized access. We reserve the right to suspend or terminate accounts that violate these Terms or pose a
-          security risk.
+          You are responsible for maintaining the confidentiality of your login
+          credentials and for all activities that occur under your account.
+          Notify us immediately at{" "}
+          <Text style={styles.link}>arnie@back2.dev</Text> if you suspect
+          unauthorized access. We reserve the right to suspend or terminate
+          accounts that violate these Terms or pose a security risk.
         </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>4. Purchases, Credits, and Free Trials</Text>
+        <Text style={styles.sectionTitle}>
+          4. Purchases, Credits, and Free Trials
+        </Text>
         <Text style={styles.paragraph}>
-          Kid to Story offers per-book purchases, credit redemptions, and limited free-trial promotions. Prices and
-          eligibility are shown in the app before checkout. Payments are processed by Stripe or other authorized
-          processors; you agree to their terms and authorize us to share necessary billing information. Except where
-          required by law, all sales are final. Credits have no cash value, expire only if stated in the app, and cannot
-          be transferred without our written permission.
+          Kid to Story offers per-book purchases, credit redemptions, and
+          limited free-trial promotions. Prices and eligibility are shown in the
+          app before checkout. Payments are processed by Stripe or other
+          authorized processors; you agree to their terms and authorize us to
+          share necessary billing information. Except where required by law, all
+          sales are final. Credits have no cash value, expire only if stated in
+          the app, and cannot be transferred without our written permission.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>5. License to the Services</Text>
         <Text style={styles.paragraph}>
-          We grant you a limited, non-exclusive, non-transferable, revocable license to use the Services for personal,
-          non-commercial storytelling and educational purposes. You must not copy, distribute, modify, host, reverse
-          engineer, or create derivative works from the Services except as permitted by law or with our prior written
-          consent.
+          We grant you a limited, non-exclusive, non-transferable, revocable
+          license to use the Services for personal, non-commercial storytelling
+          and educational purposes. You must not copy, distribute, modify, host,
+          reverse engineer, or create derivative works from the Services except
+          as permitted by law or with our prior written consent.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>6. Your Content</Text>
         <Text style={styles.paragraph}>
-          You retain ownership of photos, text, and other materials you submit (&quot;User Content&quot;). You grant Kid to Story
-          a worldwide, royalty-free license to host, process, adapt, reproduce, and display User Content solely to operate
-          the Services, fulfill book generation requests, and support your account. You represent that you have the rights
-          to upload User Content and that it does not infringe the rights of any third party. You are responsible for
-          obtaining appropriate consent from any individual depicted in your uploads.
+          You retain ownership of photos, text, and other materials you submit
+          (&quot;User Content&quot;). You grant Kid to Story a worldwide,
+          royalty-free license to host, process, adapt, reproduce, and display
+          User Content solely to operate the Services, fulfill book generation
+          requests, and support your account. You represent that you have the
+          rights to upload User Content and that it does not infringe the rights
+          of any third party. You are responsible for obtaining appropriate
+          consent from any individual depicted in your uploads.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>7. Generated Output</Text>
         <Text style={styles.paragraph}>
-          Books, illustrations, and PDFs generated by the Services (&quot;Output&quot;) are provided for your personal use.
-          You may download, share with family and students, and print Output, but you must not sell or commercially exploit
-          it without our prior written consent. Kid to Story may use anonymized, aggregated information about Output to improve
-          our models and workflows.
+          Books, illustrations, and PDFs generated by the Services
+          (&quot;Output&quot;) are provided for your personal use. You may
+          download, share with family and students, and print Output, but you
+          must not sell or commercially exploit it without our prior written
+          consent. Kid to Story may use anonymized, aggregated information about
+          Output to improve our models and workflows.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>8. Prohibited Conduct</Text>
-        <Text style={styles.paragraph}>
-          You agree not to:
-        </Text>
+        <Text style={styles.paragraph}>You agree not to:</Text>
         <Text style={styles.listItem}>
           {`\u2022`} Upload unlawful, abusive, or discriminatory content.
         </Text>
         <Text style={styles.listItem}>
-          {`\u2022`} Attempt to disrupt or compromise the Services or associated systems.
+          {`\u2022`} Attempt to disrupt or compromise the Services or associated
+          systems.
         </Text>
         <Text style={styles.listItem}>
-          {`\u2022`} Use the Services to create content that exploits or harms children.
+          {`\u2022`} Use the Services to create content that exploits or harms
+          children.
         </Text>
         <Text style={styles.listItem}>
-          {`\u2022`} Misrepresent your identity or affiliation, or circumvent usage limits or access controls.
+          {`\u2022`} Misrepresent your identity or affiliation, or circumvent
+          usage limits or access controls.
         </Text>
         <Text style={styles.listItem}>
-          {`\u2022`} Reverse engineer or scrape the Services to reproduce Kid to Story functionality.
+          {`\u2022`} Reverse engineer or scrape the Services to reproduce Kid to
+          Story functionality.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>9. Feedback</Text>
         <Text style={styles.paragraph}>
-          We welcome suggestions. If you share ideas, you grant us a perpetual, irrevocable, royalty-free license to use
-          them without restriction or compensation, provided that we are not obligated to use any feedback.
+          We welcome suggestions. If you share ideas, you grant us a perpetual,
+          irrevocable, royalty-free license to use them without restriction or
+          compensation, provided that we are not obligated to use any feedback.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>10. Suspension and Termination</Text>
         <Text style={styles.paragraph}>
-          We may suspend or terminate your access to the Services at any time with notice if you breach these Terms, misuse
-          the Services, or if necessary to comply with legal obligations. You may stop using the Services at any time.
-          Upon termination we may delete your User Content and Output, subject to limited retention obligations described in
-          our Privacy Policy.
+          We may suspend or terminate your access to the Services at any time
+          with notice if you breach these Terms, misuse the Services, or if
+          necessary to comply with legal obligations. You may stop using the
+          Services at any time. Upon termination we may delete your User Content
+          and Output, subject to limited retention obligations described in our
+          Privacy Policy.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>11. Disclaimer</Text>
         <Text style={styles.paragraph}>
-          THE SERVICES ARE PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED,
-          INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT,
-          AND ANY WARRANTIES ARISING OUT OF COURSE OF DEALING OR USAGE OF TRADE. We do not guarantee that generated
-          content will meet your expectations or be error-free.
+          THE SERVICES ARE PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY
+          KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING IMPLIED WARRANTIES OF
+          MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT,
+          AND ANY WARRANTIES ARISING OUT OF COURSE OF DEALING OR USAGE OF TRADE.
+          We do not guarantee that generated content will meet your expectations
+          or be error-free.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>12. Limitation of Liability</Text>
         <Text style={styles.paragraph}>
-          TO THE MAXIMUM EXTENT PERMITTED BY LAW, KID TO STORY AND ITS OFFICERS, EMPLOYEES, AND PARTNERS WILL NOT BE LIABLE
-          FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS,
-          REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICES, EVEN IF WE HAVE BEEN ADVISED
-          OF THE POSSIBILITY OF SUCH DAMAGES. OUR TOTAL LIABILITY FOR ANY CLAIM RELATING TO THE SERVICES WILL NOT EXCEED
-          THE GREATER OF (A) THE AMOUNT YOU PAID US FOR THE SERVICES IN THE 12 MONTHS BEFORE THE EVENT GIVING RISE TO THE
-          CLAIM OR (B) USD $100.
+          TO THE MAXIMUM EXTENT PERMITTED BY LAW, KID TO STORY AND ITS OFFICERS,
+          EMPLOYEES, AND PARTNERS WILL NOT BE LIABLE FOR ANY INDIRECT,
+          INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY
+          LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR RELATED
+          TO YOUR USE OF THE SERVICES, EVEN IF WE HAVE BEEN ADVISED OF THE
+          POSSIBILITY OF SUCH DAMAGES. OUR TOTAL LIABILITY FOR ANY CLAIM
+          RELATING TO THE SERVICES WILL NOT EXCEED THE GREATER OF (A) THE AMOUNT
+          YOU PAID US FOR THE SERVICES IN THE 12 MONTHS BEFORE THE EVENT GIVING
+          RISE TO THE CLAIM OR (B) USD $100.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>13. Indemnification</Text>
         <Text style={styles.paragraph}>
-          You agree to indemnify and hold harmless Kid to Story and our affiliates from and against any claims, liabilities,
-          damages, losses, and expenses, including reasonable legal fees, arising out of or in any way connected with
-          your User Content, your use of the Services, or your breach of these Terms.
+          You agree to indemnify and hold harmless Kid to Story and our
+          affiliates from and against any claims, liabilities, damages, losses,
+          and expenses, including reasonable legal fees, arising out of or in
+          any way connected with your User Content, your use of the Services, or
+          your breach of these Terms.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>14. Governing Law and Disputes</Text>
         <Text style={styles.paragraph}>
-          These Terms are governed by the laws of the State of California, USA, without regard to its conflict of law
-          principles. Any dispute arising out of or relating to the Services will be resolved exclusively in the state or
-          federal courts located in San Francisco County, California, and you consent to their jurisdiction.
+          These Terms are governed by the laws of your country or region of
+          residence, without regard to its conflict-of-law principles. Any
+          dispute arising out of or relating to the Services will be resolved in
+          the competent courts of that jurisdiction.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>15. Changes to These Terms</Text>
         <Text style={styles.paragraph}>
-          We may update these Terms from time to time. We will notify you by posting the revised Terms in the app and
-          updating the effective date. Continued use of the Services after changes become effective constitutes your
-          acceptance of the revised Terms.
+          We may update these Terms from time to time. We will notify you by
+          posting the revised Terms in the app and updating the effective date.
+          Continued use of the Services after changes become effective
+          constitutes your acceptance of the revised Terms.
         </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>16. Contact Us</Text>
         <Text style={styles.paragraph}>
-          Questions about these Terms can be directed to <Text style={styles.link}>support@kidtostory.com</Text>.
+          Questions about these Terms can be directed to{" "}
+          <Text style={styles.link}>arnie@back2.dev</Text>.
         </Text>
       </View>
     </ScrollView>
