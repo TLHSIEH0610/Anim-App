@@ -55,6 +55,12 @@ queue = Queue("books", connection=_redis)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+# Optional Sentry import for explicit error capture on admin actions
+try:  # pragma: no cover
+    import sentry_sdk  # type: ignore
+except Exception:  # pragma: no cover
+    sentry_sdk = None  # type: ignore
+
 
 def require_admin(x_admin_secret: Optional[str] = Header(None)) -> None:
     if not ADMIN_API_KEY:
@@ -1383,7 +1389,14 @@ def admin_regenerate_page(
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Regenerate a single page image for a book and store an exact workflow snapshot."""
+    """Regenerate a single page image for a book and store an exact workflow snapshot.
+
+    Top-level exception handling added to surface failures in logs and Sentry.
+    """
+    try:
+        print(f"[AdminRegenerate] start book={book_id} page={page} mode={payload.mode}")
+    except Exception:
+        pass
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -1455,6 +1468,27 @@ def admin_regenerate_page(
             try:
                 kp_uploaded = comfy_client._upload_image(kp_record.image_path)
             except Exception as exc:
+                # Surface keypoint upload failures explicitly
+                try:
+                    if sentry_sdk is not None:  # type: ignore[name-defined]
+                        from sentry_sdk import push_scope  # type: ignore
+                        with push_scope() as scope:  # type: ignore
+                            scope.set_tag("feature", "admin_regenerate_page")
+                            scope.set_tag("stage", "upload_keypoint")
+                            scope.set_tag("book_id", str(book.id))
+                            scope.set_tag("page", str(page))
+                            scope.set_extra("keypoint_slug", keypoint_slug)
+                            scope.set_extra("error", str(exc))
+                            sentry_sdk.capture_message(
+                                f"Keypoint upload failed (book={book.id}, page={page}, slug={keypoint_slug})",
+                                level="error",
+                            )
+                    # Console log for quick verification
+                    print(
+                        f"[Sentry] keypoint upload failure captured: book={book.id} page={page} slug={keypoint_slug} err={exc}"
+                    )
+                except Exception:
+                    pass
                 raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
 
     # Prepare input reference images
@@ -1482,6 +1516,38 @@ def admin_regenerate_page(
         )
 
     if result.get("status") != "success" or not result.get("output_path"):
+        # Explicitly surface admin regenerate failures to Sentry even if this is not a Python exception
+        try:
+            if sentry_sdk is not None:  # type: ignore[name-defined]
+                from sentry_sdk import push_scope  # type: ignore
+                with push_scope() as scope:  # type: ignore
+                    scope.set_tag("feature", "admin_regenerate_page")
+                    scope.set_tag("book_id", str(book.id))
+                    scope.set_tag("page", str(page))
+                    scope.set_tag("mode", payload.mode)
+                    scope.set_extra("result_status", result.get("status"))
+                    scope.set_extra("result_error", result.get("error"))
+                    scope.set_extra("workflow_slug", workflow_slug)
+                    scope.set_extra("workflow_version", workflow_version)
+                    scope.set_extra("prompt_id", result.get("prompt_id"))
+                    event_id = sentry_sdk.capture_message(
+                        f"Admin page regenerate failed (book={book.id}, page={page})",
+                        level="error",
+                    )
+                    # Console visibility for quick verification in container logs
+                    try:
+                        print(
+                            f"[Sentry] admin_regenerate_page failure captured: book={book.id} page={page} event_id={event_id}"
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            # Never block API response due to telemetry issues
+            pass
+        try:
+            print(f"[AdminRegenerate] failed book={book.id} page={page} status={result.get('status')} error={result.get('error')}")
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=f"Regeneration failed: {result.get('error')}")
 
     # Move output and update DB
@@ -1530,6 +1596,10 @@ def admin_regenerate_page(
 
     db.commit()
 
+    try:
+        print(f"[AdminRegenerate] success book={book.id} page={page} output={new_output_path}")
+    except Exception:
+        pass
     return {
         "message": "Page regenerated",
         "output_path": new_output_path,
