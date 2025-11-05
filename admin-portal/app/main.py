@@ -416,11 +416,11 @@ async def view_workflow(book_id: int, request: Request):
     if not session:
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
-    page_param = request.query_params.get("page", "1")
+    page_param = request.query_params.get("page", "0")
     try:
-        page = max(1, int(page_param))
+        page = max(0, int(page_param))
     except ValueError:
-        page = 1
+        page = 0
 
     try:
         resp = await backend_request("GET", f"/admin/books/{book_id}/workflow", params={"page": page})

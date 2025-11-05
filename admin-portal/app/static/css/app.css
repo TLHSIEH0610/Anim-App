@@ -166,6 +166,25 @@ details.aa-actions .aa-actions-panel{min-width:260px; padding:12px; margin-top:8
 .muted{opacity:.72}
 .prompt-form{display:flex; align-items:center; gap:6px}
 .prompt-form input[type="text"]{width:220px}
+.btn-loading{pointer-events:none; position:relative; opacity:.7}
+.btn-loading::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  right:-24px;
+  width:16px;
+  height:16px;
+  margin-top:-8px;
+  border:2px solid rgba(0,0,0,.2);
+  border-top-color:rgba(0,0,0,.6);
+  border-radius:50%;
+  animation:aa-spin .6s linear infinite;
+}
+.dark .btn-loading::after{
+  border-color:rgba(255,255,255,.2);
+  border-top-color:rgba(255,255,255,.8);
+}
+@keyframes aa-spin{to{transform:rotate(360deg);}}
 /* Wrapping helpers for long content inside table cells */
 .aa-wrap{white-space: normal; overflow-wrap:anywhere; word-break: break-word}
 .books-list{display:flex; flex-direction:column; gap:6px}

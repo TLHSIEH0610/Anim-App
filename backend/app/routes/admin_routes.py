@@ -511,6 +511,10 @@ def _legacy_admin_get_workflow(
             "available_pages": available_pages,
             "workflow_version": snapshot.workflow_version,
             "workflow_slug": snapshot.workflow_slug,
+            "image_status": page_record.image_status if page_record else None,
+            "image_error": page_record.image_error if page_record else None,
+            "book_status": book.status,
+            "book_error_message": book.error_message,
         }
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
@@ -592,6 +596,10 @@ def _legacy_admin_get_workflow(
         "available_pages": available_pages,
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
+        "image_status": target_page.image_status if target_page else None,
+        "image_error": target_page.image_error if target_page else None,
+        "book_status": book.status,
+        "book_error_message": book.error_message,
     }
 
 
@@ -1334,6 +1342,12 @@ def admin_rebuild_pdf(
     pdf_filename = f"book_{book.id}_{(book.title or 'book').replace(' ', '_')}.pdf"
     pdf_path = books_dir / pdf_filename
 
+    if pdf_path.exists():
+        try:
+            pdf_path.unlink()
+        except OSError:
+            pass
+
     composer = BookComposer()
     try:
         pdf_path_str = composer.create_book_pdf(
@@ -1788,7 +1802,7 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
 @router.get("/books/{book_id}/workflow")
 def admin_get_workflow(
     book_id: int,
-    page: int = Query(1, ge=1),
+    page: int = Query(0, ge=0),
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -1813,14 +1827,27 @@ def admin_get_workflow(
     image_paths = _load_original_images(book)
     filenames = [Path(p).name for p in image_paths]
 
-    snapshots = (
+    snapshot_rows = (
         db.query(BookWorkflowSnapshot.page_number)
         .filter(BookWorkflowSnapshot.book_id == book_id)
         .distinct()
-        .order_by(BookWorkflowSnapshot.page_number)
         .all()
     )
-    available_pages = [row.page_number for row in snapshots]
+    snapshot_pages = [row.page_number for row in snapshot_rows]
+
+    page_rows = (
+        db.query(BookPage.page_number)
+        .filter(BookPage.book_id == book_id)
+        .all()
+    )
+    page_numbers = [row.page_number for row in page_rows]
+
+    available_set = {0}
+    available_set.update(p for p in snapshot_pages if p is not None)
+    available_set.update(p for p in page_numbers if p is not None)
+    if page not in available_set:
+        available_set.add(page)
+    available_pages = sorted(available_set)
 
     snapshot = (
         db.query(BookWorkflowSnapshot)
@@ -1875,6 +1902,11 @@ def admin_get_workflow(
             "available_pages": available_pages,
             "workflow_version": snapshot.workflow_version,
             "workflow_slug": snapshot.workflow_slug,
+            # Include page/book error metadata for admin UI
+            "image_status": page_record.image_status if page_record else None,
+            "image_error": page_record.image_error if page_record else None,
+            "book_status": book.status,
+            "book_error_message": book.error_message,
         }
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
@@ -1937,6 +1969,11 @@ def admin_get_workflow(
         "available_pages": available_pages,
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
+        # Include page/book error metadata for admin UI
+        "image_status": target_page.image_status if target_page else None,
+        "image_error": target_page.image_error if target_page else None,
+        "book_status": book.status,
+        "book_error_message": book.error_message,
     }
 
 @router.post("/test/comfy-run")

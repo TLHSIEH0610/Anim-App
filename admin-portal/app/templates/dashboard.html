@@ -56,7 +56,10 @@
                         <div class="actions-wrap">
                           <a href="/books/{{ book.id }}/workflow" class="mdc-button btn-sm"><span class="mdc-button__label">Workflow</span></a>
                           <a href="/books/{{ book.id }}/images" class="mdc-button btn-sm"><span class="mdc-button__label">Images</span></a>
-                          <form method="post" action="/books/{{ book.id }}/rebuild-pdf">
+                          {% if book.pdf_path %}
+                          <a href="/files-proxy?path={{ book.pdf_path | urlencode }}" target="_blank" rel="noopener" class="mdc-button btn-sm"><span class="mdc-button__label">View PDF</span></a>
+                          {% endif %}
+                          <form method="post" action="/books/{{ book.id }}/rebuild-pdf" data-loading="Rebuilding...">
                             <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Rebuild PDF</span></button>
                           </form>
                           <form method="post" action="/books/{{ book.id }}/regenerate">

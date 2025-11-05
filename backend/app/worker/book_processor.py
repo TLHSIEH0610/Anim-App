@@ -834,10 +834,10 @@ def create_childbook(book_id: int):
                 except Exception as comfy_error:
                     session.rollback()
                     print(f"ComfyUI failed for page {page.page_number}: {comfy_error}")
-                    # Use mock/placeholder image
-                    page.image_path = create_placeholder_image(page.page_number, book.title)
-                    page.image_status = "completed"
+                    page.image_status = "failed"
                     page.image_error = str(comfy_error)
+                    session.commit()
+                    raise
                 
                 page.image_completed_at = datetime.now(timezone.utc)
                 session.commit()
@@ -853,6 +853,7 @@ def create_childbook(book_id: int):
                 page.image_status = "failed"
                 page.image_error = str(page_error)
                 session.commit()
+                raise
         
         book.images_completed_at = datetime.now(timezone.utc)
         book.progress_percentage = 80.0

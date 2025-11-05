@@ -16,6 +16,9 @@
     {% if metadata.workflow_version is not none %}
     <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
     {% endif %}
+    {% if metadata.image_status %}
+    <p><strong>Image Status:</strong> {{ metadata.image_status }}</p>
+    {% endif %}
     {% if metadata.regenerate_mode %}
     <p><strong>Regenerated Via:</strong>
       {% if metadata.regenerate_mode == 'edited' %}
@@ -54,6 +57,15 @@
     <p><strong>Image Filenames:</strong> {{ metadata.image_filenames }}</p>
     {% if metadata.prompt %}
     <p><strong>Positive Prompt:</strong> {{ metadata.prompt }}</p>
+    {% endif %}
+    {% if metadata.image_error %}
+    <div class="alert alert-error" style="margin-top:12px;">
+      <strong>Rendering Error:</strong> {{ metadata.image_error }}
+    </div>
+    {% elif metadata.book_error_message %}
+    <div class="alert alert-error" style="margin-top:12px;">
+      <strong>Book Error:</strong> {{ metadata.book_error_message }}
+    </div>
     {% endif %}
 </div>
 
