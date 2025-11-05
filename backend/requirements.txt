@@ -16,3 +16,4 @@ reportlab
 jinja2
 stripe
 sentry-sdk
+boto3

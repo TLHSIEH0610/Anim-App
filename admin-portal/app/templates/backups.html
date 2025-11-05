@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mdc-typography--headline5">Backups</h2>
+
+{% if load_error %}
+<div class="alert alert-error">{{ load_error }}</div>
+{% endif %}
+
+{% if not configured %}
+<p class="mdc-typography--body2">
+  Backups are not configured. Set <code>BACKUP_S3_BUCKET</code> (plus AWS credentials) on the backend/worker services, then reload this page.
+</p>
+{% else %}
+<form method="post" action="/backups/run" style="margin-bottom:1.5rem;">
+  <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Run Backup Now</span></button>
+</form>
+
+{% if backups %}
+<div class="mdc-data-table">
+  <div class="mdc-data-table__table-container">
+    <table class="mdc-data-table__table">
+      <thead>
+        <tr class="mdc-data-table__header-row">
+          <th class="mdc-data-table__header-cell">Timestamp (UTC)</th>
+          <th class="mdc-data-table__header-cell">Database</th>
+          <th class="mdc-data-table__header-cell">Media</th>
+          <th class="mdc-data-table__header-cell">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="mdc-data-table__content">
+        {% for backup in backups %}
+        <tr class="mdc-data-table__row">
+          <td class="mdc-data-table__cell">{{ backup.timestamp }}</td>
+          <td class="mdc-data-table__cell">
+            {{ backup.db_size|default("—") }} bytes<br>
+            <code>{{ backup.db_key }}</code>
+          </td>
+          <td class="mdc-data-table__cell">
+            {{ backup.media_size|default("—") }} bytes<br>
+            <code>{{ backup.media_key }}</code>
+          </td>
+          <td class="mdc-data-table__cell">
+            <form method="post" action="/backups/restore" onsubmit="return confirm('Restore backup {{ backup.timestamp }}? This will overwrite the current database and media.');">
+              <input type="hidden" name="timestamp" value="{{ backup.timestamp }}">
+              <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Restore</span></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<p class="mdc-typography--body2">No backups found in the configured bucket.</p>
+{% endif %}
+{% endif %}
+
+<a href="/dashboard" class="mdc-button" style="margin-top:2rem;">Back to dashboard</a>
+{% endblock %}

@@ -44,6 +44,7 @@ from ..fixtures import (
     export_user_fixture,
     export_workflow_fixture,
 )
+from ..backup import perform_backup, list_backups, restore_backup
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -835,6 +836,43 @@ class AdminUserUpdatePayload(BaseModel):
     email: Optional[str] = None
     credits: Optional[int] = None
     role: Optional[str] = None
+
+
+class BackupRestorePayload(BaseModel):
+    timestamp: str
+
+
+@router.get("/backups")
+def admin_list_backups(_: None = Depends(require_admin)):
+    if not os.getenv("BACKUP_S3_BUCKET"):
+        raise HTTPException(status_code=503, detail="Backups are not configured.")
+    try:
+        backups = list_backups()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"backups": backups}
+
+
+@router.post("/backups/run")
+def admin_run_backup(_: None = Depends(require_admin)):
+    if not os.getenv("BACKUP_S3_BUCKET"):
+        raise HTTPException(status_code=503, detail="Backups are not configured.")
+    try:
+        info = perform_backup()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"message": "Backup created", "backup": info}
+
+
+@router.post("/backups/restore")
+def admin_restore_backup(payload: BackupRestorePayload, _: None = Depends(require_admin)):
+    if not os.getenv("BACKUP_S3_BUCKET"):
+        raise HTTPException(status_code=503, detail="Backups are not configured.")
+    try:
+        restore_backup(payload.timestamp)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"message": f"Restore of {payload.timestamp} completed"}
 
 
 @router.post("/users/{user_id}/update")

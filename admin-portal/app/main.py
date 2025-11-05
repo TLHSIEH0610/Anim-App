@@ -652,6 +652,82 @@ async def rebuild_pdf(book_id: int, request: Request):
         )
 
 
+@app.get("/backups", response_class=HTMLResponse)
+async def backups_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    message = request.query_params.get("message")
+    error = request.query_params.get("error")
+
+    backups = []
+    configured = True
+    load_error = None
+
+    try:
+        resp = await backend_request("GET", "/admin/backups")
+        data = resp.json()
+        backups = data.get("backups", [])
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        if exc.response.status_code == 503:
+            configured = False
+        else:
+            load_error = detail
+    except httpx.HTTPError as exc:
+        load_error = str(exc)
+
+    return templates.TemplateResponse(
+        "backups.html",
+        {
+            "request": request,
+            "admin_email": session.get("email"),
+            "backups": backups,
+            "configured": configured,
+            "load_error": load_error,
+            "message": message,
+            "error": error,
+        },
+    )
+
+
+@app.post("/backups/run")
+async def run_backup(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        resp = await backend_request("POST", "/admin/backups/run")
+        data = resp.json()
+        message = quote_plus(f"Backup created ({data.get('backup', {}).get('timestamp', 'unknown')})")
+        return RedirectResponse(f"/backups?message={message}", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        detail = _format_backend_error(exc) if hasattr(exc, "response") else str(exc)
+        return RedirectResponse(
+            f"/backups?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.post("/backups/restore")
+async def restore_backup(request: Request, timestamp: str = Form(...)):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    payload = {"timestamp": timestamp.strip()}
+    try:
+        await backend_request("POST", "/admin/backups/restore", json=payload)
+        message = quote_plus(f"Restore from {timestamp} started")
+        return RedirectResponse(f"/backups?message={message}", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        detail = _format_backend_error(exc) if hasattr(exc, "response") else str(exc)
+        return RedirectResponse(
+            f"/backups?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
 @app.post("/users/{user_id}/export")
 async def export_user(user_id: int, request: Request):
     session = get_admin_session(request)
