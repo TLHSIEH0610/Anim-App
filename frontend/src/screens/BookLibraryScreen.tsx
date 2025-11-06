@@ -16,6 +16,7 @@ import {
   getBookCoverUrl,
   getBookPdfUrl,
   getBookCoverThumbUrl,
+  getThumbUrl,
 } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -73,12 +74,40 @@ function BookListCard({
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
 
+  const versionTag = book.completed_at || (book as any).updated_at || book.created_at;
   const coverUri = getBookCoverThumbUrl(
     book.id,
     token || undefined,
     320,
-    book.completed_at || book.updated_at || book.created_at
+    versionTag
   );
+  const directResizeUri = book.preview_image_path
+    ? getThumbUrl({
+        path: book.preview_image_path,
+        token: token || undefined,
+        width: 320,
+        version: versionTag,
+      })
+    : null;
+
+  useEffect(() => {
+    // Debug logging for purchased tab cover URLs
+    try {
+      console.log(
+        `[Purchased] ${book.title} (#${book.id}) cover-thumb-public URL: ${coverUri}`
+      );
+      if (book.preview_image_path) {
+        console.log(
+          `[Purchased] ${book.title} (#${book.id}) preview_image_path: ${book.preview_image_path}`
+        );
+      }
+      if (directResizeUri) {
+        console.log(
+          `[Purchased] ${book.title} (#${book.id}) resize-public URL: ${directResizeUri}`
+        );
+      }
+    } catch {}
+  }, [book.id, book.title, coverUri, directResizeUri]);
 
   const handleImageLoad = (e: any) => {
     // expo-image now puts payload directly on the event (no nativeEvent)
@@ -137,6 +166,14 @@ function BookListCard({
                 placeholder={{ blurhash: BLURHASH }}
                 transition={150}
                 onLoad={handleImageLoad}
+                onError={(e: any) => {
+                  try {
+                    console.warn(
+                      `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${coverUri}`,
+                      e?.error || e
+                    );
+                  } catch {}
+                }}
               />
             </View>
           ) : null}

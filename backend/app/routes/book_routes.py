@@ -328,9 +328,14 @@ def get_media_resize_public(path: str = Query(...), token: str = Query(...), w: 
     file_path = _resolve_media_path(path)
     try:
         thumb = _build_thumb(file_path, w, h)
+        return _file_response_with_etag(thumb, "public, max-age=86400", request)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
-    return _file_response_with_etag(thumb, "public, max-age=86400", request)
+        # Fallback to original image to avoid breaking UI if resize fails
+        try:
+            logger.warning(f"resize-public failed for path={file_path} w={w} h={h}: {exc}")
+        except Exception:
+            pass
+        return _file_response_with_etag(file_path, "public, max-age=600", request)
 
 @router.get("/{book_id}/cover")
 def get_book_cover(book_id: int, request: Request, user = Depends(current_user), db: Session = Depends(get_db)):
@@ -343,6 +348,16 @@ def get_book_cover(book_id: int, request: Request, user = Depends(current_user),
         page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
         if page0 and page0.image_path:
             path = page0.image_path
+    # Fallback: use the first available page image if no explicit cover
+    if (not path) or (path and not os.path.exists(path)):
+        first_img = (
+            db.query(BookPage)
+            .filter(BookPage.book_id == book_id, BookPage.image_path.isnot(None))
+            .order_by(BookPage.page_number.asc())
+            .first()
+        )
+        if first_img and first_img.image_path and os.path.exists(first_img.image_path):
+            path = first_img.image_path
     if not path or not os.path.exists(path):
         raise HTTPException(404, "Cover not available")
     return _file_response_with_etag(Path(path), "private, max-age=3600", request)
@@ -363,6 +378,16 @@ def get_book_cover_public(book_id: int, request: Request, token: str = Query(...
         page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
         if page0 and page0.image_path:
             path = page0.image_path
+    # Fallback: first available page image if no explicit cover
+    if (not path) or (path and not os.path.exists(path)):
+        first_img = (
+            db.query(BookPage)
+            .filter(BookPage.book_id == book_id, BookPage.image_path.isnot(None))
+            .order_by(BookPage.page_number.asc())
+            .first()
+        )
+        if first_img and first_img.image_path and os.path.exists(first_img.image_path):
+            path = first_img.image_path
     if not path or not os.path.exists(path):
         raise HTTPException(404, "Cover not available")
     return _file_response_with_etag(Path(path), "private, max-age=3600", request)
@@ -384,13 +409,28 @@ def get_book_cover_thumb_public(book_id: int, request: Request, token: str = Que
         page0 = db.query(BookPage).filter(BookPage.book_id == book_id, BookPage.page_number == 0).first()
         if page0 and page0.image_path:
             path = page0.image_path
+    # Fallback: first available page image if no explicit cover
+    if (not path) or (path and not os.path.exists(path)):
+        first_img = (
+            db.query(BookPage)
+            .filter(BookPage.book_id == book_id, BookPage.image_path.isnot(None))
+            .order_by(BookPage.page_number.asc())
+            .first()
+        )
+        if first_img and first_img.image_path and os.path.exists(first_img.image_path):
+            path = first_img.image_path
     if not path or not os.path.exists(path):
         raise HTTPException(404, "Cover not available")
     try:
         thumb = _build_thumb(Path(path), w, h)
+        return _file_response_with_etag(thumb, "private, max-age=3600", request)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
-    return _file_response_with_etag(thumb, "private, max-age=3600", request)
+        # Log and fall back to original image to avoid 500s in the UI
+        try:
+            logger.warning(f"cover-thumb-public resize failed for book={book_id} path={path} w={w} h={h}: {exc}")
+        except Exception:
+            pass
+        return _file_response_with_etag(Path(path), "private, max-age=600", request)
 
 
 @router.get("/{book_id}/pages/{page_number}/image-public")
@@ -730,7 +770,6 @@ def get_story_cover(path: str, request: Request, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return _file_response_with_etag(file_path, "private, max-age=600", request)
-
 
 
 
