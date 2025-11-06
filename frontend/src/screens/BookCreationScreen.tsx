@@ -199,7 +199,8 @@ export default function BookCreationScreen({
   const MAX_FILES = 3;
   const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   const MAX_LONGEST_EDGE = 2048; // px
-  const MIN_SHORTEST_EDGE = 512; // px
+  // Removed minimum shortest-edge restriction to allow small images
+  const MIN_SHORTEST_EDGE = 0; // px (no minimum)
 
   const processAssetWithinLimits = async (
     asset: ImagePicker.ImagePickerAsset
@@ -207,15 +208,7 @@ export default function BookCreationScreen({
     try {
       const width = asset.width ?? 0;
       const height = asset.height ?? 0;
-      if (width && height) {
-        const shortest = Math.min(width, height);
-        if (shortest < MIN_SHORTEST_EDGE) {
-          const name = asset.fileName || "Selected image";
-          throw new Error(
-            `${name} is too small (${width}×${height}). Minimum shortest edge is ${MIN_SHORTEST_EDGE}px.`
-          );
-        }
-      }
+      // No minimum-size rejection; accept small images as-is
 
       let uri = asset.uri;
       let size = asset.fileSize;
@@ -526,22 +519,31 @@ export default function BookCreationScreen({
   };
   const pickImage = async () => {
     try {
+      // Clear any previous image-specific error when user starts a new selection
+      setImageError(null);
+
+      const availableSlots = Math.max(0, MAX_FILES - form.images.length);
+      if (availableSlots <= 0) {
+        setSnackbar({ visible: true, message: `You can select up to ${MAX_FILES} images maximum` });
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
         allowsEditing: false,
         quality: 0.9,
         allowsMultipleSelection: true,
-        selectionLimit: MAX_FILES,
+        selectionLimit: availableSlots,
       });
 
       if (!result.canceled) {
-        const selectedAssets = result.assets;
-        if (selectedAssets.length > MAX_FILES) {
+        let selectedAssets = result.assets;
+        if (selectedAssets.length > availableSlots) {
           setSnackbar({
             visible: true,
-            message: `You can select up to ${MAX_FILES} images maximum`,
+            message: `You can add up to ${availableSlots} more image${availableSlots > 1 ? 's' : ''}`,
           });
-          return;
+          selectedAssets = selectedAssets.slice(0, availableSlots);
         }
 
         // Enforce pixel/size limits with auto downscale when possible
@@ -557,7 +559,8 @@ export default function BookCreationScreen({
           }
         }
 
-        updateImages(processedUris);
+        const merged = [...form.images, ...processedUris];
+        updateImages(merged);
       }
     } catch (error) {
       setSnackbar({ visible: true, message: "Failed to pick images" });

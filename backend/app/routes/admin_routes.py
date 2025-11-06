@@ -24,6 +24,7 @@ from ..models import (
     BookPage,
     BookWorkflowSnapshot,
     User,
+    Payment,
     WorkflowDefinition,
     StoryTemplate,
     StoryTemplatePage,
@@ -1737,6 +1738,11 @@ def admin_delete_book(
         raise HTTPException(status_code=404, detail="Book not found")
 
     try:
+        # Disassociate any payments that reference this book to satisfy FK constraints
+        db.query(Payment).filter(Payment.book_id == book_id).update(
+            {Payment.book_id: None}, synchronize_session=False
+        )
+
         if book.pdf_path and os.path.exists(book.pdf_path):
             try:
                 os.remove(book.pdf_path)

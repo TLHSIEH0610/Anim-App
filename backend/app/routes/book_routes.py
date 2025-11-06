@@ -482,6 +482,11 @@ def delete_book(book_id: int, user = Depends(current_user), db: Session = Depend
         raise HTTPException(404, "Book not found")
     
     try:
+        # Disassociate any payments that reference this book first to satisfy FK constraints
+        db.query(Payment).filter(Payment.book_id == book_id).update(
+            {Payment.book_id: None}, synchronize_session=False
+        )
+
         # Delete associated files
         # Handle both old (single path) and new (JSON array) formats
         if book.original_image_paths:
@@ -687,7 +692,9 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
             return target
     except Exception:
         pass
-    # Build thumbnail
+    # Build thumbnail using atomic write (tmp file then replace) to avoid readers
+    # seeing a partially-written file in concurrent requests.
+    tmp_target = target.with_suffix(ext + ".tmp")
     with PILImage.open(str(file_path)) as img:
         ow, oh = img.size
         if h <= 0:
@@ -698,11 +705,25 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
         img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
         img_thumb = img.copy()
         img_thumb.thumbnail((w, h_eff))
-        # Save to cache (keep ext)
+        # Save to temp file first
         save_kwargs = {}
         if ext in (".jpg", ".jpeg"):
             save_kwargs.update({"quality": 82, "optimize": True, "progressive": True})
-        img_thumb.save(str(target), **save_kwargs)
+        img_thumb.save(str(tmp_target), **save_kwargs)
+    try:
+        # Atomic replace so consumers either see old or fully-written new file
+        os.replace(str(tmp_target), str(target))
+    except Exception:
+        # If replace fails for any reason, fall back to rename/move
+        try:
+            os.rename(str(tmp_target), str(target))
+        except Exception:
+            # Best effort: if another process already created the file, discard tmp
+            try:
+                if os.path.exists(str(tmp_target)):
+                    os.remove(str(tmp_target))
+            except Exception:
+                pass
     return target
 
 
