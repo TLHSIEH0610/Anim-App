@@ -22,7 +22,7 @@
           <tr class="mdc-data-table__row">
             <td class="mdc-data-table__cell">
               {% if image.image_path %}
-                <img src="/files-proxy?path={{ image.image_path | urlencode }}" alt="{{ image.slug }}" style="max-width:140px; border-radius:10px; border:1px solid rgba(0,0,0,.12);">
+                <img src="/files-proxy?path={{ image.image_path | urlencode }}&w=320" alt="{{ image.slug }}" loading="lazy" style="max-width:320px; border-radius:10px; border:1px solid rgba(0,0,0,.12);">
               {% else %}
                 <em>n/a</em>
               {% endif %}

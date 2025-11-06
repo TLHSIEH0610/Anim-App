@@ -45,6 +45,7 @@ from ..fixtures import (
     export_workflow_fixture,
 )
 from ..backup import perform_backup, list_backups, restore_backup
+from PIL import Image as PILImage
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -1861,6 +1862,46 @@ def _resolve_media_path(raw_path: str) -> Path:
         raise HTTPException(status_code=404, detail="File not found")
     return candidate
 
+def _thumbs_dir() -> Path:
+    media_root = Path(os.getenv("MEDIA_ROOT", "/data/media")).resolve()
+    d = media_root / "thumbs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> Path:
+    """Create or return a cached thumbnail for the given file and size for admin previews.
+
+    Preserves aspect ratio; if height is None, computes based on width.
+    Saves under MEDIA_ROOT/thumbs with a deterministic name.
+    """
+    file_path = Path(file_path)
+    w = max(1, int(width))
+    h = int(height) if (height and int(height) > 0) else 0
+    stem = file_path.stem
+    ext = file_path.suffix.lower() or ".jpg"
+    target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
+    try:
+        if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
+            return target
+    except Exception:
+        pass
+    with PILImage.open(str(file_path)) as img:
+        ow, oh = img.size
+        if h <= 0:
+            ratio = w / float(ow)
+            h_eff = max(1, int(round(oh * ratio)))
+        else:
+            h_eff = h
+        img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+        img_thumb = img.copy()
+        img_thumb.thumbnail((w, h_eff))
+        save_kwargs = {}
+        if ext in (".jpg", ".jpeg"):
+            save_kwargs.update({"quality": 82, "optimize": True, "progressive": True})
+        img_thumb.save(str(target), **save_kwargs)
+    return target
+
 
 @router.get("/files")
 def admin_get_file(path: str, _: None = Depends(require_admin)):
@@ -1868,6 +1909,27 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return FileResponse(file_path)
+
+@router.get("/media/resize")
+def admin_media_resize(
+    path: str = Query(...),
+    w: int = Query(320, ge=1),
+    h: Optional[int] = Query(None, ge=1),
+    _: None = Depends(require_admin),
+):
+    if not path:
+        raise HTTPException(status_code=400, detail="Missing path")
+    file_path = _resolve_media_path(path)
+    try:
+        thumb = _build_thumb(Path(file_path), int(w), int(h) if h else None)
+        return FileResponse(str(thumb), headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as exc:
+        # Fallback to original image on failure
+        try:
+            print(f"[AdminResize] Failed to resize '{file_path}': {exc}")
+        except Exception:
+            pass
+        return FileResponse(str(file_path), headers={"Cache-Control": "public, max-age=600"})
 # New workflow inspector using DB-backed stories/workflows
 @router.get("/books/{book_id}/workflow")
 def admin_get_workflow(

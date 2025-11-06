@@ -7,12 +7,12 @@
 <div class="aa-grid aa-grid--sm">
   {% for image in original_images %}
   <div class="mdc-card aa-thumb">
-    {% if image.data_uri %}
-      <img src="{{ image.data_uri }}" alt="original">
-    {% elif image.path %}
-      <img src="/files-proxy?path={{ image.path | urlencode }}" alt="original">
+    {% if image.path %}
+      <img src="/files-proxy?path={{ image.path | urlencode }}&w=360" alt="original" loading="lazy">
+      <code>{{ image.path }}</code>
+    {% else %}
+      <div class="mdc-typography--caption" style="padding:12px;">No path</div>
     {% endif %}
-    <code>{{ image.path }}</code>
   </div>
   {% endfor %}
   {% if not original_images %}
@@ -24,10 +24,10 @@
 <div class="aa-grid aa-grid--sm">
   {% for page in page_images %}
   <div class="mdc-card aa-thumb">
-    {% if page.data_uri %}
-      <img src="{{ page.data_uri }}" alt="page">
-    {% elif page.path %}
-      <img src="/files-proxy?path={{ page.path | urlencode }}" alt="page">
+    {% if page.path %}
+      <img src="/files-proxy?path={{ page.path | urlencode }}&w=480" alt="page {{ page.page_number }}" loading="lazy">
+    {% else %}
+      <div class="mdc-typography--caption" style="padding:12px;">No path</div>
     {% endif %}
     <h3>Page {{ page.page_number }}</h3>
     <h4>{{ page.status }}</h4>
