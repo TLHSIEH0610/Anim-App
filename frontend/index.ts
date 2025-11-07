@@ -1,16 +1,15 @@
 import { registerRootComponent } from "expo";
 import App from "./App";
-// Initialize Sentry (safe no-op if not installed yet)
-import "./src/lib/sentry";
+import "./src/lib/sentry"; // side-effect init only when DSN present
 
-// Wrap the app with Sentry's error boundary if available
-let wrap: ((C: any) => any) | undefined;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  wrap = require("sentry-expo").wrap;
-} catch (_) {
-  wrap = undefined;
+let Root: any = App;
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { wrap } = require('sentry-expo');
+    Root = wrap ? wrap(App) : App;
+  } catch {
+    Root = App;
+  }
 }
-
-const Root = wrap ? wrap(App) : App;
 registerRootComponent(Root);

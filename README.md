@@ -651,6 +651,64 @@ COMFYUI_METRICS_MAX_FILES=10
 When rotation triggers, the active file is renamed to `comfyui_metrics-YYYYmmdd-HHMMSS.ndjson` and a fresh file is created. Age/count retention applies to the rotated files.
 
 
+### Sentry (Frontend + Backend)
+- Purpose: capture crashes, errors, breadcrumbs, and traces across mobile (Expo) and API (FastAPI).
+- Where to set variables:
+  - Frontend mobile: `frontend/.env`
+  - Backend (local dev): `backend/.env`
+  - Backend (Docker): `infra/.env`
+
+Frontend (Expo/React Native)
+
+1) Package and plugin
+   - Dependency: `sentry-expo` (managed by npm in `frontend/package.json`)
+   - Expo config plugin: present in `frontend/app.json` under `plugins: ["sentry-expo"]`
+
+2) Environment variables (in `frontend/.env`)
+
+```
+# Required to enable Sentry in the app
+EXPO_PUBLIC_SENTRY_DSN=YOUR_SENTRY_DSN
+
+# Optional environment label for Sentry (default: development in dev builds, production otherwise)
+EXPO_PUBLIC_ENV=staging
+```
+
+3) Rebuild and start (Android example)
+
+```
+cd frontend
+npm install
+npx expo prebuild --clean --platform android
+npx expo start --dev-client --clear
+```
+
+Backend (FastAPI)
+
+1) Environment variables (in `backend/.env` for local, or `infra/.env` for Docker)
+
+```
+# Enable Sentry on the backend API
+SENTRY_DSN=YOUR_SENTRY_DSN
+
+# Optional labels and sampling controls
+SENTRY_ENV=staging                 # default: local
+SENTRY_TRACES_SAMPLE_RATE=0.05     # default: 0.05
+SENTRY_PROFILES_SAMPLE_RATE=0.0    # default: 0.0
+```
+
+2) Notes
+- Backend initialization is automatic when `SENTRY_DSN` is present (see backend/app/main.py:1).
+- Frontend initialization is guarded by `EXPO_PUBLIC_SENTRY_DSN` so devs can run without it.
+- If you change the Expo plugin or DSN, rebuild the dev client.
+
+Troubleshooting
+- Android Hermes error like `TypeError: Cannot read property '__extends' of undefined` typically indicates conflicting native modules or early-evaluated bundles:
+  - Ensure only one Sentry RN SDK is installed (keep `sentry-expo`; do not add a separate `@sentry/react-native`).
+  - After changes: `npx expo prebuild --clean` and restart the dev client with `--clear`.
+  - Some libraries (e.g., `pdf-lib`) are imported dynamically to avoid early evaluation in dev clients.
+
+
 ## ?? API Documentation
 
 ### Authentication Endpoints

@@ -5,7 +5,6 @@ import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar 
 import { getBookDetails, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
 import { useAuth } from '../context/AuthContext';
 import * as FileSystem from 'expo-file-system';
-import { PDFDocument } from 'pdf-lib';
 import { colors, radii, shadow, spacing, typography } from '../styles/theme';
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -104,6 +103,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         encoding: FileSystem.EncodingType.Base64,
       });
 
+      const { PDFDocument } = await import('pdf-lib');
       const pdfDoc = await PDFDocument.load(originalBase64);
       if (pdfDoc.getPageCount() > 1) {
         pdfDoc.removePage(0);

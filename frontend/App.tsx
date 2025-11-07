@@ -1,7 +1,6 @@
 import React from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { NavigationContainer } from '@react-navigation/native';
-import { navigationRef, registerNavigationContainer, routingInstrumentation } from './src/lib/sentry';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -36,15 +35,7 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onReady={() => {
-        try { registerNavigationContainer(); } catch {}
-      }}
-      onStateChange={() => {
-        try { (routingInstrumentation as any)?.onStateChange?.(navigationRef); } catch {}
-      }}
-    >
+    <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="AllBooks">
         {user ? (
           <>
