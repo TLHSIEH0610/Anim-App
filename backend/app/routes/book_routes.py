@@ -749,7 +749,11 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
             h_eff = max(1, int(round(oh * ratio)))
         else:
             h_eff = h
-        img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+        # Ensure compatibility with JPEG target by converting RGBA to RGB
+        if ext in (".jpg", ".jpeg") and img.mode != "RGB":
+            img = img.convert("RGB")
+        elif img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGB")
         img_thumb = img.copy()
         img_thumb.thumbnail((w, h_eff))
         # Save to temp file first
