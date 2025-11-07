@@ -51,18 +51,46 @@ class ComfyUIClient:
             # HTTP URLs don't need SSL verification
             return {'timeout': 30}
     
+    def _sanitize_prompt(self, prompt: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove non-node entries (e.g., _meta) that ComfyUI rejects.
+
+        Keeps only items where the value is a dict containing a 'class_type'.
+        """
+        if not isinstance(prompt, dict):
+            return prompt
+        cleaned: Dict[str, Any] = {}
+        for key, val in prompt.items():
+            if isinstance(val, dict) and "class_type" in val:
+                cleaned[key] = val
+        return cleaned
+
     def queue_prompt(self, prompt: Dict[str, Any]) -> str:
         """Queue a prompt and return the prompt ID"""
         url = self._build_url("prompt")
         request_kwargs = self._get_request_kwargs()
         context = {"server": self.base_url}
         with record_comfy_stage("comfyui.queue_prompt", context) as event:
+            # Some exported/constructed graphs may include a top-level '_meta'.
+            # ComfyUI expects only node-id keys with 'class_type'.
+            safe_prompt = self._sanitize_prompt(prompt)
             response = requests.post(
                 url,
-                json={"prompt": prompt, "client_id": self.client_id},
+                json={"prompt": safe_prompt, "client_id": self.client_id},
                 **request_kwargs,
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as e:
+                # Include ComfyUI's error payload to make debugging 400s easier
+                detail = None
+                try:
+                    detail = response.text
+                except Exception:
+                    detail = None
+                msg = f"{e}"
+                if detail:
+                    msg = f"{e}: {detail}"
+                raise requests.HTTPError(msg, response=response) from e
             prompt_id = response.json()["prompt_id"]
             event["context"]["prompt_id"] = prompt_id
             event["context"]["workflow_nodes"] = len(prompt)
@@ -325,6 +353,20 @@ class ComfyUIClient:
                 # Inject keypoint into the workflow if provided
                 if keypoint_filename:
                     try:
+                        # If we were given just a filename, try uploading the actual file into ComfyUI's upload store
+                        # so LoadImage nodes with load_from_upload can find it.
+                        keypoint_to_use = keypoint_filename
+                        try:
+                            media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
+                            candidate = Path(media_root) / "controlnet" / "keypoints" / keypoint_filename
+                            if candidate.exists() and candidate.is_file():
+                                uploaded_name = self._upload_image(str(candidate))
+                                if uploaded_name:
+                                    keypoint_to_use = uploaded_name
+                                    print(f"[ComfyUI] Uploaded keypoint '{keypoint_filename}' as '{uploaded_name}'")
+                        except Exception as up_err:
+                            print(f"[ComfyUI] Keypoint upload skipped/failed: {up_err}")
+
                         meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
                         # Prefer wiring via ApplyInstantID*'s image_kps link
                         apply_node_id = meta.get("instantid_apply_node")
@@ -360,14 +402,14 @@ class ComfyUIClient:
                                     load_node_id = node_id
                                     break
                         if load_node_id and "inputs" in workflow.get(load_node_id, {}):
-                            workflow[load_node_id]["inputs"]["image"] = keypoint_filename
+                            workflow[load_node_id]["inputs"]["image"] = keypoint_to_use
                             workflow[load_node_id]["inputs"]["load_from_upload"] = True
-                            print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_filename}")
+                            print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_to_use}")
                         elif "100" in workflow and "inputs" in workflow["100"]:
                             # Legacy fallback: node 100 manual set
-                            workflow["100"]["inputs"]["image"] = keypoint_filename
+                            workflow["100"]["inputs"]["image"] = keypoint_to_use
                             workflow["100"]["inputs"]["load_from_upload"] = True
-                            print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_filename}")
+                            print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_to_use}")
                         else:
                             print("[ComfyUI] Warning: Could not locate a LoadImage node for keypoints to inject")
                     except Exception as inj_err:

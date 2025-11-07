@@ -406,7 +406,7 @@ def admin_list_books(_: None = Depends(require_admin), db: Session = Depends(get
 # Legacy implementation retained for reference
 def _legacy_admin_get_workflow(
     book_id: int,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=0),
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -1794,7 +1794,7 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
 @router.get("/books/{book_id}/workflow")
 def admin_get_workflow(
     book_id: int,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=0),
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):

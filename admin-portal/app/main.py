@@ -418,9 +418,10 @@ async def view_workflow(book_id: int, request: Request):
 
     page_param = request.query_params.get("page", "1")
     try:
-        page = max(1, int(page_param))
+        # Allow cover page 0 in the inspector
+        page = max(0, int(page_param))
     except ValueError:
-        page = 1
+        page = 0
 
     try:
         resp = await backend_request("GET", f"/admin/books/{book_id}/workflow", params={"page": page})
