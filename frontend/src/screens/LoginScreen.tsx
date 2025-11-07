@@ -67,12 +67,6 @@ const LoginScreen = () => {
     }
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      // Light connectivity probe to catch emulator/proxy issues early
-      try {
-        await fetch("https://clients3.google.com/generate_204", { method: "GET" });
-      } catch {
-        throw new Error("Network is unavailable. Please check your emulator/device connectivity.");
-      }
 
       const signInResult = await GoogleSignin.signIn();
       // Prefer the native idToken returned by the SDK; avoid getTokens() unless needed

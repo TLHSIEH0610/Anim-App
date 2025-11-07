@@ -459,7 +459,14 @@ def get_book_page_image_public(book_id: int, page_number: int, token: str = Quer
         try:
             file_to_send = _build_thumb(file_to_send, int(w), int(h) if h else None)
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to resize: {exc}")
+            # Log and fall back to the original image to avoid breaking the mobile viewer
+            try:
+                logger.warning(
+                    f"page image resize failed for book={book_id} page={page_number} path={path} w={w} h={h}: {exc}"
+                )
+            except Exception:
+                pass
+            file_to_send = Path(path)
     # Add ETag for validation
     try:
         etag = f'W/"{int(os.path.getmtime(file_to_send))}-{os.path.getsize(file_to_send)}"'
@@ -791,7 +798,6 @@ def get_story_cover(path: str, request: Request, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return _file_response_with_etag(file_path, "private, max-age=600", request)
-
 
 
 
