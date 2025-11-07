@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Dimensions, Share, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Dimensions, Share, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar } from 'react-native-paper';
 import { getBookDetails, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
@@ -29,9 +29,6 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const [pageAspect, setPageAspect] = useState<Record<number, number>>({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
-  const [lastImageUrl, setLastImageUrl] = useState<string | null>(null);
-  const [lastImageError, setLastImageError] = useState<string | null>(null);
-  const SHOW_DEBUG_OVERLAY = __DEV__;
 
   // Compute current page and image URL early so Hook order stays stable across renders
   const currentPageData = useMemo(() => {
@@ -53,12 +50,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     }
   }, [currentPageData, bookId, token, bookImageVersion]);
 
-  useEffect(() => {
-    if (currentImageUrl) {
-      setLastImageUrl(currentImageUrl);
-      setLastImageError(null);
-    }
-  }, [currentImageUrl]);
+  // debug overlay removed
 
   const loadBookData = async () => {
     if (!token) return;
@@ -293,14 +285,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const defaultPageAspect = 4 / 3;
   const currentAspect = pageAspect[currentPage] || (isCoverPage ? defaultCoverAspect : defaultPageAspect);
 
-  async function copyToClipboard(text: string) {
-    try {
-      await Share.share({ message: text, url: text });
-      setSnackbar({ visible: true, message: 'Image URL shared' });
-    } catch {
-      setSnackbar({ visible: true, message: 'Could not share URL' });
-    }
-  }
+  // debug overlay removed
 
   return (
     <ScreenWrapper>
@@ -325,7 +310,6 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                     transition={150}
                     onLoadStart={() => {
                       setImageLoading(prev => ({ ...prev, [currentPage]: true }));
-                      setLastImageError(null);
                     }}
                     onLoad={(e: any) => {
                       const w = e?.source?.width;
@@ -338,7 +322,6 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
                     onError={(e: any) => {
                       try {
                         const msg = e?.error?.message || String(e?.error || 'Image load failed');
-                        setLastImageError(msg);
                         // eslint-disable-next-line no-console
                         console.warn('[BookViewer] image load error', msg, url);
                       } catch {}
@@ -363,25 +346,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
               }
             })()}
 
-            {SHOW_DEBUG_OVERLAY && (currentImageUrl || lastImageError) ? (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => currentImageUrl && copyToClipboard(currentImageUrl)}
-                style={styles.debugOverlay}
-              >
-                {currentImageUrl ? (
-                  <Text style={styles.debugText} numberOfLines={2}>
-                    URL: {currentImageUrl}
-                  </Text>
-                ) : null}
-                {lastImageError ? (
-                  <Text style={styles.debugError} numberOfLines={2}>
-                    Error: {lastImageError}
-                  </Text>
-                ) : null}
-                <Text style={styles.debugHint}>Tap to copy URL</Text>
-              </TouchableOpacity>
-            ) : null}
+            {/* debug overlay removed */}
             
             {imageLoading[currentPage] && (
               <View style={styles.imageLoadingOverlay}>
@@ -567,30 +532,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,
   },
-  debugOverlay: {
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.70)',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  debugText: {
-    color: '#fff',
-    fontSize: 11,
-  },
-  debugError: {
-    color: '#ffb3b3',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  debugHint: {
-    color: '#ddd',
-    fontSize: 10,
-    marginTop: 4,
-  },
+  // debug styles removed
   textSection: {
     flex: 1,
     justifyContent: 'center',
