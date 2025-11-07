@@ -416,9 +416,9 @@ async def view_workflow(book_id: int, request: Request):
     if not session:
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
-    page_param = request.query_params.get("page", "1")
+    page_param = request.query_params.get("page", "0")
     try:
-        # Allow cover page 0 in the inspector
+
         page = max(0, int(page_param))
     except ValueError:
         page = 0
@@ -432,6 +432,21 @@ async def view_workflow(book_id: int, request: Request):
             f"/dashboard?error={quote_plus(str(exc))}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+
+    # Lookup the image for the current page (path-only; render via proxy for streaming/resize)
+    page_image_path = None
+    try:
+        imgs_resp = await backend_request("GET", f"/admin/books/{book_id}/images", params={"include_data": "false"})
+        imgs_data = imgs_resp.json()
+        for item in imgs_data.get("page_images", []):
+            try:
+                if int(item.get("page_number")) == int(data.get("page_number", page)) and item.get("path"):
+                    page_image_path = item.get("path")
+                    break
+            except Exception:
+                continue
+    except httpx.HTTPError:
+        page_image_path = None
 
     # Prettify JSON for human editing. If the backend returned a string, parse it first.
     try:
@@ -460,6 +475,7 @@ async def view_workflow(book_id: int, request: Request):
             "admin_email": session.get("email"),
             "current_page": data.get("page_number", page),
             "available_pages": data.get("available_pages", []),
+            "page_image_path": page_image_path,
         },
     )
 
@@ -524,7 +540,8 @@ async def view_images(book_id: int, request: Request):
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
     try:
-        resp = await backend_request("GET", f"/admin/books/{book_id}/images")
+        # Use path-only and resize via proxy for faster loads
+        resp = await backend_request("GET", f"/admin/books/{book_id}/images", params={"include_data": "false"})
         data = resp.json()
     except httpx.HTTPError as exc:
         return RedirectResponse(
@@ -1639,19 +1656,32 @@ async def update_story(book_id: int, request: Request):
 
 
 @app.get("/files-proxy")
-async def files_proxy(request: Request, path: str):
+async def files_proxy(request: Request, path: str, w: int | None = None, h: int | None = None):
     session = get_admin_session(request)
     if not session:
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
     try:
         async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
-            resp = await client.get(
-                "/admin/files",
-                params={"path": path},
-                headers={"X-Admin-Secret": ADMIN_API_KEY},
-                follow_redirects=True,
-            )
+            if w or h:
+                params = {"path": path}
+                if w:
+                    params["w"] = str(w)
+                if h:
+                    params["h"] = str(h)
+                resp = await client.get(
+                    "/admin/media/resize",
+                    params=params,
+                    headers={"X-Admin-Secret": ADMIN_API_KEY},
+                    follow_redirects=True,
+                )
+            else:
+                resp = await client.get(
+                    "/admin/files",
+                    params={"path": path},
+                    headers={"X-Admin-Secret": ADMIN_API_KEY},
+                    follow_redirects=True,
+                )
         resp.raise_for_status()
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to fetch file: {exc}")

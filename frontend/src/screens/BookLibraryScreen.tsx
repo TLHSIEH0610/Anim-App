@@ -16,6 +16,7 @@ import {
   getBookCoverUrl,
   getBookPdfUrl,
   getBookCoverThumbUrl,
+  getThumbUrl,
 } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -73,12 +74,40 @@ function BookListCard({
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
 
+  const versionTag = book.completed_at || (book as any).updated_at || book.created_at;
   const coverUri = getBookCoverThumbUrl(
     book.id,
     token || undefined,
     320,
-    book.completed_at || book.updated_at || book.created_at
+    versionTag
   );
+  const directResizeUri = book.preview_image_path
+    ? getThumbUrl({
+        path: book.preview_image_path,
+        token: token || undefined,
+        width: 320,
+        version: versionTag,
+      })
+    : null;
+
+  useEffect(() => {
+    // Debug logging for purchased tab cover URLs
+    try {
+      console.log(
+        `[Purchased] ${book.title} (#${book.id}) cover-thumb-public URL: ${coverUri}`
+      );
+      if (book.preview_image_path) {
+        console.log(
+          `[Purchased] ${book.title} (#${book.id}) preview_image_path: ${book.preview_image_path}`
+        );
+      }
+      if (directResizeUri) {
+        console.log(
+          `[Purchased] ${book.title} (#${book.id}) resize-public URL: ${directResizeUri}`
+        );
+      }
+    } catch {}
+  }, [book.id, book.title, coverUri, directResizeUri]);
 
   const handleImageLoad = (e: any) => {
     // expo-image now puts payload directly on the event (no nativeEvent)
@@ -137,6 +166,14 @@ function BookListCard({
                 placeholder={{ blurhash: BLURHASH }}
                 transition={150}
                 onLoad={handleImageLoad}
+                onError={(e: any) => {
+                  try {
+                    console.warn(
+                      `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${coverUri}`,
+                      e?.error || e
+                    );
+                  } catch {}
+                }}
               />
             </View>
           ) : null}
@@ -247,6 +284,11 @@ function BookListCard({
               </>
             )}
           </View>
+          {book.status === "failed" && (
+            <Text style={styles.failedNote}>
+              We are fixing it now! Please check back soon.
+            </Text>
+          )}
           {/* Details + admin actions */}
           <View style={styles.detailsHeader}>
             <Text
@@ -272,12 +314,6 @@ function BookListCard({
           <Text style={styles.bookDate}>
             Created: {new Date(book.created_at).toLocaleDateString()}
           </Text>
-          {book.status === "failed" && book.error_message && (
-            <Text style={styles.errorText} numberOfLines={2}>
-              Error: {book.error_message}
-            </Text>
-          )}
-
           <View style={styles.bottomRow}>
             <View style={styles.primaryActions}>
               {book.status === "completed" && (
@@ -741,6 +777,11 @@ const styles = StyleSheet.create({
     marginVertical: spacing(2),
     gap: spacing(3),
   },
+  failedNote: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   progressBar: {
     flex: 1,
   },
@@ -760,13 +801,6 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 14,
     fontWeight: "600",
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.danger,
-    backgroundColor: "rgba(239, 83, 80, 0.1)",
-    padding: spacing(2),
-    borderRadius: radii.md,
   },
   emptyContainer: {
     flex: 1,

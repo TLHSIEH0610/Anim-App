@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import {
   ActivityIndicator as PaperActivityIndicator,
-  Banner,
   Chip,
   ProgressBar,
   Portal,
@@ -198,11 +197,13 @@ export default function BookStatusScreen({
           )}
 
           {/* Error Message */}
-          {book.status === "failed" && book.error_message ? (
-            <Banner visible icon="alert-circle">
-              {book.error_message}
-            </Banner>
-          ) : null}
+          {book.status === "failed" && (
+            <View style={styles.failureNotice}>
+              <Text style={styles.failureNoticeText}>
+                We are fixing it now! Please check back soon or retry.
+              </Text>
+            </View>
+          )}
 
           {/* Book Details */}
           <View style={styles.detailsCard}>
@@ -334,6 +335,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#92400e",
     textAlign: "center",
+  },
+  failureNotice: {
+    backgroundColor: "#fee2e2",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  failureNoticeText: {
+    color: "#b91c1c",
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "600",
   },
   detailsCard: {
     backgroundColor: "#FFF8E1",

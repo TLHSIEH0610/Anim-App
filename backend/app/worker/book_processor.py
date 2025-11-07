@@ -834,10 +834,10 @@ def create_childbook(book_id: int):
                 except Exception as comfy_error:
                     session.rollback()
                     print(f"ComfyUI failed for page {page.page_number}: {comfy_error}")
-                    # Use mock/placeholder image
-                    page.image_path = create_placeholder_image(page.page_number, book.title)
-                    page.image_status = "completed"
+                    page.image_status = "failed"
                     page.image_error = str(comfy_error)
+                    session.commit()
+                    raise
                 
                 page.image_completed_at = datetime.now(timezone.utc)
                 session.commit()
@@ -853,6 +853,7 @@ def create_childbook(book_id: int):
                 page.image_status = "failed"
                 page.image_error = str(page_error)
                 session.commit()
+                raise
         
         book.images_completed_at = datetime.now(timezone.utc)
         book.progress_percentage = 80.0
@@ -913,7 +914,18 @@ def create_childbook(book_id: int):
     except Exception as e:
         error_msg = str(e)
         print(f"❌ Book creation failed for book {book_id}: {error_msg}")
-        
+        # Explicitly capture in Sentry (in addition to RQ integration) and log to console
+        try:
+            import sentry_sdk  # type: ignore
+            evt = sentry_sdk.capture_exception(e)  # type: ignore
+            try:
+                print(f"[Sentry] worker job exception captured: book={book_id} event_id={evt}")
+            except Exception:
+                pass
+        except Exception:
+            # Sentry not configured or import failed; ignore
+            pass
+
         book.status = "failed"
         book.error_message = error_msg
         book.completed_at = datetime.now(timezone.utc)

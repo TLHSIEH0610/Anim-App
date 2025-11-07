@@ -46,6 +46,7 @@ from ..fixtures import (
     export_workflow_fixture,
 )
 from ..backup import perform_backup, list_backups, restore_backup
+from PIL import Image as PILImage
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "host.docker.internal:8188")
@@ -55,6 +56,12 @@ _redis = redis.from_url(REDIS_URL)
 queue = Queue("books", connection=_redis)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Optional Sentry import for explicit error capture on admin actions
+try:  # pragma: no cover
+    import sentry_sdk  # type: ignore
+except Exception:  # pragma: no cover
+    sentry_sdk = None  # type: ignore
 
 
 def require_admin(x_admin_secret: Optional[str] = Header(None)) -> None:
@@ -512,6 +519,10 @@ def _legacy_admin_get_workflow(
             "available_pages": available_pages,
             "workflow_version": snapshot.workflow_version,
             "workflow_slug": snapshot.workflow_slug,
+            "image_status": page_record.image_status if page_record else None,
+            "image_error": page_record.image_error if page_record else None,
+            "book_status": book.status,
+            "book_error_message": book.error_message,
         }
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
@@ -593,6 +604,10 @@ def _legacy_admin_get_workflow(
         "available_pages": available_pages,
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
+        "image_status": target_page.image_status if target_page else None,
+        "image_error": target_page.image_error if target_page else None,
+        "book_status": book.status,
+        "book_error_message": book.error_message,
     }
 
 
@@ -1335,6 +1350,12 @@ def admin_rebuild_pdf(
     pdf_filename = f"book_{book.id}_{(book.title or 'book').replace(' ', '_')}.pdf"
     pdf_path = books_dir / pdf_filename
 
+    if pdf_path.exists():
+        try:
+            pdf_path.unlink()
+        except OSError:
+            pass
+
     composer = BookComposer()
     try:
         pdf_path_str = composer.create_book_pdf(
@@ -1370,7 +1391,14 @@ def admin_regenerate_page(
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Regenerate a single page image for a book and store an exact workflow snapshot."""
+    """Regenerate a single page image for a book and store an exact workflow snapshot.
+
+    Top-level exception handling added to surface failures in logs and Sentry.
+    """
+    try:
+        print(f"[AdminRegenerate] start book={book_id} page={page} mode={payload.mode}")
+    except Exception:
+        pass
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -1442,6 +1470,27 @@ def admin_regenerate_page(
             try:
                 kp_uploaded = comfy_client._upload_image(kp_record.image_path)
             except Exception as exc:
+                # Surface keypoint upload failures explicitly
+                try:
+                    if sentry_sdk is not None:  # type: ignore[name-defined]
+                        from sentry_sdk import push_scope  # type: ignore
+                        with push_scope() as scope:  # type: ignore
+                            scope.set_tag("feature", "admin_regenerate_page")
+                            scope.set_tag("stage", "upload_keypoint")
+                            scope.set_tag("book_id", str(book.id))
+                            scope.set_tag("page", str(page))
+                            scope.set_extra("keypoint_slug", keypoint_slug)
+                            scope.set_extra("error", str(exc))
+                            sentry_sdk.capture_message(
+                                f"Keypoint upload failed (book={book.id}, page={page}, slug={keypoint_slug})",
+                                level="error",
+                            )
+                    # Console log for quick verification
+                    print(
+                        f"[Sentry] keypoint upload failure captured: book={book.id} page={page} slug={keypoint_slug} err={exc}"
+                    )
+                except Exception:
+                    pass
                 raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
 
     # Prepare input reference images
@@ -1469,6 +1518,38 @@ def admin_regenerate_page(
         )
 
     if result.get("status") != "success" or not result.get("output_path"):
+        # Explicitly surface admin regenerate failures to Sentry even if this is not a Python exception
+        try:
+            if sentry_sdk is not None:  # type: ignore[name-defined]
+                from sentry_sdk import push_scope  # type: ignore
+                with push_scope() as scope:  # type: ignore
+                    scope.set_tag("feature", "admin_regenerate_page")
+                    scope.set_tag("book_id", str(book.id))
+                    scope.set_tag("page", str(page))
+                    scope.set_tag("mode", payload.mode)
+                    scope.set_extra("result_status", result.get("status"))
+                    scope.set_extra("result_error", result.get("error"))
+                    scope.set_extra("workflow_slug", workflow_slug)
+                    scope.set_extra("workflow_version", workflow_version)
+                    scope.set_extra("prompt_id", result.get("prompt_id"))
+                    event_id = sentry_sdk.capture_message(
+                        f"Admin page regenerate failed (book={book.id}, page={page})",
+                        level="error",
+                    )
+                    # Console visibility for quick verification in container logs
+                    try:
+                        print(
+                            f"[Sentry] admin_regenerate_page failure captured: book={book.id} page={page} event_id={event_id}"
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            # Never block API response due to telemetry issues
+            pass
+        try:
+            print(f"[AdminRegenerate] failed book={book.id} page={page} status={result.get('status')} error={result.get('error')}")
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=f"Regeneration failed: {result.get('error')}")
 
     # Move output and update DB
@@ -1517,6 +1598,10 @@ def admin_regenerate_page(
 
     db.commit()
 
+    try:
+        print(f"[AdminRegenerate] success book={book.id} page={page} output={new_output_path}")
+    except Exception:
+        pass
     return {
         "message": "Page regenerated",
         "output_path": new_output_path,
@@ -1783,6 +1868,46 @@ def _resolve_media_path(raw_path: str) -> Path:
         raise HTTPException(status_code=404, detail="File not found")
     return candidate
 
+def _thumbs_dir() -> Path:
+    media_root = Path(os.getenv("MEDIA_ROOT", "/data/media")).resolve()
+    d = media_root / "thumbs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> Path:
+    """Create or return a cached thumbnail for the given file and size for admin previews.
+
+    Preserves aspect ratio; if height is None, computes based on width.
+    Saves under MEDIA_ROOT/thumbs with a deterministic name.
+    """
+    file_path = Path(file_path)
+    w = max(1, int(width))
+    h = int(height) if (height and int(height) > 0) else 0
+    stem = file_path.stem
+    ext = file_path.suffix.lower() or ".jpg"
+    target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
+    try:
+        if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
+            return target
+    except Exception:
+        pass
+    with PILImage.open(str(file_path)) as img:
+        ow, oh = img.size
+        if h <= 0:
+            ratio = w / float(ow)
+            h_eff = max(1, int(round(oh * ratio)))
+        else:
+            h_eff = h
+        img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+        img_thumb = img.copy()
+        img_thumb.thumbnail((w, h_eff))
+        save_kwargs = {}
+        if ext in (".jpg", ".jpeg"):
+            save_kwargs.update({"quality": 82, "optimize": True, "progressive": True})
+        img_thumb.save(str(target), **save_kwargs)
+    return target
+
 
 @router.get("/files")
 def admin_get_file(path: str, _: None = Depends(require_admin)):
@@ -1790,16 +1915,39 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return FileResponse(file_path)
+
+@router.get("/media/resize")
+def admin_media_resize(
+    path: str = Query(...),
+    w: int = Query(320, ge=1),
+    h: Optional[int] = Query(None, ge=1),
+    _: None = Depends(require_admin),
+):
+    if not path:
+        raise HTTPException(status_code=400, detail="Missing path")
+    file_path = _resolve_media_path(path)
+    try:
+        thumb = _build_thumb(Path(file_path), int(w), int(h) if h else None)
+        return FileResponse(str(thumb), headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as exc:
+        # Fallback to original image on failure
+        try:
+            print(f"[AdminResize] Failed to resize '{file_path}': {exc}")
+        except Exception:
+            pass
+        return FileResponse(str(file_path), headers={"Cache-Control": "public, max-age=600"})
 # New workflow inspector using DB-backed stories/workflows
 @router.get("/books/{book_id}/workflow")
 def admin_get_workflow(
     book_id: int,
-    page: int = Query(1, ge=0),
+
+    page: int = Query(0, ge=0),
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
+
         raise HTTPException(status_code=404, detail="Book not found")
 
     story_template = _load_story_template(book.template_key)
@@ -1819,14 +1967,27 @@ def admin_get_workflow(
     image_paths = _load_original_images(book)
     filenames = [Path(p).name for p in image_paths]
 
-    snapshots = (
+    snapshot_rows = (
         db.query(BookWorkflowSnapshot.page_number)
         .filter(BookWorkflowSnapshot.book_id == book_id)
         .distinct()
-        .order_by(BookWorkflowSnapshot.page_number)
         .all()
     )
-    available_pages = [row.page_number for row in snapshots]
+    snapshot_pages = [row.page_number for row in snapshot_rows]
+
+    page_rows = (
+        db.query(BookPage.page_number)
+        .filter(BookPage.book_id == book_id)
+        .all()
+    )
+    page_numbers = [row.page_number for row in page_rows]
+
+    available_set = {0}
+    available_set.update(p for p in snapshot_pages if p is not None)
+    available_set.update(p for p in page_numbers if p is not None)
+    if page not in available_set:
+        available_set.add(page)
+    available_pages = sorted(available_set)
 
     snapshot = (
         db.query(BookWorkflowSnapshot)
@@ -1881,6 +2042,11 @@ def admin_get_workflow(
             "available_pages": available_pages,
             "workflow_version": snapshot.workflow_version,
             "workflow_slug": snapshot.workflow_slug,
+            # Include page/book error metadata for admin UI
+            "image_status": page_record.image_status if page_record else None,
+            "image_error": page_record.image_error if page_record else None,
+            "book_status": book.status,
+            "book_error_message": book.error_message,
         }
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
@@ -1943,6 +2109,11 @@ def admin_get_workflow(
         "available_pages": available_pages,
         "workflow_version": definition.version,
         "workflow_slug": workflow_slug,
+        # Include page/book error metadata for admin UI
+        "image_status": target_page.image_status if target_page else None,
+        "image_error": target_page.image_error if target_page else None,
+        "book_status": book.status,
+        "book_error_message": book.error_message,
     }
 
 @router.post("/test/comfy-run")

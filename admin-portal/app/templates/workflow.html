@@ -16,6 +16,9 @@
     {% if metadata.workflow_version is not none %}
     <p><strong>Workflow Version:</strong> {{ metadata.workflow_version }}</p>
     {% endif %}
+    {% if metadata.image_status %}
+    <p><strong>Image Status:</strong> {{ metadata.image_status }}</p>
+    {% endif %}
     {% if metadata.regenerate_mode %}
     <p><strong>Regenerated Via:</strong>
       {% if metadata.regenerate_mode == 'edited' %}
@@ -55,24 +58,50 @@
     {% if metadata.prompt %}
     <p><strong>Positive Prompt:</strong> {{ metadata.prompt }}</p>
     {% endif %}
+    {% if metadata.image_error %}
+    <div class="alert alert-error" style="margin-top:12px;">
+      <strong>Rendering Error:</strong> {{ metadata.image_error }}
+    </div>
+    {% elif metadata.book_error_message %}
+    <div class="alert alert-error" style="margin-top:12px;">
+      <strong>Book Error:</strong> {{ metadata.book_error_message }}
+    </div>
+    {% endif %}
 </div>
+
+{% if page_image_path %}
+<div class="mdc-card" style="padding: 16px; margin-bottom: 16px;">
+    <h3 class="mdc-typography--headline6">Page {{ current_page }} Image</h3>
+    <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+      <div>
+        <img src="/files-proxy?path={{ page_image_path | urlencode }}&w=320" alt="Page {{ current_page }} image" style="max-width: 100%; width: 320px; height: auto; border-radius: 10px; border:1px solid rgba(0,0,0,.12);" loading="lazy">
+        <div style="margin-top:8px;">
+          <code style="font-size:.85rem; word-break: break-all;">{{ page_image_path }}</code>
+        </div>
+      </div>
+    </div>
+    <div class="mdc-typography--caption" style="opacity:.75; margin-top:8px;">
+      Served via admin resize proxy at width=320 for faster loads.
+    </div>
+  </div>
+{% endif %}
 
 <div class="mdc-card" style="padding: 16px;">
     <h3 class="mdc-typography--headline6">Workflow JSON</h3>
-    <form method="post" action="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-edited" class="form-grid one-col">
+    <form method="post" action="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-edited" class="form-grid one-col" data-loading="Regenerating...">
       <div class="full">
         <label for="workflow_json">Edit workflow for page {{ current_page }}</label>
         <textarea id="workflow_json" name="workflow_json" rows="26" wrap="off" style="width:100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; white-space: pre; tab-size: 2; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; overflow: auto;">{{ workflow_text | safe }}</textarea>
       </div>
       <div class="form-actions full" style="display:flex; gap: 8px; align-items:center;">
         <button type="submit" class="mdc-button mdc-button--unelevated">Regenerate with edited workflow</button>
-        <a href="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-template" class="mdc-button mdc-button--outlined" onclick="event.preventDefault(); document.getElementById('regen-tpl').submit();">Regenerate from template</a>
+        <a href="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-template" class="mdc-button mdc-button--outlined" onclick="event.preventDefault(); (function(el){ try{ el.classList.add('btn-loading'); el.setAttribute('aria-disabled','true'); el.style.pointerEvents='none'; el.textContent='Regenerating...'; }catch(_){} document.getElementById('regen-tpl').submit(); })(this);">Regenerate from template</a>
         <button type="button" class="mdc-button" onclick="(function(){try{var ta=document.getElementById('workflow_json');ta.value=JSON.stringify(JSON.parse(ta.value), null, 2);}catch(e){alert('Invalid JSON: '+e.message);}})()">Beautify</button>
         <button type="button" class="mdc-button" onclick="(function(){var ta=document.getElementById('workflow_json');ta.select();document.execCommand('copy');})()">Copy</button>
       </div>
     </form>
     <form id="regen-tpl" method="post" action="/books/{{ book_id }}/pages/{{ current_page }}/regenerate-template"></form>
-</div>
+  </div>
 
 <script>
   // Auto-beautify once on load if the JSON is valid but minified

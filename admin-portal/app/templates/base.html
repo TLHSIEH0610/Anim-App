@@ -127,6 +127,21 @@
             if (!el) return;
             el.classList.toggle('hidden');
           });
+
+          const loadingForms = document.querySelectorAll('form[data-loading]');
+          loadingForms.forEach(function(form){
+            form.addEventListener('submit', function(){
+              const btn = form.querySelector('button[type="submit"]');
+              if (!btn || btn.classList.contains('btn-loading')) return;
+              btn.classList.add('btn-loading');
+              btn.disabled = true;
+              const label = btn.querySelector('.mdc-button__label');
+              if (label) {
+                const text = form.getAttribute('data-loading') || 'Processing...';
+                label.textContent = text;
+              }
+            });
+          });
         });
     </script>
 </body>
