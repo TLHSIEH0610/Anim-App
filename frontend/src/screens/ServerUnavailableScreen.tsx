@@ -24,18 +24,18 @@ const ServerUnavailableScreen = ({ isChecking, onRetry, lastChecked, lastError }
     <SafeAreaView style={styles.safeArea} edges={['top','bottom']}>
       <View style={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>Server is resting</Text>
+          <Text style={styles.title}>We’ll be right back ✨</Text>
           <Text style={styles.message}>
-            We can’t talk to the story server right now. Please check your connection or try again
-            in a moment.
+            Our story servers are taking a quick maintenance break. Your books are safe and
+            we’ll be back online shortly.
           </Text>
           {lastError ? <Text style={styles.errorHint}>{lastError}</Text> : null}
           {lastChecked ? (
             <Text style={styles.timestamp}>Last check: {formatTimestamp(lastChecked)}</Text>
           ) : null}
-          <Button title="Retry Connection" onPress={onRetry} loading={isChecking} disabled={isChecking} />
+          <Button title="Try Again" onPress={onRetry} loading={isChecking} disabled={isChecking} />
         </View>
-        <Text style={styles.footerNote}>The app will retry automatically when you come back.</Text>
+        <Text style={styles.footerNote}>No action needed — we’ll retry automatically, or tap Try Again.</Text>
       </View>
     </SafeAreaView>
   );
