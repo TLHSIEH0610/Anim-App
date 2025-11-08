@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, Alert, Platform } from "react-native";
 import { Image } from "expo-image";
 import { ActivityIndicator, Chip } from "react-native-paper";
 import {
   getStoryTemplates,
   StoryTemplateSummary,
   getThumbUrl,
+  getStoryCoverUrl,
 } from "../api/books";
 import ScreenWrapper from "../components/ScreenWrapper";
 import BottomNav from "../components/BottomNav";
@@ -44,13 +45,15 @@ function TemplateItem({
 }) {
   const { token } = useAuth();
   const [failed, setFailed] = useState(false);
+  const [useAltCover, setUseAltCover] = useState(false);
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
   // Only attempt to load when token is available to avoid 401s that set failed=true
   const canLoad = !!token && !!item.cover_path;
   const coverUrl = canLoad ? getThumbUrl({ path: item.cover_path!, token, width: 320, version: (item as any).version }) : null;
-  const source =
-    coverUrl && !failed ? ({ uri: coverUrl } as any) : fallbackCover;
+  const altCoverUrl = canLoad ? getStoryCoverUrl(item.cover_path!, token || null) : null;
+  const chosenUrl = !useAltCover ? coverUrl : altCoverUrl;
+  const source = chosenUrl && !failed ? ({ uri: chosenUrl } as any) : fallbackCover;
 
   // Reset failure state when URL changes (e.g., when token becomes available)
   React.useEffect(() => {
@@ -73,19 +76,6 @@ function TemplateItem({
   React.useEffect(() => {
     if (coverUrl) {
       console.log("[Books] Cover URL", { slug: item.slug, coverUrl });
-      // Try prefetch to surface any network errors early
-      // Note: boolean result indicates cache success; failures will reject
-      // @ts-ignore RN Image API
-      Image.prefetch(coverUrl)
-        .then((ok: boolean) =>
-          console.log("[Books] Prefetch result", { slug: item.slug, ok })
-        )
-        .catch((err: any) =>
-          console.log("[Books] Prefetch error", {
-            slug: item.slug,
-            err: String(err),
-          })
-        );
     } else {
       console.log("[Books] No cover URL available yet", {
         slug: item.slug,
@@ -130,7 +120,7 @@ function TemplateItem({
         <View style={styles.leftCol}>
           <View style={[styles.coverThumbWrap, { width: imgWidth }]}>
             <Image
-              key={coverUrl || "fallback"}
+              key={chosenUrl || "fallback"}
               source={source as any}
               style={[
                 styles.coverThumb,
@@ -140,7 +130,17 @@ function TemplateItem({
               cachePolicy="memory-disk"
               placeholder={{ blurhash: BLURHASH }}
               transition={150}
-              onError={() => setFailed(true)}
+              onError={(e: any) => {
+                try {
+                  console.warn('[Books][CoverError]', item.slug, chosenUrl, e?.error || e);
+                } catch {}
+                // Try alternate non-resized cover once before falling back to app icon
+                if (!useAltCover && altCoverUrl) {
+                  setUseAltCover(true);
+                } else {
+                  setFailed(true);
+                }
+              }}
               onLoad={handleImageLoad}
             />
           </View>
@@ -157,27 +157,16 @@ function TemplateItem({
               {(() => {
                 const base = (item as any).price_dollars as number | undefined;
                 const final = (item as any).final_price as number | undefined;
-                const discount = (item as any).discount_price as
-                  | number
-                  | undefined;
+                const discount = (item as any).discount_price as number | undefined;
                 const currency = (item as any).currency as string | undefined;
-                const promo = (item as any).promotion_label as
-                  | string
-                  | undefined;
+                const promo = (item as any).promotion_label as string | undefined;
                 const isFree = typeof final === "number" && final <= 0;
-                const isDiscount =
-                  typeof discount === "number" &&
-                  typeof base === "number" &&
-                  discount < base;
+                const isDiscount = typeof discount === "number" && typeof base === "number" && discount < base;
                 if (isDiscount && typeof discount === "number" && typeof base === "number") {
                   return (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={styles.priceOriginal}>
-                        {formatCurrency(base, currency)}
-                      </Text>
-                      <Text style={styles.priceFinal}>
-                        {formatCurrency(discount, currency)}
-                      </Text>
+                      <Text style={styles.priceOriginal}>{formatCurrency(base, currency)}</Text>
+                      <Text style={styles.priceFinal}>{formatCurrency(discount, currency)}</Text>
                     </View>
                   );
                 }
@@ -185,18 +174,10 @@ function TemplateItem({
                   return <Text style={styles.priceFinal}>Free</Text>;
                 }
                 if (typeof final === "number") {
-                  return (
-                    <Text style={styles.priceFinal}>
-                      {formatCurrency(final, currency)}
-                    </Text>
-                  );
+                  return <Text style={styles.priceFinal}>{formatCurrency(final, currency)}</Text>;
                 }
                 if (typeof base === "number") {
-                  return (
-                    <Text style={styles.priceFinal}>
-                      {formatCurrency(base, currency)}
-                    </Text>
-                  );
+                  return <Text style={styles.priceFinal}>{formatCurrency(base, currency)}</Text>;
                 }
                 return <Text style={styles.meta}>Pricing unavailable</Text>;
               })()}
@@ -219,6 +200,7 @@ function TemplateItem({
 export default function AllBooksScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<StoryTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -229,7 +211,12 @@ export default function AllBooksScreen() {
       setError(null);
       try {
         const res = await getStoryTemplates();
-        setTemplates(res.stories || []);
+        const items = res.stories || [];
+        const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+        const filtered = isAdmin
+          ? items
+          : items.filter((t) => !(t.free_trial_slug && t.free_trial_consumed));
+        setTemplates(filtered);
       } catch (e) {
         setError("Failed to load stories");
       } finally {
@@ -237,7 +224,7 @@ export default function AllBooksScreen() {
       }
     };
     load();
-  }, []);
+  }, [user?.role]);
 
   const handleChoose = (slug: string, template?: StoryTemplateSummary) => {
     if (template) {
@@ -329,6 +316,13 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headingM,
     color: colors.textPrimary,
+    // Make the title feel a bit more magical without adding new fonts
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }) as any,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(157, 78, 221, 0.35)', // soft lavender glow
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   desc: {
     ...typography.body,

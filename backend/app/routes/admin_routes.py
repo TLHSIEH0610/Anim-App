@@ -29,6 +29,7 @@ from ..models import (
     StoryTemplate,
     StoryTemplatePage,
     ControlNetImage,
+    SupportTicket,
 )
 from ..comfyui_client import ComfyUIClient
 from ..worker.book_processor import (
@@ -889,6 +890,52 @@ def admin_restore_backup(payload: BackupRestorePayload, _: None = Depends(requir
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"message": f"Restore of {payload.timestamp} completed"}
+
+
+@router.get("/support/tickets")
+def admin_list_support_tickets(_: None = Depends(require_admin), db: Session = Depends(get_db)):
+    rows = (
+        db.query(SupportTicket)
+        .order_by(SupportTicket.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    items = []
+    for t in rows:
+        items.append(
+            {
+                "id": t.id,
+                "user_email": t.user_email,
+                "subject": t.subject,
+                "category": t.category,
+                "status": t.status,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+        )
+    return {"tickets": items}
+
+
+@router.get("/support/tickets/{ticket_id}")
+def admin_get_support_ticket(ticket_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
+    t = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {
+        "id": t.id,
+        "user_id": t.user_id,
+        "user_email": t.user_email,
+        "subject": t.subject,
+        "body": t.body,
+        "category": t.category,
+        "book_id": t.book_id,
+        "status": t.status,
+        "app_version": t.app_version,
+        "build": t.build,
+        "device_os": t.device_os,
+        "api_base": t.api_base,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
 
 
 @router.post("/users/{user_id}/update")

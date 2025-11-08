@@ -73,6 +73,9 @@ class Book(Base):
     pdf_generated_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
     
+    # Snapshot of template description at creation time (for card display)
+    template_description = Column(Text)
+    
     # Relationships
     user = relationship("User", back_populates="books")
     pages = relationship("BookPage", back_populates="book", cascade="all, delete-orphan")
@@ -114,6 +117,27 @@ class BookPage(Base):
     
     # Relationships
     book = relationship("Book", back_populates="pages")
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    user_email = Column(String(255), nullable=False)
+    subject = Column(String(120), nullable=False)
+    body = Column(Text, nullable=False)
+    category = Column(String(32))
+    book_id = Column(Integer)
+    status = Column(String(16), default="open")  # open|closed
+    app_version = Column(String(32))
+    build = Column(String(32))
+    device_os = Column(String(32))
+    api_base = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
 
 
 class BookWorkflowSnapshot(Base):

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mdc-typography--headline5">Ticket #{{ ticket.id }}</h2>
+
+<div class="mdc-card" style="padding:16px;">
+  <p><strong>User:</strong> {{ ticket.user_email }} (ID {{ ticket.user_id }})</p>
+  <p><strong>Created:</strong> {{ ticket.created_at }}</p>
+  <p><strong>Status:</strong> {{ ticket.status }}</p>
+  <p><strong>Category:</strong> {{ ticket.category or '—' }}</p>
+  {% if ticket.book_id %}
+  <p><strong>Book ID:</strong> {{ ticket.book_id }}</p>
+  {% endif %}
+  <p><strong>Subject:</strong> {{ ticket.subject }}</p>
+  <p><strong>Message:</strong></p>
+  <pre style="white-space:pre-wrap; background:#fafafa; padding:12px; border-radius:8px; border:1px solid #eee;">{{ ticket.body }}</pre>
+  <div class="mdc-typography--caption" style="opacity:.75; margin-top:8px;">
+    App {{ ticket.app_version or 'n/a' }} ({{ ticket.build or 'build' }}), Device {{ ticket.device_os or 'n/a' }}, API {{ ticket.api_base or 'n/a' }}
+  </div>
+</div>
+
+<a href="/support" class="mdc-button" style="margin-top:16px;">Back to tickets</a>
+{% endblock %}
+

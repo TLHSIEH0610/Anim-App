@@ -188,6 +188,7 @@ export interface Book {
   title: string;
   story_source?: string;
   template_key?: string;
+  template_description?: string | null;
   template_params?: TemplateParams;
   theme?: string;
   target_age?: string;

@@ -1704,3 +1704,41 @@ async def delete_book(book_id: int, request: Request):
             f"/dashboard?error={quote_plus(str(exc))}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+
+
+@app.get("/support", response_class=HTMLResponse)
+async def support_list(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        resp = await backend_request("GET", "/admin/support/tickets")
+        data = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return templates.TemplateResponse(
+        "support_list.html",
+        {"request": request, "tickets": data.get("tickets", []), "admin_email": session.get("email")},
+    )
+
+
+@app.get("/support/{ticket_id}", response_class=HTMLResponse)
+async def support_detail(ticket_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        resp = await backend_request("GET", f"/admin/support/tickets/{ticket_id}")
+        data = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/support?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return templates.TemplateResponse(
+        "support_detail.html",
+        {"request": request, "ticket": data, "admin_email": session.get("email")},
+    )
