@@ -4,7 +4,7 @@ import ScreenWrapper from "../components/ScreenWrapper";
 import BottomNav from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, spacing, typography } from "../styles/theme";
-import { useNavigation } from "@react-navigation/native";
+ 
 import Button from "../components/Button";
 import Header from "../components/Header";
 import { getStoryTemplates } from "../api/books";
