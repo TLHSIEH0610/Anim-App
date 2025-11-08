@@ -742,9 +742,17 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
     ext = file_path.suffix.lower() or ".jpg"
     target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
     try:
-        # If cached newer than source, reuse
-        if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
-            return target
+        # If cached newer than source and non-empty, reuse; if empty, delete and rebuild
+        if target.exists():
+            t_stat = target.stat()
+            f_stat = file_path.stat()
+            if t_stat.st_size > 0 and t_stat.st_mtime >= f_stat.st_mtime:
+                return target
+            if t_stat.st_size <= 0:
+                try:
+                    target.unlink()
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -845,6 +853,5 @@ def get_story_cover(path: str, request: Request, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return _file_response_with_etag(file_path, "private, max-age=600", request)
-
 
 

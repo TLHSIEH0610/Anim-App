@@ -149,24 +149,22 @@ export default function Button({
       contentStyle={contentStyle as any}
       compact={size === "sm"}
       style={[styles.paperBase, style]}
-      icon={
-        leftIcon
-          ? () => (
-              <View
-                style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}
-              >
-                {leftIcon}
-              </View>
-            )
-          : undefined
-      }
     >
+      {leftIcon ? (
+        <View style={[styles.iconLeft, isIconOnly && styles.iconOnlyMargin]}>
+          {leftIcon}
+        </View>
+      ) : null}
       {title ? (
         <Text style={[labelStyle as any, { color: finalTextColor }]}>
           {title}
         </Text>
       ) : null}
-      {rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
+      {rightIcon ? (
+        <View style={[styles.iconRight, isIconOnly && styles.iconOnlyRight]}>
+          {rightIcon}
+        </View>
+      ) : null}
     </PaperButton>
   );
 }
@@ -213,6 +211,9 @@ const styles = StyleSheet.create({
   },
   iconRight: {
     marginLeft: spacing(2),
+  },
+  iconOnlyRight: {
+    marginLeft: 0,
   },
   label: {
     ...typography.body,

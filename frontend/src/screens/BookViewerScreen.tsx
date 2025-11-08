@@ -1,34 +1,64 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Dimensions, Share, Platform } from 'react-native';
-import { Image } from 'expo-image';
-import { ActivityIndicator as PaperActivityIndicator, TouchableRipple, Snackbar } from 'react-native-paper';
-import { getBookDetails, getBookPdfUrl, adminRegenerateBook, BookPreview, getBookPageImageUrl } from '../api/books';
-import { useAuth } from '../context/AuthContext';
-import * as FileSystem from 'expo-file-system';
-import { colors, radii, shadow, spacing, typography } from '../styles/theme';
-const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppStackParamList } from '../navigation/types';
-import ScreenWrapper from '../components/ScreenWrapper';
-import Header from '../components/Header';
-import Button from '../components/Button';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Dimensions,
+  Share,
+  Platform,
+} from "react-native";
+import { Image } from "expo-image";
+import {
+  ActivityIndicator as PaperActivityIndicator,
+  TouchableRipple,
+  Snackbar,
+} from "react-native-paper";
+import {
+  getBookDetails,
+  getBookPdfUrl,
+  adminRegenerateBook,
+  BookPreview,
+  getBookPageImageUrl,
+} from "../api/books";
+import { useAuth } from "../context/AuthContext";
+import * as FileSystem from "expo-file-system";
+import { colors, radii, shadow, spacing, typography } from "../styles/theme";
+const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { AppStackParamList } from "../navigation/types";
+import ScreenWrapper from "../components/ScreenWrapper";
+import Header from "../components/Header";
+import Button from "../components/Button";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get("window");
 
-type BookViewerScreenProps = NativeStackScreenProps<AppStackParamList, 'BookViewer'>;
+type BookViewerScreenProps = NativeStackScreenProps<
+  AppStackParamList,
+  "BookViewer"
+>;
 
-export default function BookViewerScreen({ route, navigation }: BookViewerScreenProps) {
+export default function BookViewerScreen({
+  route,
+  navigation,
+}: BookViewerScreenProps) {
   const { bookId } = route.params;
   const { token, user } = useAuth();
   const [bookData, setBookData] = useState<BookPreview | null>(null);
-  const [bookImageVersion, setBookImageVersion] = useState<string | number | null>(null);
+  const [bookImageVersion, setBookImageVersion] = useState<
+    string | number | null
+  >(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
   const [pageAspect, setPageAspect] = useState<Record<number, number>>({});
   const [isDownloading, setIsDownloading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
+  const [snackbar, setSnackbar] = useState<{
+    visible: boolean;
+    message: string;
+  }>({ visible: false, message: "" });
 
   // Compute current page and image URL early so Hook order stays stable across renders
   const currentPageData = useMemo(() => {
@@ -41,10 +71,21 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
 
   const currentImageUrl = useMemo(() => {
     try {
-      if (!currentPageData || currentPageData.image_status !== 'completed') return null;
+      if (!currentPageData || currentPageData.image_status !== "completed")
+        return null;
       const width = Math.min(Math.round(screenWidth), 1200);
-      const v = (currentPageData as any)?.image_completed_at || bookImageVersion || undefined;
-      return getBookPageImageUrl(bookId, currentPageData.page_number, token || undefined, width, undefined, v);
+      const v =
+        (currentPageData as any)?.image_completed_at ||
+        bookImageVersion ||
+        undefined;
+      return getBookPageImageUrl(
+        bookId,
+        currentPageData.page_number,
+        token || undefined,
+        width,
+        undefined,
+        v
+      );
     } catch {
       return null;
     }
@@ -54,7 +95,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
 
   const loadBookData = async () => {
     if (!token) return;
-    
+
     try {
       // Fetch lightweight book metadata + pages (no base64 images)
       const details = await getBookDetails(token, bookId);
@@ -73,7 +114,11 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       };
       setBookData(mapped);
       // Version token for caching; changes when the book updates/regenerates
-      const v: any = (details as any).completed_at || (details as any).updated_at || (details as any).created_at || null;
+      const v: any =
+        (details as any).completed_at ||
+        (details as any).updated_at ||
+        (details as any).created_at ||
+        null;
       setBookImageVersion(v);
       // Prefetch first couple of page images for snappier display
       try {
@@ -81,23 +126,35 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         const prefetchIndexes = [0, 1];
         prefetchIndexes.forEach((idx) => {
           const pg: any = mapped.pages[idx] as any;
-          if (pg && pg.image_status === 'completed') {
+          if (pg && pg.image_status === "completed") {
             const pv = pg.image_completed_at || v;
-            const url = getBookPageImageUrl(bookId, pg.page_number, token, width, undefined, pv);
+            const url = getBookPageImageUrl(
+              bookId,
+              pg.page_number,
+              token,
+              width,
+              undefined,
+              pv
+            );
             Image.prefetch?.(url);
           }
         });
       } catch {}
     } catch (error: any) {
-      console.error('Error loading book:', error);
-      setSnackbar({ visible: true, message: 'Failed to load book preview' });
+      console.error("Error loading book:", error);
+      setSnackbar({ visible: true, message: "Failed to load book preview" });
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadToDocumentDirectory = async (sourceUri: string, fileName: string) => {
-    const destinationPath = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
+  const downloadToDocumentDirectory = async (
+    sourceUri: string,
+    fileName: string
+  ) => {
+    const destinationPath = `${
+      FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ""
+    }${fileName}`;
     const downloadResult = await FileSystem.downloadAsync(
       sourceUri,
       destinationPath,
@@ -118,30 +175,47 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     try {
       setIsDownloading(true);
       const pdfUrl = getBookPdfUrl(bookId);
-      const fileName = `${bookData.title?.replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'book'}.pdf`;
+      const fileName = `${
+        bookData.title?.replace(/[^a-z0-9]+/gi, "_").toLowerCase() || "book"
+      }.pdf`;
       const localPath = await downloadToDocumentDirectory(pdfUrl, fileName);
 
-      if (Platform.OS === 'android') {
+      if (Platform.OS === "android") {
         try {
-          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          const permissions =
+            await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
           if (!permissions.granted) {
-            setSnackbar({ visible: true, message: 'Storage permission is required to save the PDF.' });
+            setSnackbar({
+              visible: true,
+              message: "Storage permission is required to save the PDF.",
+            });
             return;
           }
 
-          const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
-            permissions.directoryUri,
-            fileName,
-            'application/pdf'
-          );
+          const targetUri =
+            await FileSystem.StorageAccessFramework.createFileAsync(
+              permissions.directoryUri,
+              fileName,
+              "application/pdf"
+            );
           // Read the downloaded PDF and write it directly without reprocessing
-          const fileBase64 = await FileSystem.readAsStringAsync(localPath, { encoding: FileSystem.EncodingType.Base64 });
-          await FileSystem.writeAsStringAsync(targetUri, fileBase64, { encoding: FileSystem.EncodingType.Base64 });
+          const fileBase64 = await FileSystem.readAsStringAsync(localPath, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
 
-          setSnackbar({ visible: true, message: 'PDF saved to the folder you selected.' });
+          setSnackbar({
+            visible: true,
+            message: "PDF saved to the folder you selected.",
+          });
         } catch (androidError) {
-          console.error('Android PDF save error:', androidError);
-          setSnackbar({ visible: true, message: 'Could not save the PDF. Please try again.' });
+          console.error("Android PDF save error:", androidError);
+          setSnackbar({
+            visible: true,
+            message: "Could not save the PDF. Please try again.",
+          });
         }
       } else {
         // iOS can share the downloaded file path directly
@@ -152,13 +226,15 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
         });
       }
     } catch (error: any) {
-      console.error('PDF download error:', error);
-      setSnackbar({ visible: true, message: 'Unable to download PDF. Please try again.' });
+      console.error("PDF download error:", error);
+      setSnackbar({
+        visible: true,
+        message: "Unable to download PDF. Please try again.",
+      });
     } finally {
       setIsDownloading(false);
     }
   };
-
 
   const handleShare = async () => {
     if (!bookData) {
@@ -174,37 +250,47 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       if (page?.text) {
         messageParts.push(page.text.trim());
       }
-      const message = messageParts.length > 0
-        ? messageParts.join('\n\n')
-        : 'Check out this story!';
+      const message =
+        messageParts.length > 0
+          ? messageParts.join("\n\n")
+          : "Check out this story!";
 
       await Share.share({
-        title: bookData.title || 'My Storybook',
+        title: bookData.title || "My Storybook",
         message,
       });
     } catch (error: any) {
-      console.error('Share error:', error);
-      setSnackbar({ visible: true, message: 'Unable to open the share sheet.' });
+      console.error("Share error:", error);
+      setSnackbar({
+        visible: true,
+        message: "Unable to open the share sheet.",
+      });
     }
   };
 
   const handleAdminRegenerate = () => {
     if (!bookData) return;
-    setSnackbar({ visible: true, message: 'Regeneration starting...' });
+    setSnackbar({ visible: true, message: "Regeneration starting..." });
     (async () => {
       try {
         setLoading(true);
         if (!token) {
-          setSnackbar({ visible: true, message: 'Session expired. Please log in again.' });
+          setSnackbar({
+            visible: true,
+            message: "Session expired. Please log in again.",
+          });
           setLoading(false);
           return;
         }
         await adminRegenerateBook(token, bookId);
-        setSnackbar({ visible: true, message: 'Book regeneration started!' });
+        setSnackbar({ visible: true, message: "Book regeneration started!" });
         await loadBookData();
       } catch (error: any) {
-        console.error('Error regenerating book:', error);
-        setSnackbar({ visible: true, message: 'Failed to regenerate book. Please try again.' });
+        console.error("Error regenerating book:", error);
+        setSnackbar({
+          visible: true,
+          message: "Failed to regenerate book. Please try again.",
+        });
       } finally {
         setLoading(false);
       }
@@ -240,9 +326,16 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     const indices = [currentPage, currentPage + 1];
     indices.forEach((idx) => {
       const pg: any = bookData.pages[idx] as any;
-      if (pg && pg.image_status === 'completed') {
+      if (pg && pg.image_status === "completed") {
         const pv = pg.image_completed_at || bookImageVersion || undefined;
-        const url = getBookPageImageUrl(bookId, pg.page_number, token, width, undefined, pv);
+        const url = getBookPageImageUrl(
+          bookId,
+          pg.page_number,
+          token,
+          width,
+          undefined,
+          pv
+        );
         Image.prefetch?.(url);
       }
     });
@@ -261,7 +354,11 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Book not found or failed to load</Text>
-        <Button title="Go Back" onPress={() => navigation.goBack()} variant="secondary" />
+        <Button
+          title="Go Back"
+          onPress={() => navigation.goBack()}
+          variant="secondary"
+        />
       </View>
     );
   }
@@ -269,160 +366,224 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
   const isCoverPage = currentPageData?.page_number === 0 || currentPage === 0;
   const defaultCoverAspect = 1152 / 1600;
   const defaultPageAspect = 4 / 3;
-  const currentAspect = pageAspect[currentPage] || (isCoverPage ? defaultCoverAspect : defaultPageAspect);
+  const currentAspect =
+    pageAspect[currentPage] ||
+    (isCoverPage ? defaultCoverAspect : defaultPageAspect);
 
   // debug overlay removed
 
   return (
     <ScreenWrapper>
-    <View style={styles.container}>
-      <Header title={bookData.title} showBack  />
+      <View style={styles.container}>
+        <Header title={bookData.title} showBack />
 
-      {/* Book Content */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.bookPage}>
-          {/* Image Section */}
-          <View style={[styles.imageSection, isCoverPage && styles.imageSectionCover]}>
-            {(() => {
-              if (currentPageData?.image_status === 'completed') {
-                const url = currentImageUrl;
-                return (
-                  <Image
-                    source={{ uri: url || undefined }}
-                    style={{ width: '100%', aspectRatio: currentAspect }}
-                    contentFit={isCoverPage ? 'cover' : 'contain'}
-                    cachePolicy={bookData.status === 'completed' ? 'memory-disk' : 'none'}
-                    placeholder={{ blurhash: BLURHASH }}
-                    transition={150}
-                    onLoadStart={() => {
-                      setImageLoading(prev => ({ ...prev, [currentPage]: true }));
-                    }}
-                    onLoad={(e: any) => {
-                      const w = e?.source?.width;
-                      const h = e?.source?.height;
-                      if (w && h) {
-                        setPageAspect(prev => ({ ...prev, [currentPage]: w / h }));
+        {/* Book Content */}
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+        >
+          <View style={styles.bookPage}>
+            {/* Image Section */}
+            <View
+              style={[
+                styles.imageSection,
+                isCoverPage && styles.imageSectionCover,
+              ]}
+            >
+              {(() => {
+                if (currentPageData?.image_status === "completed") {
+                  const url = currentImageUrl;
+                  return (
+                    <Image
+                      source={{ uri: url || undefined }}
+                      style={{ width: "100%", aspectRatio: currentAspect }}
+                      contentFit={isCoverPage ? "cover" : "contain"}
+                      cachePolicy={
+                        bookData.status === "completed" ? "memory-disk" : "none"
                       }
-                      setImageLoading(prev => ({ ...prev, [currentPage]: false }));
-                    }}
-                    onError={(e: any) => {
-                      try {
-                        const msg = e?.error?.message || String(e?.error || 'Image load failed');
-                        // eslint-disable-next-line no-console
-                        console.warn('[BookViewer] image load error', msg, url);
-                      } catch {}
-                      setImageLoading(prev => ({ ...prev, [currentPage]: false }));
-                    }}
-                  />
-                );
-              } else if (currentPageData?.image_status === 'processing') {
-                return (
-                  <View style={styles.placeholderImage}>
-                    <PaperActivityIndicator size="large" />
-                    <Text style={styles.placeholderText}>Creating illustration...</Text>
-                  </View>
-                );
-              } else {
-                return (
-                  <View style={styles.placeholderImage}>
-                    <Text style={styles.placeholderIcon}>🎨</Text>
-                    <Text style={styles.placeholderText}>Illustration not ready</Text>
-                  </View>
-                );
-              }
-            })()}
+                      placeholder={{ blurhash: BLURHASH }}
+                      transition={150}
+                      onLoadStart={() => {
+                        setImageLoading((prev) => ({
+                          ...prev,
+                          [currentPage]: true,
+                        }));
+                      }}
+                      onLoad={(e: any) => {
+                        const w = e?.source?.width;
+                        const h = e?.source?.height;
+                        if (w && h) {
+                          setPageAspect((prev) => ({
+                            ...prev,
+                            [currentPage]: w / h,
+                          }));
+                        }
+                        setImageLoading((prev) => ({
+                          ...prev,
+                          [currentPage]: false,
+                        }));
+                      }}
+                      onError={(e: any) => {
+                        try {
+                          const msg =
+                            e?.error?.message ||
+                            String(e?.error || "Image load failed");
+                          // eslint-disable-next-line no-console
+                          console.warn(
+                            "[BookViewer] image load error",
+                            msg,
+                            url
+                          );
+                        } catch {}
+                        setImageLoading((prev) => ({
+                          ...prev,
+                          [currentPage]: false,
+                        }));
+                      }}
+                    />
+                  );
+                } else if (currentPageData?.image_status === "processing") {
+                  return (
+                    <View style={styles.placeholderImage}>
+                      <PaperActivityIndicator size="large" />
+                      <Text style={styles.placeholderText}>
+                        Creating illustration...
+                      </Text>
+                    </View>
+                  );
+                } else {
+                  return (
+                    <View style={styles.placeholderImage}>
+                      <Text style={styles.placeholderIcon}>🎨</Text>
+                      <Text style={styles.placeholderText}>
+                        Illustration not ready
+                      </Text>
+                    </View>
+                  );
+                }
+              })()}
 
-            {/* debug overlay removed */}
-            
-            {imageLoading[currentPage] && (
-              <View style={styles.imageLoadingOverlay}>
-                <PaperActivityIndicator size="small" />
+              {/* debug overlay removed */}
+
+              {imageLoading[currentPage] && (
+                <View style={styles.imageLoadingOverlay}>
+                  <PaperActivityIndicator size="small" />
+                </View>
+              )}
+            </View>
+
+            {/* Text Section (hidden for cover) */}
+            {!isCoverPage && (
+              <View style={styles.textSection}>
+                <Text style={styles.pageText}>
+                  {currentPageData?.text || "Loading page content..."}
+                </Text>
               </View>
             )}
           </View>
+        </ScrollView>
 
-          {/* Text Section (hidden for cover) */}
-          {!isCoverPage && (
-            <View style={styles.textSection}>
-              <Text style={styles.pageText}>
-                {currentPageData?.text || 'Loading page content...'}
-              </Text>
+        {/* Page Navigation */}
+        <View style={styles.navigationContainer}>
+          {/* Navigation Buttons with dots inline */}
+          <View style={styles.navButtons}>
+            <Button
+              title=""
+              onPress={goToPrevPage}
+              variant="primary"
+              size="sm"
+              disabled={currentPage === 0}
+              leftIcon={
+                <MaterialCommunityIcons
+                  name="arrow-left"
+                  size={20}
+                  color={colors.surface}
+                />
+              }
+            />
+            <View style={styles.pageDotsInline}>
+              {bookData.pages.map((_, index) => (
+                <TouchableRipple
+                  key={index}
+                  onPress={() => goToPage(index)}
+                  borderless
+                  style={{ borderRadius: 10 }}
+                >
+                  <View
+                    style={[
+                      styles.pageDot,
+                      index === currentPage && styles.pageDotActive,
+                    ]}
+                  />
+                </TouchableRipple>
+              ))}
             </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Page Navigation */}
-      <View style={styles.navigationContainer}>
-        {/* Page Dots */}
-        <View style={styles.pageDotsContainer}>
-          {bookData.pages.map((_, index) => (
-            <TouchableRipple key={index} onPress={() => goToPage(index)} borderless style={{ borderRadius: 10 }}>
-              <View style={[styles.pageDot, index === currentPage && styles.pageDotActive]} />
-            </TouchableRipple>
-          ))}
-        </View>
-
-        {/* Navigation Buttons */}
-        <View style={styles.navButtons}>
-          <Button
-            title=""
-            onPress={goToPrevPage}
-            variant="primary"
-            size="sm"
-            disabled={currentPage === 0}
-            leftIcon={<MaterialCommunityIcons name="arrow-left" size={20} color={colors.surface} />}
-          />
-          <Button
-            title=""
-            onPress={goToNextPage}
-            variant="primary"
-            size="sm"
-            disabled={currentPage === bookData.pages.length - 1}
-            rightIcon={<MaterialCommunityIcons name="arrow-right" size={20} color={colors.surface} />}
-          />
-        </View>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.actionsContainer}>
-        <Button
-          title="Back to Library"
-          onPress={() => navigation.navigate('BookLibrary')}
-          variant="info"
-        />
-        <Button
-          title="📄 Download PDF"
-          onPress={handleDownloadPdf}
-          variant="primary"
-          loading={isDownloading}
-          disabled={isDownloading}
-        />
-        {user?.role === 'admin' || user?.role === 'superadmin' ? (
-          <Button
-            title="🔄 Regenerate Book"
-            onPress={handleAdminRegenerate}
-            variant="danger"
-          />
-        ) : null}
-      </View>
-
-      <Snackbar
-        visible={snackbar.visible}
-        onDismiss={() => setSnackbar({ visible: false, message: '' })}
-        duration={3000}
-      >
-        {snackbar.message}
-      </Snackbar>
-      {isDownloading ? (
-        <View style={styles.downloadOverlay}>
-          <View style={styles.downloadCard}>
-            <PaperActivityIndicator size="large" />
-            <Text style={styles.downloadText}>Preparing your PDF…</Text>
+            <Button
+              title=""
+              onPress={goToNextPage}
+              variant="primary"
+              size="sm"
+              disabled={currentPage === bookData.pages.length - 1}
+              rightIcon={
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={20}
+                  color={colors.surface}
+                />
+              }
+            />
           </View>
         </View>
-      ) : null}
-    </View>
+
+        {/* Actions */}
+        <View style={styles.actionsContainer}>
+          <View style={styles.actionsRow}>
+            <View style={styles.actionCol}>
+              <Button
+                title="Back to Library"
+                onPress={() => navigation.navigate("BookLibrary")}
+                variant="info"
+                size="md"
+                style={{ width: "100%" }}
+              />
+            </View>
+            <View style={styles.actionCol}>
+              <Button
+                title="Download PDF"
+                onPress={handleDownloadPdf}
+                variant="primary"
+                loading={isDownloading}
+                disabled={isDownloading}
+                size="md"
+                style={{ width: "100%" }}
+              />
+            </View>
+          </View>
+          {user?.role === "admin" || user?.role === "superadmin" ? (
+            <Button
+              title="🔄 Regenerate Book"
+              onPress={handleAdminRegenerate}
+              variant="danger"
+            />
+          ) : null}
+        </View>
+
+        <Snackbar
+          visible={snackbar.visible}
+          onDismiss={() => setSnackbar({ visible: false, message: "" })}
+          duration={3000}
+        >
+          {snackbar.message}
+        </Snackbar>
+        {isDownloading ? (
+          <View style={styles.downloadOverlay}>
+            <View style={styles.downloadCard}>
+              <PaperActivityIndicator size="large" />
+              <Text style={styles.downloadText}>Preparing your PDF…</Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </ScreenWrapper>
   );
 }
@@ -433,8 +594,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: colors.background,
   },
   loadingText: {
@@ -444,8 +605,8 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
     backgroundColor: colors.background,
   },
@@ -453,9 +614,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.danger,
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
-  
+
   content: {
     flex: 1,
   },
@@ -469,8 +630,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     borderRadius: 12,
     padding: 0,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -478,33 +639,33 @@ const styles = StyleSheet.create({
     minHeight: 500,
   },
   imageSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 12,
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
     borderRadius: 0,
   },
   pageImage: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 4 / 3, // 4:3 landscape for interior pages
   },
   pageImageCover: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1152 / 1600, // portrait for cover (matches workflow ~1152x1600)
   },
   imageSectionCover: {
     marginBottom: 0,
   },
   placeholderImage: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 4 / 3,
     backgroundColor: colors.neutral100,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
     borderColor: colors.neutral200,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   placeholderIcon: {
     fontSize: 48,
@@ -513,31 +674,31 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 16,
     color: colors.textMuted,
-    textAlign: 'center',
+    textAlign: "center",
   },
   imageLoadingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
     borderRadius: 12,
   },
   // debug styles removed
   textSection: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 10,
   },
   pageText: {
     fontSize: 18,
     lineHeight: 28,
     color: colors.textPrimary,
-    textAlign: 'center',
-    fontFamily: 'System', // You might want to use a more child-friendly font
+    textAlign: "center",
+    fontFamily: "System", // You might want to use a more child-friendly font
     paddingHorizontal: 10,
   },
   navigationContainer: {
@@ -547,8 +708,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.primarySoft,
   },
   pageDotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 15,
   },
   pageDot: {
@@ -563,10 +724,16 @@ const styles = StyleSheet.create({
     width: 20,
   },
   navButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-   
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+  pageDotsInline: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   navButton: {
     paddingHorizontal: 20,
@@ -580,25 +747,33 @@ const styles = StyleSheet.create({
   navButtonText: {
     fontSize: 16,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   navButtonTextDisabled: {
     color: colors.neutral400,
   },
   actionsContainer: {
-    flexDirection: 'column',
+    flexDirection: "column",
     padding: 20,
     gap: 10,
     backgroundColor: colors.lightYellow,
     borderTopWidth: 1,
     borderTopColor: colors.primarySoft,
   },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  actionCol: {
+    flex: 1,
+  },
   actionButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: colors.neutral100,
-    alignItems: 'center',
+    alignItems: "center",
   },
   actionButtonDisabled: {
     opacity: 0.6,
@@ -608,11 +783,11 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   destructiveActionButtonText: {
-    color: 'white',
+    color: "white",
   },
   button: {
     backgroundColor: colors.primary,
@@ -621,26 +796,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   downloadOverlay: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   downloadCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 18,
     paddingHorizontal: 22,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 200,
   },
   downloadText: {
