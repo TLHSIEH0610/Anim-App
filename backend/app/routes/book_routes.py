@@ -20,7 +20,21 @@ from app.pricing import resolve_story_price
 from rq import Queue
 from PIL import Image as PILImage
 import uuid
+import time
 import redis
+
+# Optional Sentry capture for warnings (non-fatal)
+try:
+    import sentry_sdk  # type: ignore
+except Exception:  # pragma: no cover
+    sentry_sdk = None  # type: ignore
+
+def _sentry_warn(message: str) -> None:
+    try:
+        if sentry_sdk is not None:  # type: ignore[name-defined]
+            sentry_sdk.capture_message(message, level="warning")  # type: ignore[attr-defined]
+    except Exception:
+        pass
 
 router = APIRouter(prefix="/books", tags=["books"])
 logger = logging.getLogger(__name__)
