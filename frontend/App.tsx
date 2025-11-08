@@ -11,6 +11,7 @@ import BookCreationScreen from "./src/screens/BookCreationScreen";
 import BookStatusScreen from "./src/screens/BookStatusScreen";
 import BookViewerScreen from "./src/screens/BookViewerScreen";
 import BillingHistoryScreen from "./src/screens/BillingHistoryScreen";
+import SupportScreen from "./src/screens/SupportScreen";
 import { StripeProvider, isStripeAvailable } from "./src/lib/stripe";
 import { colors } from "./src/styles/theme";
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -47,6 +48,7 @@ function AppContent() {
             <Stack.Screen name="BookStatus" component={BookStatusScreen} />
             <Stack.Screen name="BookViewer" component={BookViewerScreen} />
             <Stack.Screen name="BillingHistory" component={BillingHistoryScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

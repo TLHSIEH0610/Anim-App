@@ -8,6 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import Button from "../components/Button";
 import Header from "../components/Header";
 import { getStoryTemplates } from "../api/books";
+import { useNavigation } from "@react-navigation/native";
 
 export default function AccountScreen() {
   const { user, logout } = useAuth();
@@ -48,6 +49,13 @@ export default function AccountScreen() {
         title="View Billing"
         onPress={() => navigation.navigate("BillingHistory")}
         variant="info"
+      />
+
+      <Button
+        title="Contact Support"
+        onPress={() => navigation.navigate('Support')}
+        variant="secondary"
+        style={{ marginTop: spacing(2) }}
       />
 
       <Button

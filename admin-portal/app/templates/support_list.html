@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mdc-typography--headline5">Support Tickets</h2>
+
+<div class="mdc-card" style="padding: 16px;">
+  {% if tickets and tickets|length > 0 %}
+  <table class="aa-table" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left; padding:8px;">ID</th>
+        <th style="text-align:left; padding:8px;">Created</th>
+        <th style="text-align:left; padding:8px;">User</th>
+        <th style="text-align:left; padding:8px;">Subject</th>
+        <th style="text-align:left; padding:8px;">Category</th>
+        <th style="text-align:left; padding:8px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tickets %}
+      <tr>
+        <td style="padding:8px;"><a href="/support/{{ t.id }}">#{{ t.id }}</a></td>
+        <td style="padding:8px;">{{ t.created_at or '' }}</td>
+        <td style="padding:8px;">{{ t.user_email }}</td>
+        <td style="padding:8px;">{{ t.subject }}</td>
+        <td style="padding:8px;">{{ t.category or '—' }}</td>
+        <td style="padding:8px;">{{ t.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div>No tickets yet.</div>
+  {% endif %}
+</div>
+
+<a href="/dashboard" class="mdc-button" style="margin-top: 16px;">Back</a>
+{% endblock %}
+

@@ -61,6 +61,24 @@ def apply_schema_patches(engine):
         "ALTER TABLE payments ALTER COLUMN credits_used TYPE NUMERIC(10,2) USING credits_used::numeric",
         "ALTER TABLE payments ALTER COLUMN credits_used SET DEFAULT 0.00",
         "ALTER TABLE books ADD COLUMN template_description TEXT",
+        (
+            "CREATE TABLE IF NOT EXISTS support_tickets ("
+            "id SERIAL PRIMARY KEY,"
+            "user_id INTEGER NOT NULL REFERENCES users(id),"
+            "user_email VARCHAR(255) NOT NULL,"
+            "subject VARCHAR(120) NOT NULL,"
+            "body TEXT NOT NULL,"
+            "category VARCHAR(32),"
+            "book_id INTEGER,"
+            "status VARCHAR(16) NOT NULL DEFAULT 'open',"
+            "app_version VARCHAR(32),"
+            "build VARCHAR(32),"
+            "device_os VARCHAR(32),"
+            "api_base TEXT,"
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+            "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ),
     ]
 
     with engine.connect() as conn:

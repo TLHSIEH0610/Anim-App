@@ -9,7 +9,7 @@ except Exception:  # pragma: no cover
 from fastapi import FastAPI, Depends
 from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
-from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_routes
+from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_routes, support_routes
 from fastapi.middleware.cors import CORSMiddleware
 from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
@@ -55,6 +55,7 @@ app.include_router(job_routes.router)
 app.include_router(book_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(billing_routes.router)
+app.include_router(support_routes.router)
 
 @app.get("/")
 def read_root():
