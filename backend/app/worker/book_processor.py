@@ -459,10 +459,11 @@ class BookComposer:
                         img_path = book_data.get('preview_image_path')
                     if img_path and os.path.exists(img_path):
                         try:
+                            # Leave a small safety margin to avoid ReportLab rounding issues
                             cover_img = self.resize_image_for_page(
                                 img_path,
                                 max_width=self.page_width - (2 * self.margin),
-                                max_height=self.page_height - (2 * self.margin),
+                                max_height=(self.page_height - (2 * self.margin) - 12),
                             )
                             story.append(cover_img)
                         except Exception:
@@ -503,7 +504,13 @@ class BookComposer:
                             img_w = img_h * aspect
                         # Create image flowable
                         img = Image(page_data['image_path'], width=img_w, height=img_h, hAlign='CENTER')
-                        story.append(img)
+                        try:
+                            # KeepInFrame ensures we never overflow the frame due to rounding
+                            from reportlab.platypus import KeepInFrame
+                            img_flow = KeepInFrame(content_width, max_img_height, [img], mode='shrink')
+                            story.append(img_flow)
+                        except Exception:
+                            story.append(img)
                         story.append(Spacer(1, spacer_between))
                     except Exception as e:
                         print(f"Warning: Could not add image for page {i}: {e}")

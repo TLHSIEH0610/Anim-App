@@ -90,6 +90,11 @@ class ComfyUIClient:
                 msg = f"{e}"
                 if detail:
                     msg = f"{e}: {detail}"
+                try:
+                    if sentry_sdk is not None:
+                        sentry_sdk.capture_message(f"ComfyUI queue_prompt HTTPError: {msg}", level="warning")
+                except Exception:
+                    pass
                 raise requests.HTTPError(msg, response=response) from e
             prompt_id = response.json()["prompt_id"]
             event["context"]["prompt_id"] = prompt_id

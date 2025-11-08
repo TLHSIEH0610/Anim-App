@@ -19,6 +19,7 @@ from app.storage import save_upload
 from app.pricing import resolve_story_price
 from rq import Queue
 from PIL import Image as PILImage
+import uuid
 import redis
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -331,10 +332,12 @@ def get_media_resize_public(path: str = Query(...), token: str = Query(...), w: 
         return _file_response_with_etag(thumb, "public, max-age=86400", request)
     except Exception as exc:
         # Fallback to original image to avoid breaking UI if resize fails
+        msg = f"resize-public failed for path={file_path} w={w} h={h}: {exc}"
         try:
-            logger.warning(f"resize-public failed for path={file_path} w={w} h={h}: {exc}")
+            logger.warning(msg)
         except Exception:
             pass
+        _sentry_warn(msg)
         return _file_response_with_etag(file_path, "public, max-age=600", request)
 
 @router.get("/{book_id}/cover")
@@ -426,10 +429,12 @@ def get_book_cover_thumb_public(book_id: int, request: Request, token: str = Que
         return _file_response_with_etag(thumb, "private, max-age=3600", request)
     except Exception as exc:
         # Log and fall back to original image to avoid 500s in the UI
+        msg = f"cover-thumb-public resize failed for book={book_id} path={path} w={w} h={h}: {exc}"
         try:
-            logger.warning(f"cover-thumb-public resize failed for book={book_id} path={path} w={w} h={h}: {exc}")
+            logger.warning(msg)
         except Exception:
             pass
+        _sentry_warn(msg)
         return _file_response_with_etag(Path(path), "private, max-age=600", request)
 
 
@@ -460,12 +465,15 @@ def get_book_page_image_public(book_id: int, page_number: int, token: str = Quer
             file_to_send = _build_thumb(file_to_send, int(w), int(h) if h else None)
         except Exception as exc:
             # Log and fall back to the original image to avoid breaking the mobile viewer
+            msg = (
+                f"page image resize failed for book={book_id} page={page_number} "
+                f"path={path} w={w} h={h}: {exc}"
+            )
             try:
-                logger.warning(
-                    f"page image resize failed for book={book_id} page={page_number} path={path} w={w} h={h}: {exc}"
-                )
+                logger.warning(msg)
             except Exception:
                 pass
+            _sentry_warn(msg)
             file_to_send = Path(path)
     # Add ETag for validation
     try:
@@ -739,9 +747,37 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
             return target
     except Exception:
         pass
+
+    # Per-thumbnail lock to avoid duplicate work under concurrency
+    lock_name = f".lock_{stem}_w{w}_h{h}"
+    lock_path = target.parent / lock_name
+    acquired = False
+    start = time.time()
+    while not acquired:
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            acquired = True
+        except FileExistsError:
+            # Another process/thread is building it; wait briefly
+            if time.time() - start > 3.0:
+                # Consider the lock stale; break and proceed
+                try:
+                    os.remove(str(lock_path))
+                except Exception:
+                    pass
+                break
+            time.sleep(0.05)
+            # After wait, check again for a fresh cached file
+            try:
+                if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
+                    return target
+            except Exception:
+                pass
     # Build thumbnail using atomic write (tmp file then replace) to avoid readers
     # seeing a partially-written file in concurrent requests.
-    tmp_target = target.with_suffix(ext + ".tmp")
+    # Write to a temp file with the real image extension so PIL infers format
+    tmp_target = target.with_name(f".tmp_{stem}_w{w}_h{h}_{uuid.uuid4().hex}{ext}")
     with PILImage.open(str(file_path)) as img:
         ow, oh = img.size
         if h <= 0:
@@ -775,6 +811,13 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
                     os.remove(str(tmp_target))
             except Exception:
                 pass
+    finally:
+        # Release lock if held
+        try:
+            if os.path.exists(str(lock_path)):
+                os.remove(str(lock_path))
+        except Exception:
+            pass
     return target
 
 
