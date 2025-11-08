@@ -436,19 +436,14 @@ class BookComposer:
                 rightIndent=8
             )
             
-            page_number_style = ParagraphStyle(
-                'PageNumber',
-                parent=styles['Normal'],
-                fontSize=12,
-                textColor=colors.grey,
-                alignment=TA_CENTER,
-                fontName='Helvetica'
-            )
+            # Page number will be drawn on the canvas (bottom-right), not as a flowable
             
             # Cover is handled inside the unified loop below
             
             # Story pages (including cover if present). Render cover (page 0) as image-only.
             pages_for_body = sorted(pages_data, key=lambda p: (p.get('page_number') is None, p.get('page_number')))
+            has_cover = any(isinstance(p.get('page_number'), int) and p.get('page_number') == 0 for p in pages_for_body)
+            total_body_pages = sum(1 for p in pages_for_body if not (isinstance(p.get('page_number'), int) and p.get('page_number') == 0))
             visible_page_index = 0
             for pidx, page_data in enumerate(pages_for_body):
                 pgnum = page_data.get('page_number')
@@ -520,9 +515,8 @@ class BookComposer:
                 story.append(paragraph)
                 story.append(Spacer(1, 14))
 
-                # Page number (skip last page to avoid blank page)
-                if i < (len(pages_for_body) - (1 if any((isinstance(p.get('page_number'), int) and p.get('page_number') == 0) for p in pages_for_body) else 0)):
-                    story.append(Paragraph(f"Page {i}", page_number_style))
+                # Page break between pages (except after the last visible page)
+                if i < total_body_pages:
                     story.append(PageBreak())
             
             # Build the PDF with a warm page background
@@ -533,6 +527,22 @@ class BookComposer:
                 except Exception:
                     canvas.setFillColor(colors.whitesmoke)
                 canvas.rect(0, 0, self.page_width, self.page_height, stroke=0, fill=1)
+                # Draw a subtle page number at bottom-right (skip cover page)
+                try:
+                    pg = canvas.getPageNumber()
+                    # If there's a cover, visible body pages start at 2 (cover is page 1)
+                    if has_cover and pg == 1:
+                        pass
+                    else:
+                        display_num = pg - (1 if has_cover else 0)
+                        canvas.setFillColor(colors.grey)
+                        canvas.setFont('Helvetica', 10)
+                        text = f"{display_num}"
+                        x = self.page_width - self.margin
+                        y = self.margin * 0.55
+                        canvas.drawRightString(x, y, text)
+                except Exception:
+                    pass
                 canvas.restoreState()
 
             # Build with background on all pages; cover page renders as content

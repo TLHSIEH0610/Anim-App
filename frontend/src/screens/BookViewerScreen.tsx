@@ -121,17 +121,6 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       const fileName = `${bookData.title?.replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'book'}.pdf`;
       const localPath = await downloadToDocumentDirectory(pdfUrl, fileName);
 
-      const originalBase64 = await FileSystem.readAsStringAsync(localPath, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const { PDFDocument } = await import('pdf-lib');
-      const pdfDoc = await PDFDocument.load(originalBase64);
-      if (pdfDoc.getPageCount() > 1) {
-        pdfDoc.removePage(0);
-      }
-      const prunedBase64 = await pdfDoc.saveAsBase64({ dataUri: false });
-
       if (Platform.OS === 'android') {
         try {
           const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
@@ -145,10 +134,9 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
             fileName,
             'application/pdf'
           );
-
-          await FileSystem.writeAsStringAsync(targetUri, prunedBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
+          // Read the downloaded PDF and write it directly without reprocessing
+          const fileBase64 = await FileSystem.readAsStringAsync(localPath, { encoding: FileSystem.EncodingType.Base64 });
+          await FileSystem.writeAsStringAsync(targetUri, fileBase64, { encoding: FileSystem.EncodingType.Base64 });
 
           setSnackbar({ visible: true, message: 'PDF saved to the folder you selected.' });
         } catch (androidError) {
@@ -156,9 +144,7 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
           setSnackbar({ visible: true, message: 'Could not save the PDF. Please try again.' });
         }
       } else {
-        await FileSystem.writeAsStringAsync(localPath, prunedBase64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        // iOS can share the downloaded file path directly
         await Share.share({
           url: localPath,
           title: bookData.title,
@@ -428,6 +414,14 @@ export default function BookViewerScreen({ route, navigation }: BookViewerScreen
       >
         {snackbar.message}
       </Snackbar>
+      {isDownloading ? (
+        <View style={styles.downloadOverlay}>
+          <View style={styles.downloadCard}>
+            <PaperActivityIndicator size="large" />
+            <Text style={styles.downloadText}>Preparing your PDF…</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
     </ScreenWrapper>
   );
@@ -630,5 +624,28 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  downloadOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadCard: {
+    backgroundColor: '#fff',
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  downloadText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.textPrimary,
   },
 });
