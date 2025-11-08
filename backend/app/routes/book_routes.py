@@ -198,6 +198,12 @@ async def create_book(
             saved_paths.append(saved_path)
 
         book.original_image_paths = json.dumps(saved_paths)
+        # Snapshot template description if available
+        try:
+            if story_source == "template" and story_template and getattr(story_template, 'description', None):
+                book.template_description = story_template.description
+        except Exception:
+            pass
 
         if (
             pricing_quote
@@ -245,7 +251,17 @@ def list_user_books(user = Depends(current_user), db: Session = Depends(get_db))
     for book in books:
         resp = BookResponse.from_orm(book)
         data = resp.model_dump()
+        # Attach convenience fields
         data["cover_url"] = f"/books/{book.id}/cover"
+        # Prefer saved snapshot; fall back to live template description
+        if getattr(book, 'template_description', None):
+            data["template_description"] = book.template_description
+        else:
+            try:
+                if getattr(book, "story_template", None):
+                    data["template_description"] = getattr(book.story_template, "description", None)
+            except Exception:
+                pass
         items.append(BookResponse(**data))
     return BookListResponse(books=items)
 
@@ -263,6 +279,14 @@ def get_book_details(book_id: int, user = Depends(current_user), db: Session = D
     try:
         # Attach a relative cover_url for convenience
         setattr(book_response, 'cover_url', f"/books/{book.id}/cover")
+    except Exception:
+        pass
+    # Prefer saved snapshot
+    try:
+        if getattr(book, 'template_description', None):
+            setattr(book_response, 'template_description', book.template_description)
+        elif getattr(book, "story_template", None):
+            setattr(book_response, 'template_description', getattr(book.story_template, 'description', None))
     except Exception:
         pass
     book_response.pages = [BookPageResponse.from_orm(page) for page in pages]
@@ -853,5 +877,3 @@ def get_story_cover(path: str, request: Request, user = Depends(current_user)):
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
     return _file_response_with_etag(file_path, "private, max-age=600", request)
-
-

@@ -60,6 +60,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE users ALTER COLUMN credits SET DEFAULT 0.00",
         "ALTER TABLE payments ALTER COLUMN credits_used TYPE NUMERIC(10,2) USING credits_used::numeric",
         "ALTER TABLE payments ALTER COLUMN credits_used SET DEFAULT 0.00",
+        "ALTER TABLE books ADD COLUMN template_description TEXT",
     ]
 
     with engine.connect() as conn:

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, Alert, Platform } from "react-native";
 import { Image } from "expo-image";
 import { ActivityIndicator, Chip } from "react-native-paper";
 import {
@@ -316,6 +316,13 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headingM,
     color: colors.textPrimary,
+    // Make the title feel a bit more magical without adding new fonts
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }) as any,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(157, 78, 221, 0.35)', // soft lavender glow
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   desc: {
     ...typography.body,

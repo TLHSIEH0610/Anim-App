@@ -73,6 +73,9 @@ class Book(Base):
     pdf_generated_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
     
+    # Snapshot of template description at creation time (for card display)
+    template_description = Column(Text)
+    
     # Relationships
     user = relationship("User", back_populates="books")
     pages = relationship("BookPage", back_populates="book", cascade="all, delete-orphan")

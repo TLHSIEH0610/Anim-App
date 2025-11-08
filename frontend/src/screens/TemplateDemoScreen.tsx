@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
 import { Image } from "expo-image";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { AppStackParamList } from "../navigation/types";
@@ -62,6 +62,11 @@ export default function TemplateDemoScreen() {
           )}
         </View>
 
+        <Text style={styles.demoNote}>
+          Note: These demo images show the illustration style. Your character’s face will
+          closely match the photos you upload.
+        </Text>
+
         {/* Image Prompts */}
         <Text style={[styles.sectionTitle, { marginTop: spacing(4) }]}>
           Story Line
@@ -96,15 +101,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.headingM,
     color: colors.textPrimary,
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }) as any,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(157, 78, 221, 0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
     marginBottom: spacing(2),
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "column",
     gap: 12 as any,
   },
   thumb: {
-    width: "48%",
+    width: "100%",
     aspectRatio: 4 / 3,
     borderRadius: radii.md,
     overflow: "hidden",
@@ -114,6 +124,12 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  demoNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing(1),
   },
   promptsBox: {
     borderRadius: radii.lg,

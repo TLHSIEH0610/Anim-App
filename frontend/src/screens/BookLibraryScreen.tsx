@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Alert, RefreshControl, Share, Platform } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Alert,
+  RefreshControl,
+  Share,
+  Platform,
+} from "react-native";
 import { Image } from "expo-image";
 import {
   ActivityIndicator,
@@ -35,7 +44,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Header from "../components/Header";
 import * as FileSystem from "expo-file-system";
-const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
+const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 
 const STATUS_COLORS: Record<string, string> = {
   ...statusColors,
@@ -47,8 +56,8 @@ const STATUS_LABELS: Record<string, string> = {
   generating_story: "📖 Writing story...",
   generating_images: "🎨 Creating art...",
   composing: "📚 Assembling...",
-  completed: "✅ Ready!",
-  failed: "❌ Failed",
+  completed: "Ready!",
+  failed: "Failed",
 };
 
 type BookLibraryScreenProps = NativeStackScreenProps<
@@ -73,8 +82,14 @@ function BookListCard({
 }) {
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
+  useEffect(() => {
+    try {
+      console.log('[Purchased][BookData]', JSON.stringify(book));
+    } catch {}
+  }, [book]);
 
-  const versionTag = book.completed_at || (book as any).updated_at || book.created_at;
+  const versionTag =
+    book.completed_at || (book as any).updated_at || book.created_at;
   const coverUri = getBookCoverThumbUrl(
     book.id,
     token || undefined,
@@ -291,15 +306,16 @@ function BookListCard({
           )}
           {/* Details + admin actions */}
           <View style={styles.detailsHeader}>
-            <Text
-              style={[styles.bookDetails, { flex: 1, marginRight: spacing(2) }]}
-              numberOfLines={2}
-            >
-              {book.story_source === "template"
-                ? `Template (${book.template_key || "story"})`
-                : "Custom Story"}{" "}
-              • {book.target_age || "n/a"} years • {book.page_count} pages
-            </Text>
+            <View style={{ flex: 1, marginRight: spacing(2) }}>
+              {!!book.template_description && (
+                <Text style={styles.bookDetails} numberOfLines={2}>
+                  {book.template_description}
+                </Text>
+              )}
+              <Text style={styles.bookDetails}>
+                Age: {book.target_age || "n/a"} • {book.page_count} pages
+              </Text>
+            </View>
             <View style={styles.detailsActions}>
               {userRole === "admin" || userRole === "superadmin" ? (
                 <Button
@@ -311,9 +327,7 @@ function BookListCard({
             </View>
           </View>
 
-          <Text style={styles.bookDate}>
-            Created: {new Date(book.created_at).toLocaleDateString()}
-          </Text>
+          <Text style={styles.bookDate}>Created: {new Date(book.created_at).toLocaleDateString()}</Text>
           <View style={styles.bottomRow}>
             <View style={styles.primaryActions}>
               {book.status === "completed" && (
@@ -766,6 +780,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing(1),
     // color: colors.textPrimary,
     color: "#333333",
+    fontFamily: Platform.select({
+      ios: "Georgia",
+      android: "serif",
+      default: "serif",
+    }) as any,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(157, 78, 221, 0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   bookDetails: {
     ...typography.caption,
