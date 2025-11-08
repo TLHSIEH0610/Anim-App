@@ -8,7 +8,7 @@ from typing import Optional
 from ..auth import current_user
 from ..db import get_db
 from ..models import SupportTicket, User
-from ..schemas import BaseModel
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/support", tags=["support"])
 
@@ -62,4 +62,3 @@ def create_ticket(payload: SupportTicketCreate, user: User = Depends(current_use
     db.commit()
     db.refresh(ticket)
     return {"message": "Ticket submitted", "ticket": SupportTicketResponse.model_validate(ticket)}
-

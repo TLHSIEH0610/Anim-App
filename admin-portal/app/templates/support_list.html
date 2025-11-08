@@ -11,7 +11,7 @@
         <th style="text-align:left; padding:8px;">Created</th>
         <th style="text-align:left; padding:8px;">User</th>
         <th style="text-align:left; padding:8px;">Subject</th>
-        <th style="text-align:left; padding:8px;">Category</th>
+        <th style="text-align:left; padding:8px;">Book</th>
         <th style="text-align:left; padding:8px;">Status</th>
       </tr>
     </thead>
@@ -22,7 +22,7 @@
         <td style="padding:8px;">{{ t.created_at or '' }}</td>
         <td style="padding:8px;">{{ t.user_email }}</td>
         <td style="padding:8px;">{{ t.subject }}</td>
-        <td style="padding:8px;">{{ t.category or '—' }}</td>
+        <td style="padding:8px;">{{ t.book_id or '—' }}</td>
         <td style="padding:8px;">{{ t.status }}</td>
       </tr>
       {% endfor %}
@@ -35,4 +35,3 @@
 
 <a href="/dashboard" class="mdc-button" style="margin-top: 16px;">Back</a>
 {% endblock %}
-

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, Platform } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import Header from '../components/Header';
@@ -7,16 +7,29 @@ import { colors, radii, spacing, typography } from '../styles/theme';
 import { useAuth } from '../context/AuthContext';
 import { createSupportTicket } from '../api/support';
 import Constants from 'expo-constants';
+import { Picker } from '@react-native-picker/picker';
+import { getBookList, Book } from '../api/books';
 
 export default function SupportScreen() {
   const { user, token } = useAuth();
   const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState('');
+  const [books, setBooks] = useState<Book[]>([]);
+  const [bookId, setBookId] = useState<number | undefined>(undefined);
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const appVer = (Constants?.expoConfig as any)?.version || '0.0.0';
   const build = (Constants as any)?.nativeBuildVersion || '';
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!token) return;
+        const res = await getBookList(token);
+        setBooks(res.books || []);
+      } catch {}
+    })();
+  }, [token]);
 
   const onSubmit = async () => {
     if (!token) {
@@ -32,14 +45,14 @@ export default function SupportScreen() {
       await createSupportTicket(token, {
         subject: subject.trim(),
         body: body.trim(),
-        category: category.trim() || undefined,
+        book_id: bookId,
         app_version: appVer,
         build: String(build || ''),
         device_os: `${Platform.OS} ${Platform.Version}`,
         api_base: process.env.EXPO_PUBLIC_API_BASE || 'n/a',
       });
       Alert.alert('Sent', 'Your message has been sent. We will get back to you shortly.');
-      setSubject(''); setCategory(''); setBody('');
+      setSubject(''); setBookId(undefined); setBody('');
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Could not send your message.');
     } finally {
@@ -54,8 +67,18 @@ export default function SupportScreen() {
         <Text style={styles.hint}>Signed in as {user?.email}</Text>
         <Text style={styles.label}>Subject</Text>
         <TextInput style={styles.input} value={subject} onChangeText={setSubject} placeholder="Brief summary" />
-        <Text style={styles.label}>Category (optional)</Text>
-        <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="billing, book, bug, idea" />
+        <Text style={styles.label}>Related book (optional)</Text>
+        <View style={styles.pickerWrap}>
+          <Picker
+            selectedValue={bookId}
+            onValueChange={(v) => setBookId(v || undefined)}
+          >
+            <Picker.Item label="None" value={undefined as any} />
+            {books.map((b) => (
+              <Picker.Item key={b.id} label={`#${b.id} ${b.title}`} value={b.id} />
+            ))}
+          </Picker>
+        </View>
         <Text style={styles.label}>Message</Text>
         <TextInput
           style={[styles.input, styles.textarea]}
@@ -83,6 +106,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(2),
     paddingVertical: spacing(2),
   },
+  pickerWrap: {
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+  },
   textarea: { height: 140, textAlignVertical: 'top' as any },
 });
-
