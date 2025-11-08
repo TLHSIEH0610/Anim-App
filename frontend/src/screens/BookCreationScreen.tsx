@@ -991,6 +991,9 @@ export default function BookCreationScreen({
           Tip: Multiple images help AI understand your character better! Choose
           clear images with good lighting.
         </Text>
+        <Text style={[styles.helperText, styles.warningText]}>
+          Important: Upload photos with a single character/person only. Photos with multiple faces can confuse the model and reduce image quality.
+        </Text>
         {imageError ? (
           <Text style={styles.errorTextInline}>{imageError}</Text>
         ) : null}
@@ -2020,6 +2023,9 @@ const styles = StyleSheet.create({
   helperText: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  warningText: {
+    color: '#991B1B',
   },
   paymentOptionsContainer: {
     marginBottom: spacing(4),
