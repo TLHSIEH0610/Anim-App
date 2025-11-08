@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, FlatList, Alert, Platform, ActivityIndicator as RNActivityIndicator, RefreshControl } from "react-native";
 import { Image } from "expo-image";
 import { ActivityIndicator, Chip } from "react-native-paper";
 import {
@@ -47,6 +47,7 @@ function TemplateItem({
   const [failed, setFailed] = useState(false);
   const [useAltCover, setUseAltCover] = useState(false);
   const [imgWidth, setImgWidth] = useState<number>(130);
+  const [imgLoading, setImgLoading] = useState<boolean>(true);
   const targetHeight = 140;
   // Only attempt to load when token is available to avoid 401s that set failed=true
   const canLoad = !!token && !!item.cover_path;
@@ -58,6 +59,7 @@ function TemplateItem({
   // Reset failure state when URL changes (e.g., when token becomes available)
   React.useEffect(() => {
     setFailed(false);
+    setImgLoading(true);
   }, [coverUrl]);
 
   const handleImageLoad = (e: any) => {
@@ -130,6 +132,7 @@ function TemplateItem({
               cachePolicy="memory-disk"
               placeholder={{ blurhash: BLURHASH }}
               transition={150}
+              onLoadStart={() => setImgLoading(true)}
               onError={(e: any) => {
                 try {
                   console.warn('[Books][CoverError]', item.slug, chosenUrl, e?.error || e);
@@ -140,9 +143,18 @@ function TemplateItem({
                 } else {
                   setFailed(true);
                 }
+                setImgLoading(false);
               }}
-              onLoad={handleImageLoad}
+              onLoad={(e: any) => {
+                handleImageLoad(e);
+                setImgLoading(false);
+              }}
             />
+            {imgLoading && (
+              <View style={styles.imageSpinner} pointerEvents="none">
+                <RNActivityIndicator size="small" color={colors.neutral500} />
+              </View>
+            )}
           </View>
         </View>
         <View style={styles.rightCol}>
@@ -204,27 +216,29 @@ export default function AllBooksScreen() {
   const [templates, setTemplates] = useState<StoryTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchTemplates = React.useCallback(async (isPull?: boolean) => {
+    if (isPull) setRefreshing(true); else setLoading(true);
+    setError(null);
+    try {
+      const res = await getStoryTemplates();
+      const items = res.stories || [];
+      const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+      const filtered = isAdmin
+        ? items
+        : items.filter((t) => !(t.free_trial_slug && t.free_trial_consumed));
+      setTemplates(filtered);
+    } catch (e) {
+      setError("Failed to load stories");
+    } finally {
+      if (isPull) setRefreshing(false); else setLoading(false);
+    }
+  }, [user?.role]);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await getStoryTemplates();
-        const items = res.stories || [];
-        const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-        const filtered = isAdmin
-          ? items
-          : items.filter((t) => !(t.free_trial_slug && t.free_trial_consumed));
-        setTemplates(filtered);
-      } catch (e) {
-        setError("Failed to load stories");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [user?.role]);
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const handleChoose = (slug: string, template?: StoryTemplateSummary) => {
     if (template) {
@@ -257,6 +271,13 @@ export default function AllBooksScreen() {
           keyExtractor={(t) => t.slug}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchTemplates(true)}
+              colors={[colors.primary]}
+            />
+          }
         />
       )}
     </ScreenWrapper>
@@ -312,6 +333,15 @@ const styles = StyleSheet.create({
   coverThumb: {
     height: 140,
     borderRadius: radii.md,
+  },
+  imageSpinner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.headingM,

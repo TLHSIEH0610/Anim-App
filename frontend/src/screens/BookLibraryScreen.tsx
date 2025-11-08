@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Share,
   Platform,
+  ActivityIndicator as RNActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import {
@@ -82,6 +83,13 @@ function BookListCard({
 }) {
   const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
+  const [imgLoading, setImgLoading] = useState<boolean>(true);
+  const genderRaw = book.template_params?.gender as
+    | 'male'
+    | 'female'
+    | string
+    | undefined;
+  const genderLabel = genderRaw === 'male' ? 'Boy' : genderRaw === 'female' ? 'Girl' : genderRaw ? String(genderRaw) : 'n/a';
   useEffect(() => {
     try {
       console.log('[Purchased][BookData]', JSON.stringify(book));
@@ -180,7 +188,11 @@ function BookListCard({
                 cachePolicy="memory-disk"
                 placeholder={{ blurhash: BLURHASH }}
                 transition={150}
-                onLoad={handleImageLoad}
+                onLoadStart={() => setImgLoading(true)}
+                onLoad={(e: any) => {
+                  handleImageLoad(e);
+                  setImgLoading(false);
+                }}
                 onError={(e: any) => {
                   try {
                     console.warn(
@@ -188,8 +200,14 @@ function BookListCard({
                       e?.error || e
                     );
                   } catch {}
+                  setImgLoading(false);
                 }}
               />
+              {imgLoading && (
+                <View style={styles.imageSpinner} pointerEvents="none">
+                  <RNActivityIndicator size="small" color={colors.neutral500} />
+                </View>
+              )}
             </View>
           ) : null}
         </View>
@@ -313,7 +331,7 @@ function BookListCard({
                 </Text>
               )}
               <Text style={styles.bookDetails}>
-                Age: {book.target_age || "n/a"} • {book.page_count} pages
+                Age: {book.target_age || "n/a"} • Gender: {genderLabel} • {book.page_count} pages
               </Text>
             </View>
             <View style={styles.detailsActions}>
@@ -717,6 +735,15 @@ const styles = StyleSheet.create({
   coverThumb: {
     height: 140,
     borderRadius: radii.md,
+  },
+  imageSpinner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: "row",
