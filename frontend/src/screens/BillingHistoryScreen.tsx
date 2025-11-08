@@ -83,8 +83,6 @@ const HistoryItem = ({ entry, templateNames }: HistoryItemProps) => {
       {entry.stripe_payment_intent_id ? (
         <Text style={styles.itemMeta}>Stripe ID: {entry.stripe_payment_intent_id}</Text>
       ) : null}
-
-      <Divider style={{ marginTop: spacing(2) }} />
     </View>
   );
 };
@@ -236,7 +234,7 @@ const styles = StyleSheet.create({
     gap: spacing(3),
   },
   itemContainer: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#EAF4E2',
     borderRadius: radii.lg,
     padding: spacing(4),
     borderWidth: 1,
