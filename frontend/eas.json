@@ -21,7 +21,7 @@
         "EXPO_PUBLIC_SUPPORT_EMAIL": "arnie@back2.dev"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "ios": {
         "simulator": true

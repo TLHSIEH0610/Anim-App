@@ -194,6 +194,7 @@ export default function BookCreationScreen({
   const [imageError, setImageError] = useState<string | null>(null);
   const [autoTitle, setAutoTitle] = useState<string>("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const [faceCheckAvailable, setFaceCheckAvailable] = useState<boolean>(false);
 
   // Upload constraints
   const MAX_FILES = 3;
@@ -253,6 +254,39 @@ export default function BookCreationScreen({
       return uri;
     } catch (err: any) {
       throw err;
+    }
+  };
+
+  // Best-effort face detection using expo-face-detector (if present in this build)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const FD = require("expo-face-detector");
+      if (FD && typeof FD.detectFacesAsync === "function") {
+        setFaceCheckAvailable(true);
+      }
+    } catch (_) {
+      setFaceCheckAvailable(false);
+    }
+  }, []);
+
+  const detectFacesOnUri = async (uri: string): Promise<number | null> => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const FaceDetector: any = require("expo-face-detector");
+      if (!FaceDetector || typeof FaceDetector.detectFacesAsync !== "function") {
+        return null; // Module not available
+      }
+      const options = {
+        mode: FaceDetector.FaceDetectorMode?.fast ?? 1,
+        detectLandmarks: FaceDetector.FaceDetectorLandmarks?.none ?? 0,
+        runClassifications: FaceDetector.FaceDetectorClassifications?.none ?? 0,
+      };
+      const result = await FaceDetector.detectFacesAsync(uri, options);
+      const faces = Array.isArray(result?.faces) ? result.faces.length : (Array.isArray(result) ? result.length : 0);
+      return faces;
+    } catch (_) {
+      return null; // On any error, don't block flow
     }
   };
 
@@ -546,12 +580,18 @@ export default function BookCreationScreen({
           selectedAssets = selectedAssets.slice(0, availableSlots);
         }
 
-        // Enforce pixel/size limits with auto downscale when possible
-        const processedUris: string[] = [];
+        // Enforce pixel/size limits with auto downscale when possible, then face-check (if available)
+        const accepted: string[] = [];
+        let droppedNoFace = 0;
         for (const asset of selectedAssets) {
           try {
             const finalUri = await processAssetWithinLimits(asset);
-            processedUris.push(finalUri);
+            const faces = await detectFacesOnUri(finalUri);
+            if (faces === 0) {
+              droppedNoFace += 1;
+              continue; // skip this image
+            }
+            accepted.push(finalUri);
           } catch (e: any) {
             setImageError(e?.message || "Selected image did not meet requirements.");
             setSnackbar({ visible: true, message: e?.message || "Selected image did not meet requirements." });
@@ -559,7 +599,20 @@ export default function BookCreationScreen({
           }
         }
 
-        const merged = [...form.images, ...processedUris];
+        if (accepted.length === 0) {
+          const msg = faceCheckAvailable
+            ? "No face detected in the selected image(s). Please choose a clear, front-facing photo."
+            : "Selected image(s) did not meet requirements. Please choose a clear, front-facing photo.";
+          setImageError(msg);
+          setSnackbar({ visible: true, message: msg });
+          return;
+        }
+
+        if (droppedNoFace > 0 && faceCheckAvailable) {
+          setSnackbar({ visible: true, message: `Skipped ${droppedNoFace} image${droppedNoFace > 1 ? 's' : ''} with no visible face.` });
+        }
+
+        const merged = [...form.images, ...accepted];
         updateImages(merged);
       }
     } catch (error) {
