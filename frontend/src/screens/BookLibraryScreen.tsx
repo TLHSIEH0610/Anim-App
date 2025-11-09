@@ -81,7 +81,6 @@ function BookListCard({
   onDelete: (book: Book) => void;
   onRegenerate: (book: Book) => void;
 }) {
-  const [imgWidth, setImgWidth] = useState<number>(130);
   const targetHeight = 140;
   const [imgLoading, setImgLoading] = useState<boolean>(true);
   const genderRaw = book.template_params?.gender as
@@ -132,20 +131,7 @@ function BookListCard({
     } catch {}
   }, [book.id, book.title, coverUri, directResizeUri]);
 
-  const handleImageLoad = (e: any) => {
-    // expo-image now puts payload directly on the event (no nativeEvent)
-    const natW = e?.source?.width;
-    const natH = e?.source?.height;
-    if (natW && natH) {
-      // Scale width to maintain aspect at targetHeight
-      const scaled = Math.max(
-        100,
-        Math.min(200, Math.round((targetHeight / natH) * natW))
-      );
-      // Slightly larger than the exact photo width
-      setImgWidth(scaled + 8);
-    }
-  };
+  // Vertical layout: image above details; no dynamic width needed
 
   return (
     <Card style={styles.bookItem}>
@@ -173,45 +159,38 @@ function BookListCard({
         </View>
       </View>
 
-      {/* Content row: cover (auto width) | details (flex) */}
-      <View style={styles.row}>
-        <View style={styles.leftCol}>
-          {book.status === "completed" ? (
-            <View style={[styles.coverThumbWrap, { width: imgWidth }]}>
-              <Image
-                source={{ uri: coverUri }}
-                style={[
-                  styles.coverThumb,
-                  { width: imgWidth - 8, height: targetHeight },
-                ]}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                placeholder={{ blurhash: BLURHASH }}
-                transition={150}
-                onLoadStart={() => setImgLoading(true)}
-                onLoad={(e: any) => {
-                  handleImageLoad(e);
-                  setImgLoading(false);
-                }}
-                onError={(e: any) => {
-                  try {
-                    console.warn(
-                      `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${coverUri}`,
-                      e?.error || e
-                    );
-                  } catch {}
-                  setImgLoading(false);
-                }}
-              />
-              {imgLoading && (
-                <View style={styles.imageSpinner} pointerEvents="none">
-                  <RNActivityIndicator size="small" color={colors.neutral500} />
-                </View>
-              )}
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.rightCol}>
+      {/* Content column: image first, then details */}
+      <View style={styles.cardBody}>
+        {book.status === "completed" ? (
+          <View style={styles.coverThumbWrap}>
+            <Image
+              source={{ uri: coverUri }}
+              style={[styles.coverThumb, { width: "100%", height: targetHeight }]}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              placeholder={{ blurhash: BLURHASH }}
+              transition={150}
+              onLoadStart={() => setImgLoading(true)}
+              onLoad={() => setImgLoading(false)}
+              onError={(e: any) => {
+                try {
+                  console.warn(
+                    `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${coverUri}`,
+                    e?.error || e
+                  );
+                } catch {}
+                setImgLoading(false);
+              }}
+            />
+            {imgLoading && (
+              <View style={styles.imageSpinner} pointerEvents="none">
+                <RNActivityIndicator size="small" color={colors.neutral500} />
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        <View style={styles.detailsBlock}>
           {/* Status row with actions (chip moved to title row) */}
           <View style={styles.bookStatus}>
             {book.status !== "completed" && book.status !== "failed" && (
@@ -780,17 +759,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  row: {
-    flexDirection: "row",
-    gap: spacing(3),
-    alignItems: "flex-start",
+  cardBody: {
+    flexDirection: "column",
   },
-  leftCol: {
-    flexShrink: 0,
-    marginRight: spacing(2),
-  },
-  rightCol: {
-    flex: 1,
+  detailsBlock: {
+    marginTop: spacing(2),
   },
   bookHeader: {
     flexDirection: "row",

@@ -51,12 +51,6 @@ export default function AccountScreen() {
         variant="info"
       />
 
-      <Button
-        title="Contact Support"
-        onPress={() => navigation.navigate('Support')}
-        variant="secondary"
-        style={{ marginTop: spacing(2) }}
-      />
 
       <Button
         title="Logout"
@@ -64,6 +58,14 @@ export default function AccountScreen() {
         variant="danger"
         style={{ marginTop: spacing(3) }}
       />
+
+            <Button
+        title="Contact Support"
+        onPress={() => navigation.navigate('Support')}
+        variant="background"
+        style={{ marginTop: spacing(2) }}
+      />
+
     </ScreenWrapper>
   );
 }

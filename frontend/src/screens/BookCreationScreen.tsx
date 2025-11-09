@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Alert, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   TextInput as PaperTextInput,
@@ -35,6 +35,7 @@ import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/types";
 import ScreenWrapper from "../components/ScreenWrapper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "../components/Button";
 
 interface TemplateStorylinePage {
@@ -62,7 +63,7 @@ interface BookForm {
   templateInput: TemplateInput;
 }
 
-const steps = ["Story Setup", "Review", "Payment"];
+const steps = ["Create Your Story", "Review", "Payment"];
 
 const GENDER_OPTIONS: Array<{ value: "male" | "female"; label: string }> = [
   { value: "female", label: "Girl" },
@@ -194,6 +195,7 @@ export default function BookCreationScreen({
   const [imageError, setImageError] = useState<string | null>(null);
   const [autoTitle, setAutoTitle] = useState<string>("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const insets = useSafeAreaInsets();
   const [faceCheckAvailable, setFaceCheckAvailable] = useState<boolean>(false);
 
   // Upload constraints
@@ -997,9 +999,9 @@ export default function BookCreationScreen({
     const readonlyTemplate = Boolean(route?.params?.templateSlug);
     return (
       <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Upload Character Images *</Text>
+        <Text style={styles.stepTitle}>Create Your Hero *</Text>
         <Text style={styles.stepDescription}>
-          Select 1-3 images of your character for better consistency throughout
+          Select 1-3 images of your kid for better consistency throughout
           the book.
         </Text>
 
@@ -1040,20 +1042,19 @@ export default function BookCreationScreen({
           />
         )}
 
-        <Text style={styles.helpText}>
-          Tip: Multiple images help AI understand your character better! Choose
-          clear images with good lighting.
-        </Text>
-        <Text style={[styles.helperText, styles.warningText]}>
-          Important: Upload photos with a single character/person only. Photos with multiple faces can confuse the model and reduce image quality.
-        </Text>
         {imageError ? (
           <Text style={styles.errorTextInline}>{imageError}</Text>
         ) : null}
 
+        <Text style={styles.helpText}>
+          Tip: Multiple images help us understand your hero better! Choose
+          clear photos with good lighting. <Text style={{ color: colors.primary }}>Single-person photos work best.</Text>
+        </Text>
+        
+
         <View style={styles.sectionDivider} />
 
-        <Text style={styles.stepTitle}>Story Setup</Text>
+        <Text style={styles.stepTitle}>Create Your Story</Text>
 
         {isLoadingTemplates ? (
           <View style={styles.loaderRow}>
@@ -1067,10 +1068,7 @@ export default function BookCreationScreen({
         ) : null}
 
         {readonlyTemplate ? (
-          <Text style={styles.helperText}>
-            This story template is pre-selected for this book. You can review
-            the details on the next step.
-          </Text>
+          <Text style={styles.helperText}>Hero's Info</Text>
         ) : (
           <View style={styles.templateList}>
             {templates.map((template) => renderTemplateCard(template))}
@@ -1117,7 +1115,7 @@ export default function BookCreationScreen({
   };
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Review & Personalize</Text>
+      <Text style={styles.stepTitle}>Review Your Story</Text>
 
       {form.images.length > 0 && (
         <View style={styles.reviewImageGallery}>
@@ -1130,21 +1128,26 @@ export default function BookCreationScreen({
       <View style={styles.reviewDetails}>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
         <Text style={styles.reviewDetail}>
-          Template: {selectedTemplate?.name ?? "Custom"} - {form.pageCount}{" "}
-          pages
+          Page Number: {form.pageCount}
         </Text>
         <Text style={styles.reviewDetail}>
           Images: {form.images.length} reference image(s)
         </Text>
         {form.templateInput.name.trim() ? (
           <Text style={styles.reviewDetail}>
-            Lead Character: {form.templateInput.name.trim()}
+            {(() => {
+              const raw = (form.templateInput.gender || '').trim().toLowerCase();
+              const genderLabel = raw === 'male' ? 'boy' : raw === 'female' ? 'girl' : 'child';
+              return (
+                <>Lead Character: {form.templateInput.name.trim()}, {genderLabel}</>
+              );
+            })()}
           </Text>
         ) : null}
         {storylinePreview ? (
           <View style={styles.reviewStorylineWrapper}>
             <Text style={styles.reviewStorylineHeading}>
-              Storyline Description
+              Plot
             </Text>
             <Text style={styles.reviewStoryline}>{storylinePreview}</Text>
           </View>
@@ -1509,31 +1512,36 @@ export default function BookCreationScreen({
         {selectedPaymentMethod === "card" &&
         pricingQuote?.card_available !== false &&
         cardPaymentsSupported ? (
-          <View style={styles.cardFieldContainer}>
-            <CardField
-              postalCodeEnabled={false}
-              placeholders={{ number: "4242 4242 4242 4242" }}
-              cardStyle={{
-                // Use hex to avoid Android parseColor("rgba(...)") errors
-                backgroundColor: "#FFFFFF",
-                textColor: colors.textPrimary,
-                placeholderColor: colors.textMuted,
-                borderRadius: radii.md,
-                fontSize: 16,
-              }}
-              style={styles.cardField}
-              onCardChange={(details: CardDetailsChange) => {
-                const complete = details?.complete ?? false;
-                setCardDetailsComplete(complete);
-                setCardFieldError(
-                  complete ? null : "Enter full card details to continue."
-                );
-              }}
-            />
-            {cardFieldError ? (
-              <Text style={styles.errorTextInline}>{cardFieldError}</Text>
-            ) : null}
-          </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={insets.top + 72}
+          >
+            <View style={styles.cardFieldContainer}>
+              <CardField
+                postalCodeEnabled={false}
+                placeholders={{ number: "4242 4242 4242 4242" }}
+                cardStyle={{
+                  // Use hex to avoid Android parseColor("rgba(...)") errors
+                  backgroundColor: "#FFFFFF",
+                  textColor: colors.textPrimary,
+                  placeholderColor: colors.textMuted,
+                  borderRadius: radii.md,
+                  fontSize: 16,
+                }}
+                style={styles.cardField}
+                onCardChange={(details: CardDetailsChange) => {
+                  const complete = details?.complete ?? false;
+                  setCardDetailsComplete(complete);
+                  setCardFieldError(
+                    complete ? null : "Enter full card details to continue."
+                  );
+                }}
+              />
+              {cardFieldError ? (
+                <Text style={styles.errorTextInline}>{cardFieldError}</Text>
+              ) : null}
+            </View>
+          </KeyboardAvoidingView>
         ) : null}
 
         {paymentError ? (
@@ -1609,9 +1617,14 @@ export default function BookCreationScreen({
           </Dialog.Actions>
         </Dialog>
       </Portal>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.title}>Create Children-s Book</Text>
+          <View style={styles.titleRow}>
+            <TouchableRipple onPress={() => navigation.navigate("BookLibrary")} style={styles.backArrow} borderless>
+              <MaterialCommunityIcons name="arrow-left-bold" size={24} color={colors.primaryDark} />
+            </TouchableRipple>
+            <Text style={styles.title}>Create Children-s Book</Text>
+          </View>
           <Text style={styles.subtitle}>
             Pick a story template and bring it to life with your photos.
           </Text>
@@ -1650,7 +1663,7 @@ export default function BookCreationScreen({
 
         {renderStepContent()}
 
-        <View style={styles.navigationRow}>
+        <View style={[styles.navigationRow, { paddingBottom: spacing(8) + insets.bottom }]}>
           {currentStep > 0 && currentStep < steps.length - 1 ? (
             <Button
               title=""
@@ -1697,7 +1710,7 @@ export default function BookCreationScreen({
           title="Cancel"
           onPress={() => navigation.navigate("BookLibrary")}
           variant="secondary"
-          style={[styles.cancelButton, styles.cancelStandalone]}
+          style={[styles.cancelButton, styles.cancelStandalone, { marginBottom: spacing(8) + insets.bottom }]}
         />
       </ScrollView>
       <Snackbar
@@ -1717,10 +1730,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(6),
     paddingBottom: spacing(6),
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  backArrow: {
+    marginRight: spacing(1),
+    padding: 0,
+  },
   title: {
     ...typography.headingXL,
-    textAlign: "center",
+    textAlign: "left",
     color: colors.primaryDark,
+    fontWeight: "800",
   },
   subtitle: {
     ...typography.body,

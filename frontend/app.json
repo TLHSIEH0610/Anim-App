@@ -25,7 +25,8 @@
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
-      "package": "com.arnie.kidtostory"
+      "package": "com.arnie.kidtostory",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"

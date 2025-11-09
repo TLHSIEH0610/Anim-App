@@ -209,10 +209,7 @@ export default function BookStatusScreen({
           <View style={styles.detailsCard}>
             <Text style={styles.detailsTitle}>📋 Book Details</Text>
             <Text style={styles.detailItem}>
-              Story:{" "}
-              {book.story_source === "template"
-                ? `Template (${book.template_key || "prebuilt"})`
-                : "Custom Story"}
+              Story: {book.title}
             </Text>
             <Text style={styles.detailItem}>
               Age Group: {book.target_age || "n/a"} years

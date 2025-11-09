@@ -24,7 +24,7 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
       style={styles.container}
     >
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         {showIllustrations && (
           <>
             <Image

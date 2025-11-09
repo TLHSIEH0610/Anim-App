@@ -63,14 +63,11 @@ function TemplateItem({
   }, [coverUrl]);
 
   const handleImageLoad = (e: any) => {
-    // expo-image now puts payload directly on the event (no nativeEvent)
+    // expo-image provides intrinsic size on event
     const natW = e?.source?.width;
     const natH = e?.source?.height;
     if (natW && natH) {
-      const scaled = Math.max(
-        100,
-        Math.min(200, Math.round((targetHeight / natH) * natW))
-      );
+      const scaled = Math.max(100, Math.min(200, Math.round((targetHeight / natH) * natW)));
       setImgWidth(scaled + 8);
     }
   };
@@ -121,40 +118,39 @@ function TemplateItem({
       <View style={styles.row}>
         <View style={styles.leftCol}>
           <View style={[styles.coverThumbWrap, { width: imgWidth }]}>
-            <Image
-              key={chosenUrl || "fallback"}
-              source={source as any}
-              style={[
-                styles.coverThumb,
-                { width: imgWidth - 8, height: targetHeight },
-              ]}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              placeholder={{ blurhash: BLURHASH }}
-              transition={150}
-              onLoadStart={() => setImgLoading(true)}
-              onError={(e: any) => {
-                try {
-                  console.warn('[Books][CoverError]', item.slug, chosenUrl, e?.error || e);
-                } catch {}
-                // Try alternate non-resized cover once before falling back to app icon
-                if (!useAltCover && altCoverUrl) {
-                  setUseAltCover(true);
-                } else {
-                  setFailed(true);
-                }
-                setImgLoading(false);
-              }}
-              onLoad={(e: any) => {
-                handleImageLoad(e);
-                setImgLoading(false);
-              }}
-            />
-            {imgLoading && (
-              <View style={styles.imageSpinner} pointerEvents="none">
-                <RNActivityIndicator size="small" color={colors.neutral500} />
-              </View>
-            )}
+          <Image
+            key={chosenUrl || "fallback"}
+            source={source as any}
+            style={[
+              styles.coverThumb,
+              { width: imgWidth - 8, height: targetHeight },
+            ]}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            placeholder={{ blurhash: BLURHASH }}
+            transition={150}
+            onLoadStart={() => setImgLoading(true)}
+            onError={(e: any) => {
+              try {
+                console.warn('[Books][CoverError]', item.slug, chosenUrl, e?.error || e);
+              } catch {}
+              if (!useAltCover && altCoverUrl) {
+                setUseAltCover(true);
+              } else {
+                setFailed(true);
+              }
+              setImgLoading(false);
+            }}
+            onLoad={(e: any) => {
+              handleImageLoad(e);
+              setImgLoading(false);
+            }}
+          />
+          {imgLoading && (
+            <View style={styles.imageSpinner} pointerEvents="none">
+              <RNActivityIndicator size="small" color={colors.neutral500} />
+            </View>
+          )}
           </View>
         </View>
         <View style={styles.rightCol}>
@@ -319,7 +315,13 @@ const styles = StyleSheet.create({
   },
   rightCol: {
     flex: 1,
-    justifyContent: "space-between",
+    justifyContent: 'space-between',
+  },
+  cardBody: {
+    flexDirection: 'column',
+  },
+  detailsBlock: {
+    marginTop: spacing(2),
   },
   coverThumbWrap: {
     width: "100%",

@@ -44,8 +44,8 @@ export default function TemplateDemoScreen() {
       <Header
         title={template.name}
         subtitle={`${template.page_count} pages • ${
-          template.age || "All ages"
-        }`}
+          template.age || "All"
+        } ages`}
         showBack
       />
 
