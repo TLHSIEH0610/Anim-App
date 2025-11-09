@@ -75,7 +75,7 @@ export default function SupportScreen() {
           >
             <Picker.Item label="None" value={undefined as any} />
             {books.map((b) => (
-              <Picker.Item key={b.id} label={`#${b.id} ${b.title}`} value={b.id} />
+              <Picker.Item key={b.id} label={b.title || 'Untitled book'} value={b.id} />
             ))}
           </Picker>
         </View>

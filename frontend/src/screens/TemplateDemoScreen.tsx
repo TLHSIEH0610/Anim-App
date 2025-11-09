@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator as RNActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { AppStackParamList } from "../navigation/types";
@@ -37,6 +37,8 @@ export default function TemplateDemoScreen() {
     navigation.navigate("BookCreation", { templateSlug: template.slug });
   };
 
+  const [loadingByIndex, setLoadingByIndex] = useState<Record<number, boolean>>({});
+
   return (
     <ScreenWrapper>
       <Header
@@ -56,7 +58,22 @@ export default function TemplateDemoScreen() {
           ) : (
             demoImageUrls.map((url, idx) => (
               <View key={idx} style={styles.thumb}>
-                <Image source={{ uri: url } as any} style={styles.image} contentFit="cover" cachePolicy="memory-disk" placeholder={{ blurhash: BLURHASH }} transition={150} />
+                <Image
+                  source={{ uri: url } as any}
+                  style={styles.image}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  placeholder={{ blurhash: BLURHASH }}
+                  transition={150}
+                  onLoadStart={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: true }))}
+                  onLoad={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))}
+                  onError={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))}
+                />
+                {loadingByIndex[idx] && (
+                  <View style={styles.imageSpinner} pointerEvents="none">
+                    <RNActivityIndicator size="small" color={colors.neutral500} />
+                  </View>
+                )}
               </View>
             ))
           )}
@@ -124,6 +141,15 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  imageSpinner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   demoNote: {
     ...typography.caption,
