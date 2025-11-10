@@ -131,7 +131,7 @@ function BookListCard({
     } catch {}
   }, [book.id, book.title, coverUri, directResizeUri]);
 
-  // Vertical layout: image above details; no dynamic width needed
+  // Two-column layout: image (left) and details (right)
 
   return (
     <Card style={styles.bookItem}>
@@ -159,7 +159,7 @@ function BookListCard({
         </View>
       </View>
 
-      {/* Content column: image first, then details */}
+      {/* Content row: image column + details column */}
       <View style={styles.cardBody}>
         {book.status === "completed" ? (
           <View style={styles.coverThumbWrap}>
@@ -703,13 +703,14 @@ const styles = StyleSheet.create({
     ...shadow.subtle,
   },
   coverThumbWrap: {
-    width: "100%",
+    width: 110,
     backgroundColor: colors.neutral100,
     borderRadius: radii.md,
     overflow: "hidden",
     alignSelf: "flex-start",
     alignItems: "center",
     padding: spacing(1),
+    flexShrink: 0,
   },
   coverThumb: {
     height: 140,
@@ -760,10 +761,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardBody: {
-    flexDirection: "column",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing(3),
   },
   detailsBlock: {
-    marginTop: spacing(2),
+    flex: 1,
+    marginTop: 0,
   },
   bookHeader: {
     flexDirection: "row",

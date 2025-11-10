@@ -153,3 +153,24 @@ When ready for production, you can:
 3. **Separate machines** - Update `COMFYUI_SERVER` to remote IP
 
 The beauty is your backend code doesn't change! 🎉
+
+## 📊 Queues & Workers (RQ)
+
+This stack uses Redis Queue (RQ) for background jobs. You now have two ways to see and control work:
+
+- Admin portal summary
+  - Page: `http://localhost:8090/queues`
+  - Shows queue sizes (books, jobs) and workers (current job if any)
+  - On the Dashboard, each book row has a “Cancel” button which requests a cooperative stop for in‑flight work.
+
+- RQ Dashboard (full UI)
+  - Service is included in compose. Start the stack and open: `http://localhost:9181`
+  - Environment: `RQ_DASHBOARD_REDIS_URL=redis://redis:6379/0`
+  - Lets you drill into jobs, queues, and worker state in detail.
+
+### How cancel works (safe stop)
+
+- Clicking “Cancel” sets a Redis flag (`book:cancel:{book_id}`) and the worker checks that flag at safe points (between stages and pages, and before long ComfyUI calls). It exits early without killing the process mid‑step.
+- Regenerate (`Regenerate` button) resets the book and sets a run token (`book:run:{book_id}`); older/stale jobs exit when they see a mismatched token, preventing races (“last job wins” issues).
+
+No special configuration needed beyond running the compose file in this repo.
