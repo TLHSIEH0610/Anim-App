@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kid to Story",
     "slug": "kid-to-story",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode": 4,
+      "versionCode": 3,
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
       "package": "com.arnie.kidtostory",

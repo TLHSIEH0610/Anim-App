@@ -14,7 +14,7 @@ import {
 } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import { CardField, useStripe, isStripeAvailable } from "../lib/stripe";
+import { CardField, useStripe, isStripeAvailable, PlatformPay } from "../lib/stripe";
 import {
   createBook,
   BookCreationData,
@@ -145,6 +145,7 @@ export default function BookCreationScreen({
   navigation,
   route,
 }: BookCreationScreenProps) {
+  const MERCHANT_COUNTRY = (process.env.EXPO_PUBLIC_STRIPE_MERCHANT_COUNTRY || 'US').toUpperCase();
   const { token } = useAuth();
   const stripe = useStripe();
   const cardPaymentsSupported =
@@ -289,7 +290,12 @@ export default function BookCreationScreen({
           if (mounted) setGooglePaySupported(false);
           return;
         }
-        const supported = await (stripe as any)?.isPlatformPaySupported?.({ googlePay: true });
+        let supported = false;
+        if (PlatformPay?.isGooglePaySupported) {
+          supported = !!(await PlatformPay.isGooglePaySupported({ testEnv: __DEV__ }));
+        } else if ((stripe as any)?.isPlatformPaySupported) {
+          supported = !!(await (stripe as any).isPlatformPaySupported({ googlePay: true }));
+        }
         if (mounted) setGooglePaySupported(Boolean(supported));
       } catch {
         if (mounted) setGooglePaySupported(false);
@@ -1043,7 +1049,7 @@ export default function BookCreationScreen({
           merchantDisplayName: "Kid to Story",
           paymentIntentClientSecret: intent.client_secret,
           googlePay: {
-            merchantCountryCode: "AU",
+            merchantCountryCode: MERCHANT_COUNTRY,
             testEnv: __DEV__,
           },
         });

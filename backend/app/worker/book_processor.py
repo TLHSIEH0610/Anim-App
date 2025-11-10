@@ -516,7 +516,9 @@ class BookComposer:
                         story.append(Spacer(1, 36))
                         story.append(Paragraph(book_data['title'], title_style))
                         story.append(Paragraph(f"A {book_data.get('theme', 'wonderful')} story for ages {book_data.get('target_age', '6-8')}", subtitle_style))
-                    story.append(PageBreak())
+                    # Only add a page break after the cover if there are body pages
+                    if total_body_pages > 0:
+                        story.append(PageBreak())
                     continue
 
                 visible_page_index += 1
@@ -530,8 +532,14 @@ class BookComposer:
                 _, text_height = paragraph.wrap(content_width, content_height)
 
                 spacer_between = 12
-                page_num_block = 18 if i < len(pages_data) else 0
-                max_img_height = max(content_height - text_height - spacer_between - page_num_block, 0)
+                bottom_spacer_after_text = 14
+                # Reserve footer area only when there is a following body page
+                page_num_block = 18 if i < total_body_pages else 0
+                # Ensure image + spacer + text + bottom spacer fit in the frame to avoid auto page breaks
+                max_img_height = max(
+                    content_height - text_height - spacer_between - bottom_spacer_after_text - page_num_block,
+                    0,
+                )
 
                 # Add image first, taking as much space as possible while leaving room for text
                 if page_data.get('image_path') and os.path.exists(page_data['image_path']) and max_img_height > 0:
@@ -561,7 +569,7 @@ class BookComposer:
 
                 # Add text underneath
                 story.append(paragraph)
-                story.append(Spacer(1, 14))
+                story.append(Spacer(1, bottom_spacer_after_text))
 
                 # Page break between pages (except after the last visible page)
                 if i < total_body_pages:
