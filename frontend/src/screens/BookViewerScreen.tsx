@@ -559,13 +559,7 @@ export default function BookViewerScreen({
               />
             </View>
           </View>
-          {user?.role === "admin" || user?.role === "superadmin" ? (
-            <Button
-              title="🔄 Regenerate Book"
-              onPress={handleAdminRegenerate}
-              variant="danger"
-            />
-          ) : null}
+          {/* Admin regenerate removed from viewer actions */}
         </View>
 
         <Snackbar

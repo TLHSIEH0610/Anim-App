@@ -301,7 +301,7 @@ function BookListCard({
               We are fixing it now! Please check back soon.
             </Text>
           )}
-          {/* Details + admin actions */}
+          {/* Details (admin actions moved to bottom row) */}
           <View style={styles.detailsHeader}>
             <View style={{ flex: 1, marginRight: spacing(2) }}>
               {!!book.template_description && (
@@ -312,15 +312,6 @@ function BookListCard({
               <Text style={styles.bookDetails}>
                 Age: {book.target_age || "n/a"} • Gender: {genderLabel} • {book.page_count} pages
               </Text>
-            </View>
-            <View style={styles.detailsActions}>
-              {userRole === "admin" || userRole === "superadmin" ? (
-                <Button
-                  title="🔄"
-                  onPress={() => onRegenerate(book)}
-                  variant="secondary"
-                />
-              ) : null}
             </View>
           </View>
 
@@ -413,7 +404,13 @@ function BookListCard({
               )}
             </View>
             {(userRole === "admin" || userRole === "superadmin") && (
-              <View>
+              <View style={styles.adminActions}>
+                <Button
+                  title="🔄"
+                  onPress={() => onRegenerate(book)}
+                  variant="neutral"
+                  size="sm"
+                />
                 <Button
                   title="🗑️"
                   onPress={() => onDelete(book)}
@@ -747,6 +744,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing(2),
     flexShrink: 0,
+  },
+  adminActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(2),
   },
   primaryActions: {
     flexDirection: "row",

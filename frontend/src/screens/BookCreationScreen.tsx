@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, Image, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Alert, Image, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   TextInput as PaperTextInput,
@@ -183,7 +183,7 @@ export default function BookCreationScreen({
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("none");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
-    "free_trial" | "credits" | "card" | null
+    "free_trial" | "credits" | "card" | "google_pay" | null
   >(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -191,12 +191,33 @@ export default function BookCreationScreen({
   const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
   const [cardDetailsComplete, setCardDetailsComplete] = useState(false);
   const [cardFieldError, setCardFieldError] = useState<string | null>(null);
+  const [googlePaySupported, setGooglePaySupported] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [autoTitle, setAutoTitle] = useState<string>("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const insets = useSafeAreaInsets();
   const [faceCheckAvailable, setFaceCheckAvailable] = useState<boolean>(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 0);
+    const onHide = () => setKeyboardHeight(0);
+    const subShow = Keyboard.addListener('keyboardDidShow', onShow);
+    const subHide = Keyboard.addListener('keyboardDidHide', onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
+
+  // When entering the Payment step with Card selected, clear card completion state
+  useEffect(() => {
+    if (currentStep === 2 && selectedPaymentMethod === "card") {
+      setCardDetailsComplete(false);
+      setCardFieldError(null);
+    }
+  }, [currentStep, selectedPaymentMethod]);
 
   // Upload constraints
   const MAX_FILES = 3;
@@ -258,6 +279,24 @@ export default function BookCreationScreen({
       throw err;
     }
   };
+
+  // Detect Google Pay support on Android when Stripe is available
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (Platform.OS !== 'android' || !cardPaymentsSupported) {
+          if (mounted) setGooglePaySupported(false);
+          return;
+        }
+        const supported = await (stripe as any)?.isPlatformPaySupported?.({ googlePay: true });
+        if (mounted) setGooglePaySupported(Boolean(supported));
+      } catch {
+        if (mounted) setGooglePaySupported(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [stripe, cardPaymentsSupported]);
 
   // Best-effort face detection using expo-face-detector (if present in this build)
   useEffect(() => {
@@ -485,6 +524,7 @@ export default function BookCreationScreen({
       cardPaymentsSupported &&
       pricingQuote.final_price > 0 &&
       pricingQuote.card_available !== false;
+    const gpayAvailable = Platform.OS === 'android' && cardPaymentsSupported && googlePaySupported && pricingQuote.final_price > 0;
 
     setSelectedPaymentMethod((prev) => {
       if (prev === "free_trial" && freeTrialAvailable) {
@@ -496,18 +536,24 @@ export default function BookCreationScreen({
       if (prev === "card" && cardAvailable) {
         return prev;
       }
+      if (prev === "google_pay" && gpayAvailable) {
+        return prev;
+      }
       if (freeTrialAvailable) {
         return "free_trial";
       }
       if (creditsAvailable) {
         return "credits";
       }
+      if (gpayAvailable) {
+        return "google_pay";
+      }
       if (cardAvailable) {
         return "card";
       }
       return null;
     });
-  }, [pricingQuote, cardPaymentsSupported]);
+  }, [pricingQuote, cardPaymentsSupported, googlePaySupported]);
 
   const updateForm = <K extends keyof BookForm>(
     field: K,
@@ -682,6 +728,26 @@ export default function BookCreationScreen({
       return;
     }
     setSelectedPaymentMethod("card");
+    setPaymentMode("none");
+    setPaymentId(null);
+    setPaymentError(null);
+    setCardDetailsComplete(false);
+    setCardFieldError(null);
+  };
+
+  const handlePayWithGooglePay = () => {
+    if (!pricingQuote || pricingQuote.final_price <= 0) {
+      return;
+    }
+    if (!cardPaymentsSupported) {
+      setPaymentError("Google Pay is unavailable in this build.");
+      return;
+    }
+    if (!googlePaySupported) {
+      setPaymentError("Google Pay is not supported on this device.");
+      return;
+    }
+    setSelectedPaymentMethod("google_pay");
     setPaymentMode("none");
     setPaymentId(null);
     setPaymentError(null);
@@ -955,6 +1021,38 @@ export default function BookCreationScreen({
           throw new Error(
             stripeError.message ?? "Unable to confirm card payment."
           );
+        }
+
+        const confirmation = await confirmStripePayment(intent.payment_id);
+        nextMode = "stripe_confirmed";
+        nextPaymentId = confirmation.payment_id;
+      } else if (selectedPaymentMethod === "google_pay") {
+        if (!cardPaymentsSupported) {
+          throw new Error("Google Pay is unavailable in this build.");
+        }
+        if (!googlePaySupported) {
+          throw new Error("Google Pay is not supported on this device.");
+        }
+
+        const intent: StripeIntentResponse = await createStripeIntent(
+          template.slug
+        );
+
+        // Initialize PaymentSheet with Google Pay enabled
+        const init = await (stripe as any).initPaymentSheet?.({
+          merchantDisplayName: "Kid to Story",
+          paymentIntentClientSecret: intent.client_secret,
+          googlePay: {
+            merchantCountryCode: "AU",
+            testEnv: __DEV__,
+          },
+        });
+        if (init?.error) {
+          throw new Error(init.error.message || "Unable to initialize Google Pay.");
+        }
+        const present = await (stripe as any).presentPaymentSheet?.();
+        if (present?.error) {
+          throw new Error(present.error.message || "Google Pay was cancelled or failed.");
         }
 
         const confirmation = await confirmStripePayment(intent.payment_id);
@@ -1260,11 +1358,14 @@ export default function BookCreationScreen({
       pricingQuote.card_available !== false &&
       pricingQuote.final_price > 0;
     const cardDisabled = !cardAvailable;
+    const gpayAvailable =
+      Platform.OS === 'android' && cardPaymentsSupported && googlePaySupported && pricingQuote.final_price > 0;
 
     const onChange = (val: string) => {
       if (val === "free_trial") return handleUseFreeTrial();
       if (val === "credits") return handlePayWithCredits();
       if (val === "card") return handlePayWithCard();
+      if (val === "google_pay") return handlePayWithGooglePay();
     };
 
     const radioValue = selectedPaymentMethod ?? "";
@@ -1292,6 +1393,19 @@ export default function BookCreationScreen({
           value="credits"
           label={creditsLabel}
           disabled={isPaymentLoading || creditsDisabled}
+          position="leading"
+          mode="android"
+        />
+      );
+    }
+
+    if (gpayAvailable) {
+      items.push(
+        <RadioButton.Item
+          key="google_pay"
+          value="google_pay"
+          label="Google Pay"
+          disabled={isPaymentLoading}
           position="leading"
           mode="android"
         />
@@ -1354,6 +1468,9 @@ export default function BookCreationScreen({
       }
       if (selectedPaymentMethod === "card") {
         return "Card";
+      }
+      if (selectedPaymentMethod === "google_pay") {
+        return "Google Pay";
       }
       return pricingQuote.final_price > 0
         ? "Not selected"
@@ -1490,6 +1607,11 @@ export default function BookCreationScreen({
                 payment required.
               </Text>
             ) : null}
+            {selectedPaymentMethod === "google_pay" ? (
+              <Text style={styles.helperText}>
+                You will complete payment using Google Pay on the next step.
+              </Text>
+            ) : null}
             {!selectedPaymentMethod && paymentRequired ? (
               <Text style={styles.helperText}>
                 Go back to the review step to choose a payment option before
@@ -1513,7 +1635,7 @@ export default function BookCreationScreen({
         pricingQuote?.card_available !== false &&
         cardPaymentsSupported ? (
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
             keyboardVerticalOffset={insets.top + 72}
           >
             <View style={styles.cardFieldContainer}>
@@ -1617,7 +1739,13 @@ export default function BookCreationScreen({
           </Dialog.Actions>
         </Dialog>
       </Portal>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: (keyboardHeight > 0 ? keyboardHeight + spacing(6) : spacing(8) + insets.bottom) }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <TouchableRipple onPress={() => navigation.navigate("BookLibrary")} style={styles.backArrow} borderless>
@@ -1664,18 +1792,18 @@ export default function BookCreationScreen({
         {renderStepContent()}
 
         <View style={[styles.navigationRow, { paddingBottom: spacing(8) + insets.bottom }]}>
-          {currentStep > 0 && currentStep < steps.length - 1 ? (
+          {currentStep > 0 ? (
             <Button
               title=""
               onPress={goToPrevStep}
-              variant="secondary"
+              variant="primary"
               style={styles.navButton}
               size="sm"
               leftIcon={
                 <MaterialCommunityIcons
                   name="arrow-left"
                   size={25}
-                  color={colors.textPrimary}
+                  color={colors.surface}
                 />
               }
             />
