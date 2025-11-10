@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mdc-typography--headline5">RQ Queues & Workers</h2>
+
+<p class="mdc-typography--body2">
+  For a richer view (jobs, details, pagination), open
+  <a href="http://localhost:9181" target="_blank" rel="noopener">RQ Dashboard</a>.
+  It connects to the same Redis instance used by this app.
+  
+</p>
+
+<h3 class="mdc-typography--subtitle1">Queues</h3>
+<ul>
+  <li>books: {{ summary.queues.books.count }}</li>
+  <li>jobs: {{ summary.queues.jobs.count }}</li>
+  {% if not summary.queues.books and not summary.queues.jobs %}
+  <li>No queue data</li>
+  {% endif %}
+</ul>
+
+<h3 class="mdc-typography--subtitle1">Workers</h3>
+<table class="mdc-data-table__table">
+  <thead>
+    <tr><th>Name</th><th>State</th><th>Current Job</th><th>Origin</th></tr>
+  </thead>
+  <tbody>
+    {% for w in summary.workers %}
+      <tr>
+        <td>{{ w.name or '-' }}</td>
+        <td>{{ w.state or '-' }}</td>
+        <td>{{ w.current_job_id or '-' }}</td>
+        <td>{{ w.origin or '-' }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

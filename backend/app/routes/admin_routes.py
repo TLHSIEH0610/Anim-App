@@ -411,6 +411,55 @@ def admin_list_books(_: None = Depends(require_admin), db: Session = Depends(get
     return {"books": items}
 
 
+@router.get("/rq/summary")
+def admin_rq_summary(_: None = Depends(require_admin)):
+    """Basic RQ summary: queue sizes and workers."""
+    try:
+        from rq import Worker
+    except Exception:
+        Worker = None  # type: ignore
+    try:
+        books_q = Queue("books", connection=_redis)
+        jobs_q = Queue("jobs", connection=_redis)
+        data = {
+            "queues": {
+                "books": {"count": len(books_q)},
+                "jobs": {"count": len(jobs_q)},
+            },
+            "workers": [],
+        }
+        if Worker is not None:
+            for w in Worker.all(connection=_redis):  # type: ignore[attr-defined]
+                item = {
+                    "name": getattr(w, "name", None),
+                    "state": getattr(w, "state", None),
+                }
+                try:
+                    job = w.get_current_job()  # type: ignore[attr-defined]
+                    if job is not None:
+                        item["current_job_id"] = getattr(job, "id", None)
+                        item["origin"] = getattr(job, "origin", None)
+                except Exception:
+                    pass
+                data["workers"].append(item)
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/books/{book_id}/cancel")
+def admin_cancel_book(book_id: int, _: None = Depends(require_admin)):
+    """Request cooperative cancellation for a running/queued book job.
+
+    The worker checks this flag between pages/stages and exits early.
+    """
+    try:
+        _redis.setex(f"book:cancel:{book_id}", 3600, "1")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"message": "Cancel requested", "book_id": book_id}
+
+
 # Legacy implementation retained for reference
 def _legacy_admin_get_workflow(
     book_id: int,

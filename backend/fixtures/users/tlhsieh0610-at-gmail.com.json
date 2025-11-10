@@ -1,7 +1,10 @@
 {
-  "credits": "3.00",
+  "credits": "9985.50",
   "email": "tlhsieh0610@gmail.com",
-  "free_trials_used": [],
+  "free_trials_used": [
+    "free-1-page",
+    "free-1-page-2025"
+  ],
   "password_hash": "$pbkdf2-sha256$29000$zXmvNWbMuZfy3ltrbe3dOw$effbC25sckWw6uSx5yjTiXIoV6FvHC4uzzzXMkX0.kE",
-  "role": "user"
+  "role": "superadmin"
 }

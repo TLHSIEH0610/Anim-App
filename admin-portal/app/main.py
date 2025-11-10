@@ -579,6 +579,41 @@ async def regenerate_book(book_id: int, request: Request, new_prompt: str = Form
         )
 
 
+@app.post("/books/{book_id}/cancel")
+async def cancel_book(book_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        await backend_request("POST", f"/admin/books/{book_id}/cancel")
+        message = quote_plus("Cancel requested")
+        return RedirectResponse(f"/dashboard?message={message}", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+@app.get("/queues", response_class=HTMLResponse)
+async def queues_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        resp = await backend_request("GET", "/admin/rq/summary")
+        summary = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return templates.TemplateResponse(
+        "queues.html",
+        {"request": request, "summary": summary, "admin_email": session.get("email")},
+    )
+
+
 @app.get("/users", response_class=HTMLResponse)
 async def users_page(request: Request):
     session = get_admin_session(request)

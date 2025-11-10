@@ -192,11 +192,14 @@ class ComfyUIClient:
         """
         num_images = len(image_filenames)
 
-        # Update LoadImage nodes with actual filenames
+        # Update LoadImage nodes with actual filenames (ensure we load from uploaded store)
         image_nodes = ["13", "94", "98", "101"]
         for i, filename in enumerate(image_filenames):
             if i < len(image_nodes) and image_nodes[i] in workflow:
-                workflow[image_nodes[i]]["inputs"]["image"] = filename
+                inputs = workflow[image_nodes[i]].setdefault("inputs", {})
+                inputs["image"] = filename
+                # Many ComfyUI builds require this to fetch from /upload instead of /input
+                inputs["load_from_upload"] = True
 
         # Resolve ApplyInstantID node dynamically (node id may shift between workflow versions)
         apply_node_id = None
@@ -294,6 +297,38 @@ class ComfyUIClient:
             # Remove any additional LoadImage nodes beyond our supported three (e.g. node 101)
             remove_node("101")
 
+        return workflow
+
+    def _force_raw_reference(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
+        """Force ApplyInstantID image input to use a raw LoadImage node (not AutoCrop).
+
+        Useful as a fallback when face detection on cropped images fails.
+        """
+        try:
+            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+            # Find ApplyInstantID(Advanced)
+            apply_node_id = None
+            if isinstance(meta, dict):
+                apply_node_id = meta.get("instantid_apply_node")
+            if not apply_node_id:
+                for node_id, node in workflow.items():
+                    if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
+                        apply_node_id = node_id
+                        break
+            if not apply_node_id:
+                return workflow
+
+            # Choose first available raw LoadImage node from our known set
+            for candidate in ["13", "94", "98", "101"]:
+                node = workflow.get(candidate)
+                if node and node.get("class_type") == "LoadImage":
+                    # Make sure it points at upload store if we injected files
+                    inputs = node.setdefault("inputs", {})
+                    inputs.setdefault("load_from_upload", True)
+                    workflow[apply_node_id].setdefault("inputs", {})["image"] = [candidate, 0]
+                    return workflow
+        except Exception:
+            pass
         return workflow
 
     def process_image_to_animation(
@@ -445,6 +480,23 @@ class ComfyUIClient:
 
                 # Wait for completion
                 result = self.wait_for_completion(prompt_id)
+
+                # Fallback once if face detection failed on cropped input: force raw reference image
+                try:
+                    err_text = str(result.get("error") or "").lower()
+                except Exception:
+                    err_text = ""
+                if result.get("status") == "failed" and ("no face detected" in err_text or "reference image" in err_text):
+                    try:
+                        wf2 = self._force_raw_reference(workflow)
+                        prompt_id2 = self.queue_prompt(wf2)
+                        event["context"]["fallback_prompt_id"] = prompt_id2
+                        result2 = self.wait_for_completion(prompt_id2)
+                        if result2.get("status") == "completed":
+                            result = result2
+                            workflow = wf2
+                    except Exception:
+                        pass
 
                 meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
                 preview_nodes = []

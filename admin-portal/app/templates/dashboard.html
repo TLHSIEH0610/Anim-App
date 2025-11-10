@@ -65,6 +65,9 @@
                           <form method="post" action="/books/{{ book.id }}/regenerate">
                             <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Regenerate</span></button>
                           </form>
+                          <form method="post" action="/books/{{ book.id }}/cancel" data-loading="Cancelling...">
+                            <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Cancel</span></button>
+                          </form>
                           <form method="post" action="/books/{{ book.id }}/delete" onsubmit="return confirm('Delete book {{ book.title }}?');">
                             <button class="mdc-button btn-sm btn-danger" type="submit"><span class="mdc-button__label">Delete</span></button>
                           </form>

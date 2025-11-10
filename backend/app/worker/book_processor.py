@@ -76,6 +76,54 @@ _Session = sessionmaker(bind=_engine)
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
 OLLAMA_SERVER = os.getenv("OLLAMA_SERVER", "http://localhost:11434")
 
+# RQ Redis for cooperative cancellation
+try:
+    import redis as _rq_redis_mod  # type: ignore
+    REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    _rq_redis = _rq_redis_mod.from_url(REDIS_URL)
+except Exception:  # pragma: no cover
+    _rq_redis = None  # type: ignore
+
+def _set_run_token(book_id: int) -> None:
+    try:
+        if _rq_redis is not None:
+            import uuid
+            token = uuid.uuid4().hex
+            _rq_redis.set(f"book:run:{book_id}", token)
+            _rq_redis.delete(f"book:cancel:{book_id}")
+    except Exception:
+        pass
+
+def _get_run_token(book_id: int):
+    try:
+        if _rq_redis is None:
+            return None
+        v = _rq_redis.get(f"book:run:{book_id}")
+        if v is None:
+            return None
+        return v.decode() if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:
+        return None
+
+def _is_cancelled(book_id: int) -> bool:
+    try:
+        if _rq_redis is None:
+            return False
+        return bool(_rq_redis.get(f"book:cancel:{book_id}"))
+    except Exception:
+        return False
+
+def _should_abort(book_id: int, token) -> bool:
+    try:
+        if _is_cancelled(book_id):
+            return True
+        cur = _get_run_token(book_id)
+        if token is not None and cur is not None and token != cur:
+            return True
+        return False
+    except Exception:
+        return False
+
 
 
 def _normalized_template_params(book: Book) -> Dict[str, str]:
@@ -637,10 +685,14 @@ def create_childbook(book_id: int):
             workflow_slug = "base"
 
         # Stage 1: Generate story text
+        my_run_token = _get_run_token(book_id)
         print("Stage 1: Generating story...")
         book.status = "generating_story"
         book.progress_percentage = 10.0
         session.commit()
+        if _should_abort(book.id, my_run_token):
+            print(f"[Abort] Cancelled before story generation for book {book_id}")
+            return
 
         if not is_template:
             assert story_generator is not None
@@ -698,6 +750,9 @@ def create_childbook(book_id: int):
         total_pages = len(pages)
         
         for i, page in enumerate(pages):
+            if _should_abort(book.id, my_run_token):
+                print(f"[Abort] Cancelled during images stage for book {book_id}")
+                return
             try:
                 print(f"Generating image for page {page.page_number}...")
                 page.image_status = "processing"
@@ -723,6 +778,9 @@ def create_childbook(book_id: int):
 
                 # Try to generate image with ComfyUI
                 try:
+                    if _should_abort(book.id, my_run_token):
+                        print(f"[Abort] Cancelled before ComfyUI call (page {page.page_number}) for book {book_id}")
+                        return
                     # Load appropriate workflow
                     workflow_override_slug = prompt_override.get("workflow")
                     effective_workflow_slug = (workflow_override_slug or workflow_slug)
@@ -872,6 +930,9 @@ def create_childbook(book_id: int):
                 session.commit()
                 raise
         
+        if _should_abort(book.id, my_run_token):
+            print(f"[Abort] Cancelled after images stage for book {book_id}")
+            return
         book.images_completed_at = datetime.now(timezone.utc)
         book.progress_percentage = 80.0
         session.commit()
@@ -881,6 +942,9 @@ def create_childbook(book_id: int):
         book.status = "composing"
         book.progress_percentage = 85.0
         session.commit()
+        if _should_abort(book.id, my_run_token):
+            print(f"[Abort] Cancelled before composing for book {book_id}")
+            return
         
         # Prepare data for PDF generation
         media_root = get_media_root()
@@ -1000,6 +1064,8 @@ def admin_regenerate_book(book_id: int, new_prompt: Optional[str] = None):
     finally:
         session.close()
 
+    # Invalidate any older runs and clear cancel flag
+    _set_run_token(book_id)
     create_childbook(book_id)
 
 def get_childbook_workflow(slug: Optional[str]) -> tuple[Dict[str, Any], int, str]:
