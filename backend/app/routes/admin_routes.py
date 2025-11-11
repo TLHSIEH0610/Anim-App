@@ -1555,6 +1555,32 @@ def admin_regenerate_page(
         workflow_version = wf_version
         workflow_slug = wf_slug_active
         workflow_json = copy.deepcopy(base_wf)
+        # Inject cover_text into overlay nodes for cover page (page 0)
+        # Mirrors worker behavior so admin "Regenerate from template" matches pipeline output
+        try:
+            if page == 0 and overrides:
+                cov = overrides.get(0) if isinstance(overrides, dict) else None
+                cover_text_value = cov.get("cover_text") if isinstance(cov, dict) else None
+                if isinstance(cover_text_value, str) and cover_text_value.strip():
+                    meta = workflow_json.get("_meta", {}) if isinstance(workflow_json, dict) else {}
+                    overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
+                    if overlay_nodes:
+                        for nid in overlay_nodes:
+                            node = workflow_json.get(nid)
+                            if node and isinstance(node.get("inputs"), dict):
+                                node["inputs"]["text"] = cover_text_value
+                    else:
+                        # Fallback: scan for any Text Overlay nodes and update their text
+                        for nid, node in list(workflow_json.items()):
+                            try:
+                                if node.get("class_type") == "Text Overlay" and isinstance(node.get("inputs"), dict):
+                                    node["inputs"]["text"] = cover_text_value
+                            except Exception:
+                                # Ignore malformed nodes; continue attempting other nodes
+                                pass
+        except Exception:
+            # Do not block regeneration if overlay injection fails
+            pass
     else:
         raise HTTPException(status_code=400, detail="Invalid mode; use 'edited' or 'template'")
 
