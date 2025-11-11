@@ -4,7 +4,7 @@ import ScreenWrapper from "../components/ScreenWrapper";
 import BottomNav from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { colors, radii, spacing, typography } from "../styles/theme";
- 
+
 import Button from "../components/Button";
 import Header from "../components/Header";
 import { getStoryTemplates } from "../api/books";
@@ -31,7 +31,29 @@ export default function AccountScreen() {
   }, []);
 
   return (
-    <ScreenWrapper showIllustrations footer={<BottomNav active="account" />}>
+    <ScreenWrapper
+      showIllustrations
+      footer={
+        <View style={styles.footerArea}>
+          <View style={styles.linksRow}>
+            <Text
+              onPress={() => navigation.navigate("PrivacyPolicy")}
+              style={styles.link}
+            >
+              Private Policy
+            </Text>
+            <Text style={styles.linkSep}> | </Text>
+            <Text
+              onPress={() => navigation.navigate("TermsOfService")}
+              style={styles.link}
+            >
+              Terms of Service
+            </Text>
+          </View>
+          <BottomNav active="account" />
+        </View>
+      }
+    >
       <Header title="Account" subtitle="Manage your profile and billing" />
 
       <View style={styles.card}>
@@ -48,28 +70,15 @@ export default function AccountScreen() {
       <Button
         title="View Billing"
         onPress={() => navigation.navigate("BillingHistory")}
+        variant="primary"
+      />
+
+      <Button
+        title="Contact Support"
+        onPress={() => navigation.navigate("Support")}
         variant="info"
-      />
-
-      <Button
-        title="Privacy Policy (Last updated: Nov 10, 2025)"
-        onPress={() => navigation.navigate('PrivacyPolicy')}
-        variant="background"
         style={{ marginTop: spacing(2) }}
       />
-      <Button
-        title="Terms of Service"
-        onPress={() => navigation.navigate('TermsOfService')}
-        variant="background"
-        style={{ marginTop: spacing(2) }}
-      />
-      <Button
-        title="Children's Privacy"
-        onPress={() => navigation.navigate('PrivacyPolicy')}
-        variant="background"
-        style={{ marginTop: spacing(2) }}
-      />
-
 
       <Button
         title="Logout"
@@ -79,19 +88,11 @@ export default function AccountScreen() {
       />
 
       <Button
-        title="Delete account and all data"
-        onPress={() => navigation.navigate('DeleteAccount')}
+        title="Delete account"
+        onPress={() => navigation.navigate("DeleteAccount")}
         variant="danger"
         style={{ marginTop: spacing(2) }}
       />
-
-      <Button
-        title="Contact Support"
-        onPress={() => navigation.navigate('Support')}
-        variant="background"
-        style={{ marginTop: spacing(2) }}
-      />
-
     </ScreenWrapper>
   );
 }
@@ -105,4 +106,25 @@ const styles = StyleSheet.create({
   },
   label: { ...typography.caption, color: colors.textSecondary },
   value: { ...typography.body, color: colors.textPrimary },
+  footerArea: {
+    alignSelf: "stretch",
+  },
+  linksRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: spacing(2),
+    marginBottom: spacing(2),
+    paddingHorizontal: spacing(6),
+  },
+  link: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
+  },
+  linkSep: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginHorizontal: 5,
+  },
 });

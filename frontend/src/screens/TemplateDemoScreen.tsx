@@ -10,7 +10,6 @@ import Button from "../components/Button";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 import { useAuth } from "../context/AuthContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type TemplateDemoRoute = RouteProp<AppStackParamList, "TemplateDemo">;
 
@@ -32,17 +31,8 @@ export default function TemplateDemoScreen() {
     return (template.storyline_pages || []).filter((p) => p.page_number !== 0);
   }, [template.storyline_pages]);
 
-  const goCreate = async () => {
-    // Require first-run consent before starting creation
-    try {
-      const ack = await AsyncStorage.getItem('guardian_consent_ack_v1');
-      if (!ack) {
-        // @ts-ignore
-        navigation.navigate('Consent');
-        return;
-      }
-    } catch {}
-    // Navigate to creation with this template
+  const goCreate = () => {
+    // Go straight to creation; consent handled within the creation flow
     // @ts-ignore navigation is untyped here; stack param handles it at runtime
     navigation.navigate("BookCreation", { templateSlug: template.slug });
   };

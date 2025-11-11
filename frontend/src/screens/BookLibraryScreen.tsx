@@ -95,6 +95,12 @@ function BookListCard({
     } catch {}
   }, [book]);
 
+  const isInProgress =
+    book.status === "creating" ||
+    book.status === "generating_story" ||
+    book.status === "generating_images" ||
+    book.status === "composing";
+
   const versionTag =
     book.completed_at || (book as any).updated_at || book.created_at;
   const coverUri = getBookCoverThumbUrl(
@@ -138,18 +144,30 @@ function BookListCard({
       <View>
         {/* Title row */}
         <View style={styles.titleRow}>
-          <Text
-            style={[
-              styles.bookTitle,
-              { flex: 1, marginRight: spacing(2), marginBottom: 0 },
-            ]}
-            numberOfLines={1}
-          >
-            {book.title}
-          </Text>
+          <View style={styles.titleLeft}>
+            <Text
+              style={[
+                styles.bookTitle,
+                { marginRight: spacing(2), marginBottom: 0, flexShrink: 1 },
+              ]}
+              numberOfLines={1}
+            >
+              {book.title}
+            </Text>
+            {(userRole === "admin" || userRole === "superadmin") &&
+              !isInProgress && (
+              <Button
+                title="🔄"
+                onPress={() => onRegenerate(book)}
+                variant="secondary"
+                size="sm"
+              />
+            )}
+          </View>
           <Chip
             compact
             style={{
+              marginLeft: 'auto',
               backgroundColor: STATUS_COLORS[book.status] || colors.textMuted,
             }}
             textStyle={{ color: "#fff", fontWeight: "600" }}
@@ -402,29 +420,16 @@ function BookListCard({
                   />
                 </>
               )}
-              <Button
-                title="Delete"
-                onPress={() => onDelete(book)}
-                variant="danger"
-                size="sm"
-              />
-            </View>
-            {(userRole === "admin" || userRole === "superadmin") && (
-              <View style={styles.adminActions}>
+              {!isInProgress && (
                 <Button
-                  title="🔄"
-                  onPress={() => onRegenerate(book)}
-                  variant="neutral"
-                  size="sm"
-                />
-                <Button
-                  title="🗑️"
+                  title="Delete"
                   onPress={() => onDelete(book)}
                   variant="danger"
                   size="sm"
                 />
-              </View>
-            )}
+              )}
+            </View>
+            {/* Admin regenerate moved next to title; adminActions removed */}
           </View>
         </View>
       </View>
@@ -730,9 +735,14 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: spacing(2),
+  },
+  titleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   titleActions: {
     flexDirection: "row",
@@ -751,11 +761,7 @@ const styles = StyleSheet.create({
     gap: spacing(2),
     flexShrink: 0,
   },
-  adminActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing(2),
-  },
+  // adminActions removed; admin regenerate moved next to title
   primaryActions: {
     flexDirection: "row",
     alignItems: "center",

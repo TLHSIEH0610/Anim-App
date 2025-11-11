@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable } from "react-native";
 import { Checkbox } from "react-native-paper";
 import {
   GoogleSignin,
@@ -153,15 +153,19 @@ const LoginScreen = () => {
       </View>
 
       <View style={styles.buttonArea}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Pressable
+          style={styles.checkboxRow}
+          onPress={() => setGuardianAttested((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: guardianAttested }}
+        >
           <Checkbox
             status={guardianAttested ? 'checked' : 'unchecked'}
-            onPress={() => setGuardianAttested((v) => !v)}
+            color={colors.primary}
+            uncheckedColor={colors.primary}
           />
-          <Text style={styles.helperText}>
-            I am a parent/guardian and 13+.
-          </Text>
-        </View>
+          <Text style={styles.checkboxLabel}>I am a parent/guardian and 13+.</Text>
+        </Pressable>
         <GoogleSigninButton
           style={{ width: 360, height: 60, borderRadius: 8 }}
           size={GoogleSigninButton.Size.Wide}
@@ -274,6 +278,21 @@ const styles = StyleSheet.create({
     marginTop: spacing(4),
     lineHeight: 18,
     textAlign: "center",
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing(2),
+    maxWidth: 360,
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "600",
+    marginLeft: 8,
+    lineHeight: 18,
+    textAlign: "left",
+    flexShrink: 1,
   },
   errorText: {
     fontSize: 13,

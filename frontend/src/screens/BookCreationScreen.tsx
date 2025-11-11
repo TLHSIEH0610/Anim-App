@@ -1,5 +1,15 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, Image, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   TextInput as PaperTextInput,
@@ -15,7 +25,12 @@ import {
 } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import { CardField, useStripe, isStripeAvailable, PlatformPay } from "../lib/stripe";
+import {
+  CardField,
+  useStripe,
+  isStripeAvailable,
+  PlatformPay,
+} from "../lib/stripe";
 import {
   createBook,
   BookCreationData,
@@ -38,7 +53,6 @@ import { AppStackParamList } from "../navigation/types";
 import ScreenWrapper from "../components/ScreenWrapper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "../components/Button";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface TemplateStorylinePage {
   pageNumber: number;
@@ -147,7 +161,14 @@ export default function BookCreationScreen({
   navigation,
   route,
 }: BookCreationScreenProps) {
-  const MERCHANT_COUNTRY = (process.env.EXPO_PUBLIC_STRIPE_MERCHANT_COUNTRY || 'US').toUpperCase();
+  const MERCHANT_COUNTRY = (
+    process.env.EXPO_PUBLIC_STRIPE_MERCHANT_COUNTRY || "US"
+  ).toUpperCase();
+  const MERCHANT_DISPLAY_NAME =
+    process.env.EXPO_PUBLIC_STRIPE_MERCHANT_NAME?.trim() || "Kid to Story";
+  const GPAY_TEST_ENV = (
+    process.env.EXPO_PUBLIC_STRIPE_GPAY_TEST_ENV?.trim() ?? (__DEV__ ? "true" : "false")
+  ).toLowerCase() === "true";
   const { token } = useAuth();
   const stripe = useStripe();
   const cardPaymentsSupported =
@@ -205,10 +226,11 @@ export default function BookCreationScreen({
   const [guardianAttested, setGuardianAttested] = useState(false);
 
   useEffect(() => {
-    const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 0);
+    const onShow = (e: any) =>
+      setKeyboardHeight(e?.endCoordinates?.height || 0);
     const onHide = () => setKeyboardHeight(0);
-    const subShow = Keyboard.addListener('keyboardDidShow', onShow);
-    const subHide = Keyboard.addListener('keyboardDidHide', onHide);
+    const subShow = Keyboard.addListener("keyboardDidShow", onShow);
+    const subHide = Keyboard.addListener("keyboardDidHide", onHide);
     return () => {
       subShow.remove();
       subHide.remove();
@@ -253,11 +275,20 @@ export default function BookCreationScreen({
         try {
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const ImageManipulator: any = require("expo-image-manipulator");
-          const target = width >= height ? { width: MAX_LONGEST_EDGE } : { height: MAX_LONGEST_EDGE };
+          const target =
+            width >= height
+              ? { width: MAX_LONGEST_EDGE }
+              : { height: MAX_LONGEST_EDGE };
           const result = await ImageManipulator.manipulateAsync(
             uri,
             [{ resize: target }],
-            { compress: 0.85, format: ImageManipulator.SaveFormat?.JPEG ?? ImageManipulator.SaveFormat?.jpeg ?? 'jpeg' }
+            {
+              compress: 0.85,
+              format:
+                ImageManipulator.SaveFormat?.JPEG ??
+                ImageManipulator.SaveFormat?.jpeg ??
+                "jpeg",
+            }
           );
           uri = result.uri;
           try {
@@ -274,7 +305,9 @@ export default function BookCreationScreen({
       if (size && size > MAX_FILE_SIZE_BYTES) {
         const name = asset.fileName || "Selected image";
         throw new Error(
-          `${name} exceeds ${Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024))}MB after resizing. Please choose a smaller image.`
+          `${name} exceeds ${Math.round(
+            MAX_FILE_SIZE_BYTES / (1024 * 1024)
+          )}MB after resizing. Please choose a smaller image.`
         );
       }
 
@@ -289,22 +322,28 @@ export default function BookCreationScreen({
     let mounted = true;
     (async () => {
       try {
-        if (Platform.OS !== 'android' || !cardPaymentsSupported) {
+        if (Platform.OS !== "android" || !cardPaymentsSupported) {
           if (mounted) setGooglePaySupported(false);
           return;
         }
         let supported = false;
         if (PlatformPay?.isGooglePaySupported) {
-          supported = !!(await PlatformPay.isGooglePaySupported({ testEnv: __DEV__ }));
+          supported = !!(await PlatformPay.isGooglePaySupported({
+            testEnv: GPAY_TEST_ENV,
+          }));
         } else if ((stripe as any)?.isPlatformPaySupported) {
-          supported = !!(await (stripe as any).isPlatformPaySupported({ googlePay: true }));
+          supported = !!(await (stripe as any).isPlatformPaySupported({
+            googlePay: true,
+          }));
         }
         if (mounted) setGooglePaySupported(Boolean(supported));
       } catch {
         if (mounted) setGooglePaySupported(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [stripe, cardPaymentsSupported]);
 
   // Best-effort face detection using expo-face-detector (if present in this build)
@@ -324,7 +363,10 @@ export default function BookCreationScreen({
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const FaceDetector: any = require("expo-face-detector");
-      if (!FaceDetector || typeof FaceDetector.detectFacesAsync !== "function") {
+      if (
+        !FaceDetector ||
+        typeof FaceDetector.detectFacesAsync !== "function"
+      ) {
         return null; // Module not available
       }
       const options = {
@@ -333,7 +375,11 @@ export default function BookCreationScreen({
         runClassifications: FaceDetector.FaceDetectorClassifications?.none ?? 0,
       };
       const result = await FaceDetector.detectFacesAsync(uri, options);
-      const faces = Array.isArray(result?.faces) ? result.faces.length : (Array.isArray(result) ? result.length : 0);
+      const faces = Array.isArray(result?.faces)
+        ? result.faces.length
+        : Array.isArray(result)
+        ? result.length
+        : 0;
       return faces;
     } catch (_) {
       return null; // On any error, don't block flow
@@ -486,12 +532,6 @@ export default function BookCreationScreen({
   }, [loadPricing]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const ack = await AsyncStorage.getItem('guardian_consent_ack_v1');
-        if (!ack) navigation.navigate('Consent' as any);
-      } catch {}
-    })();
     initializeTemplates();
   }, [initializeTemplates]);
 
@@ -539,7 +579,11 @@ export default function BookCreationScreen({
       cardPaymentsSupported &&
       pricingQuote.final_price > 0 &&
       pricingQuote.card_available !== false;
-    const gpayAvailable = Platform.OS === 'android' && cardPaymentsSupported && googlePaySupported && pricingQuote.final_price > 0;
+    const gpayAvailable =
+      Platform.OS === "android" &&
+      cardPaymentsSupported &&
+      googlePaySupported &&
+      pricingQuote.final_price > 0;
 
     setSelectedPaymentMethod((prev) => {
       if (prev === "free_trial" && freeTrialAvailable) {
@@ -616,16 +660,15 @@ export default function BookCreationScreen({
   };
   const pickImage = async () => {
     try {
-      if (!guardianAttested) {
-        setSnackbar({ visible: true, message: "Please confirm you are a parent/guardian (13+) before uploading photos." });
-        return;
-      }
       // Clear any previous image-specific error when user starts a new selection
       setImageError(null);
 
       const availableSlots = Math.max(0, MAX_FILES - form.images.length);
       if (availableSlots <= 0) {
-        setSnackbar({ visible: true, message: `You can select up to ${MAX_FILES} images maximum` });
+        setSnackbar({
+          visible: true,
+          message: `You can select up to ${MAX_FILES} images maximum`,
+        });
         return;
       }
 
@@ -642,7 +685,9 @@ export default function BookCreationScreen({
         if (selectedAssets.length > availableSlots) {
           setSnackbar({
             visible: true,
-            message: `You can add up to ${availableSlots} more image${availableSlots > 1 ? 's' : ''}`,
+            message: `You can add up to ${availableSlots} more image${
+              availableSlots > 1 ? "s" : ""
+            }`,
           });
           selectedAssets = selectedAssets.slice(0, availableSlots);
         }
@@ -660,8 +705,14 @@ export default function BookCreationScreen({
             }
             accepted.push(finalUri);
           } catch (e: any) {
-            setImageError(e?.message || "Selected image did not meet requirements.");
-            setSnackbar({ visible: true, message: e?.message || "Selected image did not meet requirements." });
+            setImageError(
+              e?.message || "Selected image did not meet requirements."
+            );
+            setSnackbar({
+              visible: true,
+              message:
+                e?.message || "Selected image did not meet requirements.",
+            });
             return; // abort all on first error for clarity
           }
         }
@@ -676,7 +727,12 @@ export default function BookCreationScreen({
         }
 
         if (droppedNoFace > 0 && faceCheckAvailable) {
-          setSnackbar({ visible: true, message: `Skipped ${droppedNoFace} image${droppedNoFace > 1 ? 's' : ''} with no visible face.` });
+          setSnackbar({
+            visible: true,
+            message: `Skipped ${droppedNoFace} image${
+              droppedNoFace > 1 ? "s" : ""
+            } with no visible face.`,
+          });
         }
 
         const merged = [...form.images, ...accepted];
@@ -780,7 +836,8 @@ export default function BookCreationScreen({
         return (
           form.images.length > 0 &&
           !!selectedTemplate &&
-          !!form.templateInput.name.trim()
+          !!form.templateInput.name.trim() &&
+          guardianAttested
         );
       case 1:
         return !!form.title.trim();
@@ -1059,19 +1116,23 @@ export default function BookCreationScreen({
 
         // Initialize PaymentSheet with Google Pay enabled
         const init = await (stripe as any).initPaymentSheet?.({
-          merchantDisplayName: "Kid to Story",
+          merchantDisplayName: MERCHANT_DISPLAY_NAME,
           paymentIntentClientSecret: intent.client_secret,
           googlePay: {
             merchantCountryCode: MERCHANT_COUNTRY,
-            testEnv: __DEV__,
+            testEnv: GPAY_TEST_ENV,
           },
         });
         if (init?.error) {
-          throw new Error(init.error.message || "Unable to initialize Google Pay.");
+          throw new Error(
+            init.error.message || "Unable to initialize Google Pay."
+          );
         }
         const present = await (stripe as any).presentPaymentSheet?.();
         if (present?.error) {
-          throw new Error(present.error.message || "Google Pay was cancelled or failed.");
+          throw new Error(
+            present.error.message || "Google Pay was cancelled or failed."
+          );
         }
 
         const confirmation = await confirmStripePayment(intent.payment_id);
@@ -1118,18 +1179,15 @@ export default function BookCreationScreen({
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>Create Your Hero *</Text>
         <Text style={styles.stepDescription}>
-          Select 1-3 images of your kid for better consistency throughout
-          the book.
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing(1), marginBottom: spacing(2) }}>
-          <Checkbox
-            status={guardianAttested ? 'checked' : 'unchecked'}
-            onPress={() => setGuardianAttested((v) => !v)}
-          />
-          <Text style={{ ...typography.body, flex: 1 }}>
-            I am a parent/guardian and 13+ and I have permission to upload photos of the child for the purpose of creating this book.
+          Select 1-3 images of your kid for better consistency throughout the
+          book.{" "}
+          <Text style={styles.helpText}>
+            Photos are used only to create your book; you can delete them
+            anytime.
           </Text>
-        </View>
+        </Text>
+
+        {/* Guardian attestation moved to bottom of the form */}
 
         <View style={styles.imageCountBadge}>
           <Text style={styles.imageCountText}>
@@ -1157,7 +1215,6 @@ export default function BookCreationScreen({
                 title="+ Add More Images"
                 onPress={pickImage}
                 variant="secondary"
-                disabled={!guardianAttested}
               />
             )}
           </View>
@@ -1166,7 +1223,6 @@ export default function BookCreationScreen({
             title="Select Images (1-3)"
             onPress={pickImage}
             variant="primary"
-            disabled={!guardianAttested}
           />
         )}
 
@@ -1175,32 +1231,25 @@ export default function BookCreationScreen({
         ) : null}
 
         <Text style={styles.helpText}>
-          Tip: Multiple images help us understand your hero better! Choose
-          clear photos with good lighting. <Text style={{ color: colors.primary }}>Single-person photos work best.</Text>
+          Tip: Multiple images help us understand your hero better! Choose clear
+          photos with good lighting.{" "}
+          <Text style={{ color: colors.primary }}>
+            Single-person photos work best.
+          </Text>
         </Text>
-        <Text style={styles.helperText}>
-          Photos are used only to create your book; you can delete them anytime.
-        </Text>
-        
+        {/* Moved photo usage note to bottom below the checkbox */}
 
         <View style={styles.sectionDivider} />
 
-        <Text style={styles.stepTitle}>Create Your Story</Text>
-
-        {isLoadingTemplates ? (
-          <View style={styles.loaderRow}>
-            <PaperActivityIndicator />
-            <Text style={styles.loaderText}>Loading templates...</Text>
-          </View>
-        ) : null}
+        <View style={styles.stepTitleRow}>
+          <Text style={styles.stepTitle}>Hero's Info</Text>
+        </View>
 
         {templatesError ? (
           <Text style={styles.errorTextInline}>{templatesError}</Text>
         ) : null}
 
-        {readonlyTemplate ? (
-          <Text style={styles.helperText}>Hero's Info</Text>
-        ) : (
+        {readonlyTemplate ? null : (
           <View style={styles.templateList}>
             {templates.map((template) => renderTemplateCard(template))}
           </View>
@@ -1241,6 +1290,24 @@ export default function BookCreationScreen({
             }))}
           />
         </View>
+
+        {/* Guardian attestation moved to bottom */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginTop: spacing(3),
+          }}
+        >
+          <Checkbox
+            status={guardianAttested ? "checked" : "unchecked"}
+            onPress={() => setGuardianAttested((v) => !v)}
+          />
+          <Text style={{ ...typography.body, flex: 1 }}>
+            I am a parent/guardian and 13+ and I have permission to upload
+            photos of the child for the purpose of creating this book.
+          </Text>
+        </View>
       </View>
     );
   };
@@ -1258,28 +1325,30 @@ export default function BookCreationScreen({
 
       <View style={styles.reviewDetails}>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
-        <Text style={styles.reviewDetail}>
-          Page Number: {form.pageCount}
-        </Text>
+        <Text style={styles.reviewDetail}>Page Number: {form.pageCount}</Text>
         <Text style={styles.reviewDetail}>
           Images: {form.images.length} reference image(s)
         </Text>
         {form.templateInput.name.trim() ? (
           <Text style={styles.reviewDetail}>
             {(() => {
-              const raw = (form.templateInput.gender || '').trim().toLowerCase();
-              const genderLabel = raw === 'male' ? 'boy' : raw === 'female' ? 'girl' : 'child';
+              const raw = (form.templateInput.gender || "")
+                .trim()
+                .toLowerCase();
+              const genderLabel =
+                raw === "male" ? "boy" : raw === "female" ? "girl" : "child";
               return (
-                <>Lead Character: {form.templateInput.name.trim()}, {genderLabel}</>
+                <>
+                  Lead Character: {form.templateInput.name.trim()},{" "}
+                  {genderLabel}
+                </>
               );
             })()}
           </Text>
         ) : null}
         {storylinePreview ? (
           <View style={styles.reviewStorylineWrapper}>
-            <Text style={styles.reviewStorylineHeading}>
-              Plot
-            </Text>
+            <Text style={styles.reviewStorylineHeading}>Plot</Text>
             <Text style={styles.reviewStoryline}>{storylinePreview}</Text>
           </View>
         ) : null}
@@ -1392,7 +1461,10 @@ export default function BookCreationScreen({
       pricingQuote.final_price > 0;
     const cardDisabled = !cardAvailable;
     const gpayAvailable =
-      Platform.OS === 'android' && cardPaymentsSupported && googlePaySupported && pricingQuote.final_price > 0;
+      Platform.OS === "android" &&
+      cardPaymentsSupported &&
+      googlePaySupported &&
+      pricingQuote.final_price > 0;
 
     const onChange = (val: string) => {
       if (val === "free_trial") return handleUseFreeTrial();
@@ -1774,15 +1846,28 @@ export default function BookCreationScreen({
       </Portal>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: (keyboardHeight > 0 ? keyboardHeight + spacing(6) : spacing(8) + insets.bottom) }}
+        contentContainerStyle={{
+          paddingBottom:
+            keyboardHeight > 0
+              ? keyboardHeight + spacing(6)
+              : spacing(8) + insets.bottom,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <TouchableRipple onPress={() => navigation.navigate("BookLibrary")} style={styles.backArrow} borderless>
-              <MaterialCommunityIcons name="arrow-left-bold" size={24} color={colors.primaryDark} />
+            <TouchableRipple
+              onPress={() => navigation.navigate("BookLibrary")}
+              style={styles.backArrow}
+              borderless
+            >
+              <MaterialCommunityIcons
+                name="arrow-left-bold"
+                size={24}
+                color={colors.primaryDark}
+              />
             </TouchableRipple>
             <Text style={styles.title}>Create Children-s Book</Text>
           </View>
@@ -1824,7 +1909,12 @@ export default function BookCreationScreen({
 
         {renderStepContent()}
 
-        <View style={[styles.navigationRow, { paddingBottom: spacing(8) + insets.bottom }]}>
+        <View
+          style={[
+            styles.navigationRow,
+            { paddingBottom: spacing(4) + insets.bottom },
+          ]}
+        >
           {currentStep > 0 ? (
             <Button
               title=""
@@ -1871,7 +1961,11 @@ export default function BookCreationScreen({
           title="Cancel"
           onPress={() => navigation.navigate("BookLibrary")}
           variant="secondary"
-          style={[styles.cancelButton, styles.cancelStandalone, { marginBottom: spacing(8) + insets.bottom }]}
+          style={[
+            styles.cancelButton,
+            styles.cancelStandalone,
+            { marginBottom: spacing(8) + insets.bottom },
+          ]}
         />
       </ScrollView>
       <Snackbar
@@ -1892,9 +1986,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing(6),
   },
   titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
   },
   backArrow: {
@@ -1970,6 +2064,18 @@ const styles = StyleSheet.create({
     ...typography.headingL,
     marginBottom: spacing(4),
   },
+  stepTitleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    columnGap: spacing(2) as any,
+    marginBottom: spacing(4),
+  },
+  inlineHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginLeft: spacing(2),
+  },
   stepDescription: {
     ...typography.body,
     lineHeight: 22,
@@ -2026,7 +2132,7 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: spacing(3),
-    marginTop: spacing(3),
+    // marginTop: spacing(1),
   },
   label: {
     fontSize: 14,
@@ -2263,7 +2369,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   warningText: {
-    color: '#991B1B',
+    color: "#991B1B",
   },
   paymentOptionsContainer: {
     marginBottom: spacing(4),

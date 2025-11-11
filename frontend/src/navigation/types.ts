@@ -13,5 +13,4 @@ export type AppStackParamList = {
   TermsOfService: undefined;
   DeleteAccount: undefined;
   DeleteReceipt: { manifest: any } | undefined;
-  Consent: undefined;
 };
