@@ -8,7 +8,7 @@ import requests
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.auth import create_user, get_user_by_email, verify_pw, create_access_token
+from app.auth import create_user, get_user_by_email, verify_pw, create_access_token, current_user
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -116,6 +116,16 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
 
 @router.post("/mock")
 def mock_login(payload: MockLoginIn | None = None, db: Session = Depends(get_db)):
+    # Disable mock auth in production-like environments by default.
+    # Enable only when ALLOW_AUTH_MOCK=true is explicitly set.
+    sentry_env = os.getenv("SENTRY_ENV", "local").strip().lower()
+    default_allowed = sentry_env in {"local", "development", "dev"}
+    allow_env = os.getenv("ALLOW_AUTH_MOCK", "true" if default_allowed else "false").strip().lower()
+    allow = allow_env in {"1", "true", "yes", "on"}
+    if not allow:
+        # Hide existence of the endpoint in production
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+
     email = (payload.email if payload else None) or "test@example.com"
     user = get_user_by_email(db, email)
     if not user:
@@ -129,6 +139,105 @@ def mock_login(payload: MockLoginIn | None = None, db: Session = Depends(get_db)
             "role": getattr(user, "role", None),
         },
     }
+
+from app.models import Book, BookPage, Payment, User as UserModel
+import json
+import os
+
+@router.delete("/account")
+def delete_account(user = Depends(current_user), db: Session = Depends(get_db)):
+    """Delete the authenticated user's account and all associated data/files.
+
+    Returns a deletion manifest with basic counts so the client can show a receipt.
+    Payment rows are anonymized and retained for accounting (reassigned to a
+    tombstone user with metadata cleared).
+    """
+    try:
+        deleted = {
+            "books": 0,
+            "pages": 0,
+            "files": 0,
+            "payments_anonymized": 0,
+            "user": 1,
+        }
+        # Disassociate user payments from books and anonymize PII while keeping summaries
+        # Find or create a tombstone account to retain payment rows without PII linkage
+        tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
+        tombstone = db.query(UserModel).filter(UserModel.email == tombstone_email).first()
+        if not tombstone:
+            tombstone = create_user(db, tombstone_email, secrets.token_urlsafe(32))
+            try:
+                setattr(tombstone, "role", "system")
+                setattr(tombstone, "credits", 0)
+                db.add(tombstone)
+                db.commit(); db.refresh(tombstone)
+            except Exception:
+                db.rollback()
+        # Anonymize payments for this user
+        payments_q = db.query(Payment).filter(Payment.user_id == user.id)
+        deleted["payments_anonymized"] = payments_q.count()
+        payments_q.update(
+            {
+                Payment.book_id: None,
+                Payment.user_id: tombstone.id,
+                Payment.stripe_payment_intent_id: None,
+                Payment.metadata_json: {},
+            },
+            synchronize_session=False,
+        )
+
+        # Delete all books and their files
+        books = db.query(Book).filter(Book.user_id == user.id).all()
+        for book in books:
+            deleted["books"] += 1
+            # Remove uploaded originals
+            if getattr(book, 'original_image_paths', None):
+                try:
+                    paths = json.loads(book.original_image_paths)
+                    for p in paths or []:
+                        if p and os.path.exists(p):
+                            try:
+                                os.remove(p)
+                                deleted["files"] += 1
+                            except Exception:
+                                pass
+                except Exception:
+                    if os.path.exists(book.original_image_paths):
+                        try:
+                            os.remove(book.original_image_paths)
+                            deleted["files"] += 1
+                        except Exception:
+                            pass
+
+            # Remove PDF
+            if book.pdf_path and os.path.exists(book.pdf_path):
+                try:
+                    os.remove(book.pdf_path)
+                    deleted["files"] += 1
+                except Exception:
+                    pass
+
+            # Remove page images
+            pages = db.query(BookPage).filter(BookPage.book_id == book.id).all()
+            for page in pages:
+                if page.image_path and os.path.exists(page.image_path):
+                    try:
+                        os.remove(page.image_path)
+                        deleted["files"] += 1
+                    except Exception:
+                        pass
+                deleted["pages"] += 1
+            # Delete pages and book
+            db.query(BookPage).filter(BookPage.book_id == book.id).delete()
+            db.delete(book)
+
+        # Finally delete the user
+        db.delete(user)
+        db.commit()
+        return {"message": "Account and all data deleted", "deleted": deleted, "deletedAt": int(time.time())}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Failed to delete account: {exc}")
 
 
 @router.post("/google", response_model=AuthResponse)

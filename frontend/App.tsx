@@ -21,6 +21,9 @@ import { ServerStatusProvider, useServerStatus } from "./src/context/ServerStatu
 import ServerUnavailableScreen from "./src/screens/ServerUnavailableScreen";
 import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./src/screens/TermsOfServiceScreen";
+import DeleteAccountScreen from "./src/screens/DeleteAccountScreen";
+import DeleteReceiptScreen from "./src/screens/DeleteReceiptScreen";
+import ConsentScreen from "./src/screens/ConsentScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -49,6 +52,9 @@ function AppContent() {
             <Stack.Screen name="BookViewer" component={BookViewerScreen} />
             <Stack.Screen name="BillingHistory" component={BillingHistoryScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+            <Stack.Screen name="DeleteReceipt" component={DeleteReceiptScreen} />
+            <Stack.Screen name="Consent" component={ConsentScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

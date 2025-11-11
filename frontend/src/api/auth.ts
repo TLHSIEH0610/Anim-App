@@ -19,3 +19,8 @@ export async function loginWithGoogle(idToken: string) {
   });
   return data;
 }
+
+export async function deleteAccount(): Promise<{ message: string; deleted?: any; deletedAt?: number }> {
+  const { data } = await api.delete("/auth/account");
+  return data;
+}

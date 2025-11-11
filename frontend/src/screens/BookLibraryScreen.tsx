@@ -402,6 +402,12 @@ function BookListCard({
                   />
                 </>
               )}
+              <Button
+                title="Delete"
+                onPress={() => onDelete(book)}
+                variant="danger"
+                size="sm"
+              />
             </View>
             {(userRole === "admin" || userRole === "superadmin") && (
               <View style={styles.adminActions}>

@@ -11,6 +11,7 @@ import {
   Portal,
   Dialog,
   RadioButton,
+  Checkbox,
 } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
@@ -37,6 +38,7 @@ import { AppStackParamList } from "../navigation/types";
 import ScreenWrapper from "../components/ScreenWrapper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "../components/Button";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface TemplateStorylinePage {
   pageNumber: number;
@@ -200,6 +202,7 @@ export default function BookCreationScreen({
   const insets = useSafeAreaInsets();
   const [faceCheckAvailable, setFaceCheckAvailable] = useState<boolean>(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [guardianAttested, setGuardianAttested] = useState(false);
 
   useEffect(() => {
     const onShow = (e: any) => setKeyboardHeight(e?.endCoordinates?.height || 0);
@@ -483,6 +486,12 @@ export default function BookCreationScreen({
   }, [loadPricing]);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const ack = await AsyncStorage.getItem('guardian_consent_ack_v1');
+        if (!ack) navigation.navigate('Consent' as any);
+      } catch {}
+    })();
     initializeTemplates();
   }, [initializeTemplates]);
 
@@ -607,6 +616,10 @@ export default function BookCreationScreen({
   };
   const pickImage = async () => {
     try {
+      if (!guardianAttested) {
+        setSnackbar({ visible: true, message: "Please confirm you are a parent/guardian (13+) before uploading photos." });
+        return;
+      }
       // Clear any previous image-specific error when user starts a new selection
       setImageError(null);
 
@@ -1108,6 +1121,15 @@ export default function BookCreationScreen({
           Select 1-3 images of your kid for better consistency throughout
           the book.
         </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing(1), marginBottom: spacing(2) }}>
+          <Checkbox
+            status={guardianAttested ? 'checked' : 'unchecked'}
+            onPress={() => setGuardianAttested((v) => !v)}
+          />
+          <Text style={{ ...typography.body, flex: 1 }}>
+            I am a parent/guardian and 13+ and I have permission to upload photos of the child for the purpose of creating this book.
+          </Text>
+        </View>
 
         <View style={styles.imageCountBadge}>
           <Text style={styles.imageCountText}>
@@ -1135,6 +1157,7 @@ export default function BookCreationScreen({
                 title="+ Add More Images"
                 onPress={pickImage}
                 variant="secondary"
+                disabled={!guardianAttested}
               />
             )}
           </View>
@@ -1143,6 +1166,7 @@ export default function BookCreationScreen({
             title="Select Images (1-3)"
             onPress={pickImage}
             variant="primary"
+            disabled={!guardianAttested}
           />
         )}
 
@@ -1153,6 +1177,9 @@ export default function BookCreationScreen({
         <Text style={styles.helpText}>
           Tip: Multiple images help us understand your hero better! Choose
           clear photos with good lighting. <Text style={{ color: colors.primary }}>Single-person photos work best.</Text>
+        </Text>
+        <Text style={styles.helperText}>
+          Photos are used only to create your book; you can delete them anytime.
         </Text>
         
 

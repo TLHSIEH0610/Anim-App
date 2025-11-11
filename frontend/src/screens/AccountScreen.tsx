@@ -51,6 +51,25 @@ export default function AccountScreen() {
         variant="info"
       />
 
+      <Button
+        title="Privacy Policy (Last updated: Nov 10, 2025)"
+        onPress={() => navigation.navigate('PrivacyPolicy')}
+        variant="background"
+        style={{ marginTop: spacing(2) }}
+      />
+      <Button
+        title="Terms of Service"
+        onPress={() => navigation.navigate('TermsOfService')}
+        variant="background"
+        style={{ marginTop: spacing(2) }}
+      />
+      <Button
+        title="Children's Privacy"
+        onPress={() => navigation.navigate('PrivacyPolicy')}
+        variant="background"
+        style={{ marginTop: spacing(2) }}
+      />
+
 
       <Button
         title="Logout"
@@ -59,7 +78,14 @@ export default function AccountScreen() {
         style={{ marginTop: spacing(3) }}
       />
 
-            <Button
+      <Button
+        title="Delete account and all data"
+        onPress={() => navigation.navigate('DeleteAccount')}
+        variant="danger"
+        style={{ marginTop: spacing(2) }}
+      />
+
+      <Button
         title="Contact Support"
         onPress={() => navigation.navigate('Support')}
         variant="background"

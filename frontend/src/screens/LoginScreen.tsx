@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
+import { Checkbox } from "react-native-paper";
 import {
   GoogleSignin,
   GoogleSigninButton,
@@ -20,6 +21,7 @@ const LoginScreen = () => {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [guardianAttested, setGuardianAttested] = useState(false);
 
   const googleClientConfig = useMemo(() => {
     const androidClientId =
@@ -151,12 +153,21 @@ const LoginScreen = () => {
       </View>
 
       <View style={styles.buttonArea}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Checkbox
+            status={guardianAttested ? 'checked' : 'unchecked'}
+            onPress={() => setGuardianAttested((v) => !v)}
+          />
+          <Text style={styles.helperText}>
+            I am a parent/guardian and 13+.
+          </Text>
+        </View>
         <GoogleSigninButton
           style={{ width: 360, height: 60, borderRadius: 8 }}
           size={GoogleSigninButton.Size.Wide}
           color={GoogleSigninButton.Color.Light}
           onPress={handleGoogleLogin}
-          disabled={isLoading || !hasGoogleConfig}
+          disabled={isLoading || !hasGoogleConfig || !guardianAttested}
         />
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
         {!hasGoogleConfig ? (
