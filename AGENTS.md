@@ -15,6 +15,7 @@ Curated pointers for working on AnimApp without re-reading every guide. Update t
 - `frontend/.env` must set at least `EXPO_PUBLIC_API_BASE` and `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`, plus Google OAuth client IDs.
 - Android integrity policy (server‑side, optional): set `ANDROID_INTEGRITY_POLICY` in backend envs (in Docker via `infra/.env`).
   - Allowed: `off` (default local), `warn` (log/audit but allow), `require` (reject missing token on Android for sensitive routes).
+  - Client tokens are produced via Expo App Integrity. Frontend must set `EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER` and run in a Dev Client/EAS build (not Expo Go).
 - S3 backups: set `BACKUP_S3_BUCKET`, optional `BACKUP_DB_PREFIX`/`BACKUP_MEDIA_PREFIX` (default `db/` & `media/`), and toggles `BACKUP_AUTO_ENABLED` + `BACKUP_AUTO_INTERVAL_HOURS` when you want scheduled backups. AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) must be available to the backend/worker containers.
 - Story templates/workflows are seeded by the backend on startup; file-based fallbacks via `COMFYUI_WORKFLOW` are optional.
 - Backend verifies Google sign-in tokens via `/auth/google` by calling Google's tokeninfo endpoint and auto-provisioning users.
@@ -54,6 +55,7 @@ Curated pointers for working on AnimApp without re-reading every guide. Update t
   - `X-Install-Id`, `X-Device-Platform`, `X-App-Package` on all requests; `X-Play-Integrity` for sensitive Android POSTs (`/auth/google`, `/books/create`, `/billing/setup-intent-free-trial`, `/billing/free-trial-verify-complete`).
 - Server policy: `ANDROID_INTEGRITY_POLICY` controls enforcement on Android.
   - `off`: ignore; `warn`: log/audit only (default in infra/.env); `require`: 400 if missing token on sensitive POSTs.
+- Token provider (client): uses `expo-app-integrity`. Initialize once on startup with `prepareIntegrityTokenProviderAsync({ googleCloudProjectNumber: Number(EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER) })`. Requires an Expo Dev Client/EAS build and Google Cloud Project Number configured.
 - Persistence & visibility:
   - Minimal gating row: `user_attestations` (last seen platform, install_id, app_package, last Play Integrity time).
   - Audit logs: `audit_logs` records route/method/device/ip/status/meta; admin endpoint `GET /admin/audit/logs`.

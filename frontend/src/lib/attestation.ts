@@ -1,19 +1,13 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Lazy import to avoid build-time native dependency requirements
-// Avoid static requires so Metro doesn't try to bundle optional native deps
-function optionalRequire(name: string): any | null {
-  try {
-    // eslint-disable-next-line no-new-func
-    const req = (Function('return require')() as any);
-    return req ? req(name) : null;
-  } catch {
-    return null;
-  }
-}
-
-let Application: any = optionalRequire('expo-application');
+import * as AppIntegrity from 'expo-app-integrity';
+// Optional: app id for fallback package name only
+let Application: any;
+try {
+  // eslint-disable-next-line no-new-func
+  const req = (Function('return require')() as any);
+  Application = req ? req('expo-application') : undefined;
+} catch {}
 
 /**
  * Stable per-install identifier stored on device (not upload analytics IDFA).
@@ -49,26 +43,44 @@ export function getAppPackage(): string | undefined {
   }
 }
 
+let preparedIntegrity = false;
+
+export async function initAppIntegrity(): Promise<boolean> {
+  if (preparedIntegrity) return true;
+  if (Platform.OS !== 'android') {
+    preparedIntegrity = true; // nothing to do on non-Android
+    return true;
+  }
+  try {
+    const raw = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER;
+    const projectNumber = raw ? Number(raw) : undefined;
+    if (!projectNumber || Number.isNaN(projectNumber)) {
+      if (__DEV__) console.warn('AppIntegrity: EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER is not set');
+      return false;
+    }
+    await AppIntegrity.prepareIntegrityTokenProviderAsync({ googleCloudProjectNumber: projectNumber });
+    preparedIntegrity = true;
+    return true;
+  } catch (e) {
+    if (__DEV__) console.warn('AppIntegrity prepare failed', e);
+    return false;
+  }
+}
+
 /**
- * Try to produce a Google Play Integrity token (JWS) on Android.
- * Returns null on non-Android or when the module is missing.
+ * Produce a Google Play Integrity token (JWS) on Android using Expo App Integrity.
+ * Returns null if unavailable or preparation failed.
  */
 export async function getPlayIntegrityToken(): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
-  // Try optional integrity libraries if present; never crash if absent
-  const mod1 = optionalRequire('react-native-google-play-integrity');
-  if (mod1?.default?.requestIntegrityToken) {
-    try {
-      const res = await mod1.default.requestIntegrityToken({ nonce: randomId(32) });
-      return (res?.token || res?.integrityToken || null) as string | null;
-    } catch {}
+  if (!preparedIntegrity) {
+    await initAppIntegrity();
   }
-  const mod2 = optionalRequire('react-native-play-integrity');
-  if (typeof mod2?.requestIntegrityToken === 'function') {
-    try {
-      const token = await mod2.requestIntegrityToken({ nonce: randomId(32) });
-      return token || null;
-    } catch {}
+  try {
+    const token = await AppIntegrity.requestIntegrityTokenAsync({ nonce: randomId(32) });
+    return token || null;
+  } catch (e) {
+    if (__DEV__) console.warn('AppIntegrity token request failed', e);
+    return null;
   }
-  return null;
 }

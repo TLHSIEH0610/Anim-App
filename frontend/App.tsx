@@ -23,6 +23,8 @@ import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./src/screens/TermsOfServiceScreen";
 import DeleteAccountScreen from "./src/screens/DeleteAccountScreen";
 import DeleteReceiptScreen from "./src/screens/DeleteReceiptScreen";
+import { Platform } from "react-native";
+import { initAppIntegrity } from "./src/lib/attestation";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -120,6 +122,13 @@ export default function App() {
       </AuthProvider>
     </PaperProvider>
   );
+
+  React.useEffect(() => {
+    // Prepare Google Play Integrity provider once on Android
+    if (Platform.OS === 'android') {
+      initAppIntegrity();
+    }
+  }, []);
 
   if (cardPaymentsEnabled) {
     return (
