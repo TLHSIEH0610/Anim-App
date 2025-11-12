@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AppIntegrity from 'expo-app-integrity';
+// Prefer the official Expo module that supports SDK 53+/Gradle 8
+import * as AppIntegrity from '@expo/app-integrity';
 // Optional: app id for fallback package name only
 let Application: any;
 try {
@@ -52,13 +53,13 @@ export async function initAppIntegrity(): Promise<boolean> {
     return true;
   }
   try {
-    const raw = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER;
-    const projectNumber = raw ? Number(raw) : undefined;
-    if (!projectNumber || Number.isNaN(projectNumber)) {
+    const projectNumber = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER;
+    if (!projectNumber) {
       if (__DEV__) console.warn('AppIntegrity: EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER is not set');
       return false;
     }
-    await AppIntegrity.prepareIntegrityTokenProviderAsync({ googleCloudProjectNumber: projectNumber });
+    // New API expects the cloud project number string
+    await AppIntegrity.prepareIntegrityTokenProviderAsync(projectNumber);
     preparedIntegrity = true;
     return true;
   } catch (e) {
@@ -77,8 +78,9 @@ export async function getPlayIntegrityToken(): Promise<string | null> {
     await initAppIntegrity();
   }
   try {
-    const token = await AppIntegrity.requestIntegrityTokenAsync({ nonce: randomId(32) });
-    return token || null;
+    // New API: requestIntegrityCheckAsync(requestHash: string)
+    const result = await AppIntegrity.requestIntegrityCheckAsync(randomId(32));
+    return result || null;
   } catch (e) {
     if (__DEV__) console.warn('AppIntegrity token request failed', e);
     return null;

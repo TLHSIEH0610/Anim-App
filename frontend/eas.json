@@ -17,7 +17,8 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1049259347014-kd50s9fl0dm844goe4fgps8elvp1ridf.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "1049259347014-4ia76muupmfp89l41qlc0e7r96gjvpa3.apps.googleusercontent.com",
         "EXPO_PUBLIC_SENTRY_DSN": "https://5ef2d7411c2e029c4531c41a5e6f9d09@o4509395639795712.ingest.us.sentry.io/4510263919706112",
-        "EXPO_PUBLIC_SUPPORT_EMAIL": "arnie@back2.dev"
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "arnie@back2.dev",
+        "EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER": "1049259347014"
       },
       "android": {
         "buildType": "app-bundle"
