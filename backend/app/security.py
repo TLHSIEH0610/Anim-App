@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+import ipaddress
 
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
@@ -17,6 +18,45 @@ def _get_header(request: Request, name: str) -> Optional[str]:
         return None
 
 
+def _pick_valid_ip(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    try:
+        # Validate and normalise IP (supports IPv4/IPv6)
+        ip_obj = ipaddress.ip_address(candidate)
+        return ip_obj.compressed
+    except Exception:
+        return None
+
+
+def _extract_client_ip(request: Request) -> Optional[str]:
+    # 1) Prefer Cloudflare's original client header when present
+    cf_ip = _get_header(request, "CF-Connecting-IP") or _get_header(request, "cf-connecting-ip")
+    ip = _pick_valid_ip(cf_ip)
+    if ip:
+        return ip
+
+    # 2) Fall back to first valid entry in X-Forwarded-For (left-most is the original client)
+    xff = _get_header(request, "X-Forwarded-For") or _get_header(request, "x-forwarded-for")
+    if xff:
+        for part in (p.strip() for p in xff.split(",")):
+            ip = _pick_valid_ip(part)
+            if ip:
+                return ip
+
+    # 3) Nginx/other proxies sometimes set X-Real-IP
+    xri = _get_header(request, "X-Real-IP") or _get_header(request, "x-real-ip")
+    ip = _pick_valid_ip(xri)
+    if ip:
+        return ip
+
+    # 4) Finally, use the socket peer seen by Starlette (Docker bridge in our setup)
+    return getattr(request.client, "host", None) if request and request.client else None
+
+
 def extract_client_signals(request: Request) -> Dict[str, Any]:
     return {
         "install_id": _get_header(request, "X-Install-Id"),
@@ -24,8 +64,11 @@ def extract_client_signals(request: Request) -> Dict[str, Any]:
         "app_package": _get_header(request, "X-App-Package"),
         "play_integrity": _get_header(request, "X-Play-Integrity"),
         "user_agent": _get_header(request, "user-agent"),
-        "ip": getattr(request.client, "host", None) if request and request.client else None,
+        "ip": _extract_client_ip(request),
         "path": str(getattr(request, "url", "")),
+        # Optional Cloudflare context for forensics
+        "cf_ipcountry": _get_header(request, "CF-IPCountry"),
+        "cf_ray": _get_header(request, "CF-Ray"),
     }
 
 
@@ -110,4 +153,3 @@ def write_audit_log(
     except Exception:
         db.rollback()
         # best-effort; don't crash on audit
-

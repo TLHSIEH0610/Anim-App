@@ -11,6 +11,7 @@ from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
 from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_routes, support_routes
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
 from .default_users import ensure_default_users
@@ -42,6 +43,13 @@ if _SENTRY_DSN:
     )
 
 app = FastAPI(title="Children's Book Creator API")
+
+"""
+Ensure the application respects original client IP and scheme when running
+behind Cloudflare Tunnel / reverse proxies. This allows audit logging to
+record the real remote IP instead of the Docker bridge (e.g., 172.18.0.1).
+"""
+app.add_middleware(ProxyHeadersMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
