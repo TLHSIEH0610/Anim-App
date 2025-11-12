@@ -73,6 +73,10 @@ COMFYUI_SERVER=host.docker.internal:8188
 
 # Admin portal
 ADMIN_API_KEY=changeme
+
+# Optional: Android integrity policy for sensitive Android requests
+# Values: off | warn | require
+ANDROID_INTEGRITY_POLICY=warn
 ```
 
 ### **Network magic:**

@@ -55,6 +55,12 @@ interface HistoryItemProps {
 const statusStyleKey = (status: string) => `status_${status}` as keyof typeof styles;
 const styles_status = (status: string): StyleProp<ViewStyle> =>
   (styles[statusStyleKey(status)] as StyleProp<ViewStyle>) || styles.status_default;
+const STATUS_SHORT_LABELS: Record<string, string> = {
+  completed: 'Completed',
+  requires_confirmation: 'Needs Confirmation',
+  failed: 'Failed',
+};
+
 const HistoryItem = ({ entry, templateNames }: HistoryItemProps) => {
   const amountLabel = entry.method === 'credit'
     ? `${formatCredits(entry.credits_used)} credits`
@@ -66,13 +72,13 @@ const HistoryItem = ({ entry, templateNames }: HistoryItemProps) => {
   return (
     <View style={styles.itemContainer}>
       <View style={styles.itemHeader}>
-        <Text style={styles.itemTitle}>{titleText}</Text>
+        <Text style={[styles.itemTitle, styles.titleWithChip]}>{titleText}</Text>
         <Chip
           compact
-          style={[styles.statusBadge, styles_status(entry.status) as any]}
+          style={[styles.statusBadge, styles_status(entry.status) as any, styles.statusChip]}
           textStyle={styles.statusText as any}
         >
-          {entry.status.toUpperCase()}
+          {STATUS_SHORT_LABELS[entry.status] || entry.status}
         </Chip>
       </View>
 
@@ -243,13 +249,24 @@ const styles = StyleSheet.create({
   },
   itemHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: spacing(2),
+    position: 'relative',
   },
   itemTitle: {
     ...typography.headingS,
     color: colors.textPrimary,
+    // allow wrapping
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  titleWithChip: {
+    paddingRight: 140, // reserve space for status chip on the right
+  },
+  statusChip: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   itemMethod: {
     ...typography.body,

@@ -83,6 +83,7 @@ function BookListCard({
 }) {
   const targetHeight = 140;
   const [imgLoading, setImgLoading] = useState<boolean>(true);
+  const [downloading, setDownloading] = useState<boolean>(false);
   const genderRaw = book.template_params?.gender as
     | 'male'
     | 'female'
@@ -346,7 +347,10 @@ function BookListCard({
                   />
                   <Button
                     title="Download"
+                    loading={downloading}
+                    disabled={downloading}
                     onPress={async () => {
+                      setDownloading(true);
                       try {
                         const pdfUrl = getBookPdfUrl(book.id);
                         const fileName = `${(book.title || "book")
@@ -413,6 +417,8 @@ function BookListCard({
                           "Download failed",
                           "Unable to download PDF. Please try again."
                         );
+                      } finally {
+                        setDownloading(false);
                       }
                     }}
                     variant="info"
@@ -449,6 +455,7 @@ export default function BookLibraryScreen({
     type: "delete" | "regenerate" | null;
     book: Book | null;
   }>({ visible: false, type: null, book: null });
+  const [confirmProcessing, setConfirmProcessing] = useState(false);
 
   const loadBooks = async (isRefresh = false) => {
     if (!token) return;
@@ -491,6 +498,7 @@ export default function BookLibraryScreen({
 
   const performConfirm = async () => {
     if (!confirm.book || !confirm.type) return;
+    setConfirmProcessing(true);
     try {
       if (!token) {
         return;
@@ -504,6 +512,21 @@ export default function BookLibraryScreen({
       loadBooks();
     } catch (error) {
       setConfirm({ visible: false, type: null, book: null });
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { Alert } = require('react-native');
+        Alert.alert(
+          confirm.type === 'delete' ? 'Delete failed' : 'Regenerate failed',
+          'Please try again in a moment.'
+        );
+      } catch {}
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { captureException } = require('../lib/capture');
+        captureException(error, { flow: 'book_confirm_action', type: confirm.type });
+      } catch {}
+    } finally {
+      setConfirmProcessing(false);
     }
   };
 
@@ -572,16 +595,24 @@ export default function BookLibraryScreen({
             {confirm.type === "delete" ? "Delete Book" : "Regenerate Book"}
           </Dialog.Title>
           <Dialog.Content>
-            <Text>
-              {confirm.type === "delete"
-                ? `Are you sure you want to delete "${confirm.book?.title}"? This action cannot be undone.`
-                : `This will completely regenerate "${confirm.book?.title}" with new story and images. This action cannot be undone.`}
-            </Text>
+            {confirmProcessing ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator />
+                <Text style={{ marginLeft: spacing(2) }}>Working...</Text>
+              </View>
+            ) : (
+              <Text>
+                {confirm.type === "delete"
+                  ? `Are you sure you want to delete "${confirm.book?.title}"? This action cannot be undone.`
+                  : `This will completely regenerate "${confirm.book?.title}" with new story and images. This action cannot be undone.`}
+              </Text>
+            )}
           </Dialog.Content>
           <Dialog.Actions>
             <Button
               title="Cancel"
               variant="secondary"
+              disabled={confirmProcessing}
               onPress={() =>
                 setConfirm({ visible: false, type: null, book: null })
               }
@@ -589,6 +620,8 @@ export default function BookLibraryScreen({
             <Button
               title={confirm.type === "delete" ? "Delete" : "Regenerate"}
               variant="danger"
+              loading={confirmProcessing}
+              disabled={confirmProcessing}
               onPress={performConfirm}
             />
           </Dialog.Actions>

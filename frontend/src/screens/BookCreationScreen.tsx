@@ -42,6 +42,8 @@ import {
   payWithCredits,
   createStripeIntent,
   confirmStripePayment,
+  createFreeTrialSetupIntent,
+  completeFreeTrialVerification,
   PricingQuote,
   PaymentResult,
   StripeIntentResponse,
@@ -53,6 +55,7 @@ import { AppStackParamList } from "../navigation/types";
 import ScreenWrapper from "../components/ScreenWrapper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "../components/Button";
+import { captureException } from "../lib/capture";
 
 interface TemplateStorylinePage {
   pageNumber: number;
@@ -166,9 +169,11 @@ export default function BookCreationScreen({
   ).toUpperCase();
   const MERCHANT_DISPLAY_NAME =
     process.env.EXPO_PUBLIC_STRIPE_MERCHANT_NAME?.trim() || "Kid to Story";
-  const GPAY_TEST_ENV = (
-    process.env.EXPO_PUBLIC_STRIPE_GPAY_TEST_ENV?.trim() ?? (__DEV__ ? "true" : "false")
-  ).toLowerCase() === "true";
+  const GPAY_TEST_ENV =
+    (
+      process.env.EXPO_PUBLIC_STRIPE_GPAY_TEST_ENV?.trim() ??
+      (__DEV__ ? "true" : "false")
+    ).toLowerCase() === "true";
   const { token } = useAuth();
   const stripe = useStripe();
   const cardPaymentsSupported =
@@ -756,19 +761,84 @@ export default function BookCreationScreen({
   };
 
   const handleUseFreeTrial = () => {
-    if (
-      !pricingQuote ||
-      !pricingQuote.free_trial_slug ||
-      pricingQuote.free_trial_consumed
-    ) {
-      return;
-    }
-    setSelectedPaymentMethod("free_trial");
-    setPaymentMode("none");
-    setPaymentId(null);
-    setPaymentError(null);
-    setCardDetailsComplete(false);
-    setCardFieldError(null);
+    (async () => {
+      if (
+        !pricingQuote ||
+        !pricingQuote.free_trial_slug ||
+        pricingQuote.free_trial_consumed
+      ) {
+        return;
+      }
+      try {
+        if (!cardPaymentsSupported) {
+          throw new Error("Card verification is unavailable in this build.");
+        }
+        setIsPaymentLoading(true);
+        setPaymentError(null);
+        // 1) Ask backend for a SetupIntent to perform $0 card verification
+        let setup;
+        try {
+          setup = await createFreeTrialSetupIntent(
+            selectedTemplate?.slug || pricingQuote?.free_trial_slug || undefined
+          );
+        } catch (e: any) {
+          captureException(e, { stage: "free_trial_setup_intent" });
+          throw new Error(
+            e?.response?.data?.detail || "Unable to start the $0 verification."
+          );
+        }
+        // 2) Initialize PaymentSheet with SetupIntent
+        try {
+          const init = await (stripe as any).initPaymentSheet?.({
+            merchantDisplayName: MERCHANT_DISPLAY_NAME,
+            setupIntentClientSecret: setup.client_secret,
+          });
+          if (init?.error) {
+            throw new Error(
+              init.error.message || "Unable to initialize verification."
+            );
+          }
+        } catch (e: any) {
+          captureException(e, { stage: "free_trial_sheet_init" });
+          throw e;
+        }
+        // 3) Present PaymentSheet to collect card for $0 verify
+        try {
+          const present = await (stripe as any).presentPaymentSheet?.();
+          if (present?.error) {
+            throw new Error(
+              present.error.message || "Verification was cancelled or failed."
+            );
+          }
+        } catch (e: any) {
+          captureException(e, { stage: "free_trial_sheet_present" });
+          throw e;
+        }
+        // 4) Notify backend to finalize (detach PM, mark verified)
+        try {
+          await completeFreeTrialVerification();
+        } catch (e: any) {
+          captureException(e, { stage: "free_trial_finalize" });
+          throw new Error(
+            e?.response?.data?.detail ||
+              "Verification completed but we could not finalize it. Please try again."
+          );
+        }
+        // 5) Mark selection as free_trial
+        setSelectedPaymentMethod("free_trial");
+        setPaymentMode("free_trial");
+        setPaymentId(null);
+        setCardDetailsComplete(false);
+        setCardFieldError(null);
+      } catch (e: any) {
+        const msg = e?.message || "Unable to complete $0 verification.";
+        setPaymentError(msg);
+        setSelectedPaymentMethod(null);
+        captureException(e, { flow: "free_trial" });
+      } finally {
+        setIsPaymentLoading(false);
+      }
+    })();
   };
 
   const handlePayWithCredits = () => {
@@ -1157,6 +1227,10 @@ export default function BookCreationScreen({
         error?.message ||
         "Unable to complete payment.";
       setPaymentError(message);
+      captureException(error, {
+        flow: "confirm_payment_and_create",
+        method: selectedPaymentMethod,
+      });
       const detail: string | undefined = error?.response?.data?.detail;
       if (
         detail &&
@@ -1177,66 +1251,68 @@ export default function BookCreationScreen({
     const readonlyTemplate = Boolean(route?.params?.templateSlug);
     return (
       <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Create Your Hero *</Text>
-        <Text style={styles.stepDescription}>
-          Select 1-3 images of your kid for better consistency throughout the
-          book.{" "}
+        <Text style={styles.stepTitle}>Create Your Hero</Text>
+        <View style={styles.heroCard}>
+          <Text style={styles.stepDescription}>
+            Select 1-3 images of your kid for better consistency throughout the
+            book.
+          </Text>
+
+          {/* Guardian attestation moved to bottom of the form */}
+
+          <View style={styles.imageCountBadge}>
+            <Text style={styles.imageCountText}>
+              {form.images.length}/3 images selected
+            </Text>
+          </View>
+
+          {form.images.length ? (
+            <View>
+              <View style={styles.imageGallery}>
+                {form.images.map((uri, index) => (
+                  <View key={index} style={styles.imageWrapper}>
+                    <Image source={{ uri }} style={styles.galleryImage} />
+                    <IconButton
+                      icon="close"
+                      size={18}
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(index)}
+                    />
+                  </View>
+                ))}
+              </View>
+              {form.images.length < 3 && (
+                <Button
+                  title="+ Add More Images"
+                  onPress={pickImage}
+                  variant="secondary"
+                />
+              )}
+            </View>
+          ) : (
+            <Button
+              title="Select Images (1-3)"
+              onPress={pickImage}
+              variant="primary"
+            />
+          )}
+
+          {imageError ? (
+            <Text style={styles.errorTextInline}>{imageError}</Text>
+          ) : null}
+
           <Text style={styles.helpText}>
+            Tip: Multiple images help us understand your hero better! Choose
+            clear photos with good lighting.{" "}
+            <Text style={{ color: colors.primary }}>
+              Please use single-person photos only.
+            </Text>
+          </Text>
+          <Text style={[styles.noteText, { marginTop: spacing(1) }]}>
             Photos are used only to create your book; you can delete them
             anytime.
           </Text>
-        </Text>
-
-        {/* Guardian attestation moved to bottom of the form */}
-
-        <View style={styles.imageCountBadge}>
-          <Text style={styles.imageCountText}>
-            {form.images.length}/3 images selected
-          </Text>
         </View>
-
-        {form.images.length ? (
-          <View>
-            <View style={styles.imageGallery}>
-              {form.images.map((uri, index) => (
-                <View key={index} style={styles.imageWrapper}>
-                  <Image source={{ uri }} style={styles.galleryImage} />
-                  <IconButton
-                    icon="close"
-                    size={18}
-                    style={styles.removeImageButton}
-                    onPress={() => removeImage(index)}
-                  />
-                </View>
-              ))}
-            </View>
-            {form.images.length < 3 && (
-              <Button
-                title="+ Add More Images"
-                onPress={pickImage}
-                variant="secondary"
-              />
-            )}
-          </View>
-        ) : (
-          <Button
-            title="Select Images (1-3)"
-            onPress={pickImage}
-            variant="primary"
-          />
-        )}
-
-        {imageError ? (
-          <Text style={styles.errorTextInline}>{imageError}</Text>
-        ) : null}
-
-        <Text style={styles.helpText}>
-          Tip: Multiple images help us understand your hero better! Choose clear
-          photos with good lighting.{" "}
-          <Text style={{ color: colors.primary }}>
-            Single-person photos work best.
-          </Text>
-        </Text>
         {/* Moved photo usage note to bottom below the checkbox */}
 
         <View style={styles.sectionDivider} />
@@ -1245,52 +1321,45 @@ export default function BookCreationScreen({
           <Text style={styles.stepTitle}>Hero's Info</Text>
         </View>
 
-        {templatesError ? (
-          <Text style={styles.errorTextInline}>{templatesError}</Text>
-        ) : null}
-
-        {readonlyTemplate ? null : (
-          <View style={styles.templateList}>
-            {templates.map((template) => renderTemplateCard(template))}
+        <View style={styles.heroCard}>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Character Name *</Text>
+            <PaperTextInput
+              mode="outlined"
+              style={styles.textInput}
+              outlineStyle={{ borderRadius: radii.md }}
+              outlineColor={"rgba(37, 99, 235, 0.25)"}
+              activeOutlineColor={colors.primary}
+              placeholder="Enter a character name"
+              value={form.templateInput.name}
+              onChangeText={(text: string) => updateTemplateInput("name", text)}
+              onBlur={() => {
+                if (!form.templateInput.name.trim()) {
+                  setNameError("Character name is required.");
+                }
+              }}
+            />
+            {nameError ? (
+              <Text style={styles.errorTextInline}>{nameError}</Text>
+            ) : null}
           </View>
-        )}
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Character Name *</Text>
-          <PaperTextInput
-            mode="outlined"
-            style={styles.textInput}
-            outlineStyle={{ borderRadius: radii.md }}
-            outlineColor={"rgba(37, 99, 235, 0.25)"}
-            activeOutlineColor={colors.primary}
-            placeholder="Enter a character name"
-            value={form.templateInput.name}
-            onChangeText={(text: string) => updateTemplateInput("name", text)}
-            onBlur={() => {
-              if (!form.templateInput.name.trim()) {
-                setNameError("Character name is required.");
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Character Pronouns</Text>
+            <SegmentedButtons
+              value={form.templateInput.gender}
+              onValueChange={(val: string) =>
+                updateTemplateInput("gender", val)
               }
-            }}
-          />
-          {nameError ? (
-            <Text style={styles.errorTextInline}>{nameError}</Text>
-          ) : null}
+              density="small"
+              style={styles.segmented}
+              buttons={GENDER_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: opt.label,
+              }))}
+            />
+          </View>
         </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Character Pronouns</Text>
-          <SegmentedButtons
-            value={form.templateInput.gender}
-            onValueChange={(val: string) => updateTemplateInput("gender", val)}
-            density="small"
-            style={styles.segmented}
-            buttons={GENDER_OPTIONS.map((opt) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
-          />
-        </View>
-
         {/* Guardian attestation moved to bottom */}
         <View
           style={{
@@ -1481,11 +1550,17 @@ export default function BookCreationScreen({
         <RadioButton.Item
           key="free_trial"
           value="free_trial"
-          label="Use Free Trial"
+          label="Free Trial — require card verification"
           disabled={isPaymentLoading}
           position="leading"
           mode="android"
         />
+      );
+      items.push(
+        <Text key="free_trial_note" style={styles.helperText}>
+          No charge. We don’t store your card. This is just a quick verification
+          to keep trials fair.
+        </Text>
       );
     }
 
@@ -1550,9 +1625,11 @@ export default function BookCreationScreen({
     }
 
     return (
-      <RadioButton.Group onValueChange={onChange} value={radioValue}>
-        {items}
-      </RadioButton.Group>
+      <View style={styles.heroCard}>
+        <RadioButton.Group onValueChange={onChange} value={radioValue}>
+          {items}
+        </RadioButton.Group>
+      </View>
     );
   };
 
@@ -1564,7 +1641,7 @@ export default function BookCreationScreen({
     const creditsBalanceValue = pricingQuote.credits_balance ?? 0;
     const selectionLabel = (() => {
       if (selectedPaymentMethod === "free_trial") {
-        return "Free trial";
+        return "Free Trial — verified";
       }
       if (selectedPaymentMethod === "credits") {
         return creditsRequired > 0
@@ -1871,9 +1948,6 @@ export default function BookCreationScreen({
             </TouchableRipple>
             <Text style={styles.title}>Create Children-s Book</Text>
           </View>
-          <Text style={styles.subtitle}>
-            Pick a story template and bring it to life with your photos.
-          </Text>
         </View>
 
         <View style={styles.stepIndicator}>
@@ -1912,7 +1986,7 @@ export default function BookCreationScreen({
         <View
           style={[
             styles.navigationRow,
-            { paddingBottom: spacing(4) + insets.bottom },
+            { paddingBottom: spacing(1) + insets.bottom },
           ]}
         >
           {currentStep > 0 ? (
@@ -1925,7 +1999,7 @@ export default function BookCreationScreen({
               leftIcon={
                 <MaterialCommunityIcons
                   name="arrow-left"
-                  size={25}
+                  size={22}
                   color={colors.surface}
                 />
               }
@@ -1945,7 +2019,7 @@ export default function BookCreationScreen({
               rightIcon={
                 <MaterialCommunityIcons
                   name="arrow-right"
-                  size={25}
+                  size={22}
                   color={
                     canProceedToNext() ? colors.surface : colors.neutral500
                   }
@@ -1992,7 +2066,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backArrow: {
-    marginRight: spacing(1),
+    marginRight: spacing(3),
     padding: 0,
   },
   title: {
@@ -2099,6 +2173,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  heroCard: {
+    backgroundColor: "rgba(0,0,0,0.04)",
+    padding: spacing(3),
+    borderRadius: radii.lg,
+    marginBottom: spacing(3),
+  },
   imageGallery: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2144,8 +2224,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(37, 99, 235, 0.15)",
     borderRadius: radii.md,
-    paddingVertical: spacing(1.5),
-    paddingHorizontal: spacing(2.5),
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     fontSize: 15,
   },
@@ -2368,6 +2446,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  noteText: {
+    ...typography.caption,
+    color: colors.neutral400,
+  },
   warningText: {
     color: "#991B1B",
   },
@@ -2410,7 +2492,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: spacing(6),
+    paddingHorizontal: spacing(1),
     paddingBottom: spacing(8),
     gap: spacing(4),
   },
@@ -2429,7 +2511,7 @@ const styles = StyleSheet.create({
   },
   nextButton: {},
   cancelStandalone: {
-    marginHorizontal: spacing(6),
+    marginHorizontal: spacing(3),
     marginBottom: spacing(8),
   },
 });

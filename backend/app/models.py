@@ -15,6 +15,8 @@ class User(Base):
     credits = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     free_trials_used = Column(JSON, default=list)
+    card_verified_at = Column(DateTime(timezone=True))
+    last_login_at = Column(DateTime(timezone=True))
 
     jobs = relationship("Job", back_populates="user")
     books = relationship("Book", back_populates="user")
@@ -238,9 +240,42 @@ class Payment(Base):
     credits_used = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
+    
+    # Relationships
     user = relationship("User", back_populates="payments")
     book = relationship("Book")
+
+
+class UserAttestation(Base):
+    __tablename__ = "user_attestations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    device_platform = Column(String(16))  # android|ios|web|other
+    install_id = Column(String(128))
+    app_package = Column(String(150))
+    last_play_integrity_at = Column(DateTime(timezone=True))
+    last_seen_headers = Column(JSON)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class AuditLogEntry(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    route = Column(Text)
+    method = Column(String(10))
+    device_platform = Column(String(16))
+    install_id = Column(String(128))
+    app_package = Column(String(150))
+    ip = Column(String(64))
+    status = Column(Integer)  # optional HTTP status observed
+    meta = Column(JSON)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
 
 
 class ControlNetImage(Base):

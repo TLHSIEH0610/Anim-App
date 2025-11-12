@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, Response
 from pathlib import Path
 from sqlalchemy.orm import Session, joinedload
 from app.auth import current_user
+from app.security import enforce_android_integrity_or_warn, record_user_attestation, write_audit_log, extract_client_signals
 from jose import jwt
 from app.auth import SECRET_KEY, ALGO
 from app.db import get_db
@@ -63,6 +64,7 @@ def _parse_bool(value: Optional[str]) -> bool:
 
 @router.post("/create", response_model=BookResponse)
 async def create_book(
+    request: Request,
     files: List[UploadFile] = File(...),
     title: str = Form(...),
     story_source: str = Form("custom"),
@@ -79,6 +81,8 @@ async def create_book(
     user = Depends(current_user)
 ):
     """Create a new children's book after validating payment/promotions."""
+    # Soft/conditional enforcement of Android integrity for sensitive create
+    enforce_android_integrity_or_warn(request, action="book_create")
 
     if not files or len(files) < 1:
         raise HTTPException(400, "At least 1 image is required")
@@ -248,6 +252,12 @@ async def create_book(
             job_timeout=1800
         )
 
+        # Record device signals and audit after successful enqueue
+        try:
+            record_user_attestation(db, user, extract_client_signals(request))
+            write_audit_log(db, user=user, request=request, action="book_create", status=200, meta={"book_id": book.id})
+        except Exception:
+            pass
         return BookResponse.from_orm(book)
 
     except HTTPException:

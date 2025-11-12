@@ -652,6 +652,47 @@ async def users_page(request: Request):
     )
 
 
+@app.get("/audit-logs", response_class=HTMLResponse)
+async def audit_logs_page(request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+    limit = request.query_params.get("limit", "100")
+    user_id = request.query_params.get("user_id")
+    params: dict[str, Any] = {}
+    try:
+        params["limit"] = max(1, min(int(limit), 500))
+    except ValueError:
+        params["limit"] = 100
+    if user_id:
+        try:
+            params["user_id"] = int(user_id)
+        except ValueError:
+            pass
+
+    try:
+        resp = await backend_request("GET", "/admin/audit/logs", params=params)
+        data = resp.json()
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/dashboard?error={quote_plus(_format_backend_error(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    return templates.TemplateResponse(
+        "audit_logs.html",
+        {
+            "request": request,
+            "admin_email": session.get("email"),
+            "logs": data.get("logs", []),
+            "count": data.get("count", 0),
+            "limit": params["limit"],
+            "user_id": params.get("user_id"),
+        },
+    )
+
+
 @app.post("/users/{user_id}/update")
 async def users_update(user_id: int, request: Request):
     session = get_admin_session(request)
@@ -685,6 +726,20 @@ async def users_update(user_id: int, request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+
+@app.post("/users/{user_id}/delete")
+async def users_delete(user_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        await backend_request("DELETE", f"/admin/users/{user_id}")
+        return RedirectResponse("/users?message=User%20deleted", status_code=status.HTTP_303_SEE_OTHER)
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/users?error={quote_plus(_format_backend_error(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 
 

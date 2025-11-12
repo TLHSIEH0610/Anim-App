@@ -5,10 +5,12 @@ import time
 from typing import Any
 
 import requests
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.auth import create_user, get_user_by_email, verify_pw, create_access_token, current_user
+from app.security import enforce_android_integrity_or_warn, record_user_attestation, write_audit_log, extract_client_signals
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -82,6 +84,11 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     if get_user_by_email(db, payload.email):
         raise HTTPException(400, "Email already registered")
     u = create_user(db, payload.email, payload.password)
+    try:
+        u.last_login_at = datetime.now(timezone.utc)
+        db.add(u); db.commit(); db.refresh(u)
+    except Exception:
+        db.rollback()
     token = create_access_token(u.id)
     name = u.email.split("@")[0] if u.email else None
     return AuthResponse(
@@ -96,12 +103,23 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     )
 
 @router.post("/login", response_model=AuthResponse)
-def login(payload: LoginIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     u = get_user_by_email(db, payload.email)
     if not u or not verify_pw(payload.password, u.password_hash):
         raise HTTPException(401, "Invalid credentials")
+    try:
+        u.last_login_at = datetime.now(timezone.utc)
+        db.add(u); db.commit(); db.refresh(u)
+    except Exception:
+        db.rollback()
     token = create_access_token(u.id)
     name = u.email.split("@")[0] if u.email else None
+    try:
+        # Record basic device signals for heuristics
+        record_user_attestation(db, u, extract_client_signals(request))
+        write_audit_log(db, user=u, request=request, action="auth_password", status=200)
+    except Exception:
+        pass
     return AuthResponse(
         token=token,
         user=AuthUser(
@@ -114,31 +132,8 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/mock")
-def mock_login(payload: MockLoginIn | None = None, db: Session = Depends(get_db)):
-    # Disable mock auth in production-like environments by default.
-    # Enable only when ALLOW_AUTH_MOCK=true is explicitly set.
-    sentry_env = os.getenv("SENTRY_ENV", "local").strip().lower()
-    default_allowed = sentry_env in {"local", "development", "dev"}
-    allow_env = os.getenv("ALLOW_AUTH_MOCK", "true" if default_allowed else "false").strip().lower()
-    allow = allow_env in {"1", "true", "yes", "on"}
-    if not allow:
-        # Hide existence of the endpoint in production
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
-
-    email = (payload.email if payload else None) or "test@example.com"
-    user = get_user_by_email(db, email)
-    if not user:
-        user = create_user(db, email, "password")
-    token = create_access_token(user.id)
-    return {
-        "token": token,
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "role": getattr(user, "role", None),
-        },
-    }
+# Note: Mock login endpoint has been removed to reduce surface area. Use Google login
+# or email/password in local/dev. If needed, reintroduce behind ALLOW_AUTH_MOCK gate.
 
 from app.models import Book, BookPage, Payment, User as UserModel
 import json
@@ -241,7 +236,9 @@ def delete_account(user = Depends(current_user), db: Session = Depends(get_db)):
 
 
 @router.post("/google", response_model=AuthResponse)
-def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
+def google_login(payload: GoogleLoginIn, request: Request, db: Session = Depends(get_db)):
+    # Soft/conditional enforcement of Android integrity
+    enforce_android_integrity_or_warn(request, action="auth_google")
     profile = _verify_google_id_token(payload.id_token)
     email = profile["email"]
 
@@ -249,11 +246,21 @@ def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
     if not user:
         random_password = secrets.token_urlsafe(32)
         user = create_user(db, email, random_password)
+    try:
+        user.last_login_at = datetime.now(timezone.utc)
+        db.add(user); db.commit(); db.refresh(user)
+    except Exception:
+        db.rollback()
 
     token = create_access_token(user.id)
     name = profile.get("name") or email.split("@")[0]
     picture = profile.get("picture")
 
+    try:
+        record_user_attestation(db, user, extract_client_signals(request))
+        write_audit_log(db, user=user, request=request, action="auth_google", status=200)
+    except Exception:
+        pass
     return AuthResponse(
         token=token,
         user=AuthUser(

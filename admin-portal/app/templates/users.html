@@ -12,6 +12,9 @@
                     <th class="mdc-data-table__header-cell">Email</th>
                     <th class="mdc-data-table__header-cell">Role</th>
                     <th class="mdc-data-table__header-cell">Credits</th>
+                    <th class="mdc-data-table__header-cell">Integrity</th>
+                    <th class="mdc-data-table__header-cell">Last Login</th>
+                    <th class="mdc-data-table__header-cell">Verified</th>
                     <th class="mdc-data-table__header-cell">Books</th>
                     <th class="mdc-data-table__header-cell">Actions</th>
                 </tr>
@@ -47,6 +50,39 @@
                         {% endif %}
                     </td>
                     <td class="mdc-data-table__cell">{{ user.credits }}</td>
+                    <td class="mdc-data-table__cell">
+                        {% if user.attestation and user.attestation.last_play_integrity_at %}
+                        <div class="mdc-chip" style="background-color: var(--mdc-theme-secondary);">
+                            <div class="mdc-chip__ripple"></div>
+                            <span role="gridcell">
+                                <span class="mdc-chip__text">attested</span>
+                            </span>
+                        </div>
+                        <div class="muted small">{{ user.attestation.last_play_integrity_at }}</div>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="mdc-data-table__cell">
+                        {% if user.last_login_at %}
+                        <div class="muted small">{{ user.last_login_at }}</div>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="mdc-data-table__cell">
+                        {% if user.card_verified_at %}
+                        <div class="mdc-chip" style="background-color: var(--mdc-theme-secondary);">
+                            <div class="mdc-chip__ripple"></div>
+                            <span role="gridcell">
+                                <span class="mdc-chip__text">verified</span>
+                            </span>
+                        </div>
+                        <div class="muted small">{{ user.card_verified_at }}</div>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="mdc-data-table__cell aa-wrap">
                         {% if user.books %}
                         <div class="books-list">
@@ -69,11 +105,14 @@
                           <form method="post" action="/users/{{ user.id }}/export">
                             <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Export</span></button>
                           </form>
+                          <form method="post" action="/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all associated data? This cannot be undone.');">
+                            <button type="submit" class="mdc-button mdc-button--raised btn-sm" style="background-color: var(--mdc-theme-error); color: #fff;"><span class="mdc-button__label">Delete</span></button>
+                          </form>
                         </div>
                     </td>
                 </tr>
                 <tr id="edit-{{ user.id }}" class="row-expand hidden">
-                    <td class="mdc-data-table__cell" colspan="6">
+                    <td class="mdc-data-table__cell" colspan="9">
                         <form method="post" action="/users/{{ user.id }}/update" class="form-grid one-col">
                             <div class="full">
                                 <label for="email-{{ user.id }}">Email</label>
@@ -91,6 +130,29 @@
                             <div class="full">
                                 <label for="credits-{{ user.id }}">Credits</label>
                                 <input id="credits-{{ user.id }}" type="number" name="credits" value="{{ user.credits }}" min="0">
+                            </div>
+                            <div class="full">
+                                <div class="muted" style="margin-top: .5rem;">Attestation (last seen)</div>
+                                {% if user.attestation %}
+                                <div class="aa-wrap small">
+                                    <div>Platform: <strong>{{ user.attestation.device_platform or 'n/a' }}</strong></div>
+                                    <div>App Package: <code>{{ user.attestation.app_package or 'n/a' }}</code></div>
+                                    <div>Install ID: <code>{{ user.attestation.install_id or 'n/a' }}</code></div>
+                                    <div>Last Play Integrity: <span class="muted">{{ user.attestation.last_play_integrity_at or 'never' }}</span></div>
+                                </div>
+                                {% else %}
+                                <div class="aa-wrap small"><em>No attestation recorded</em></div>
+                                {% endif %}
+                            </div>
+                            <div class="full">
+                                <div class="muted" style="margin-top: .5rem;">Card Verification</div>
+                                {% if user.card_verified_at %}
+                                  <div class="aa-wrap small">
+                                    <div>Verified at: <span class="muted">{{ user.card_verified_at }}</span></div>
+                                  </div>
+                                {% else %}
+                                  <div class="aa-wrap small"><em>No card verification recorded</em></div>
+                                {% endif %}
                             </div>
                             <div class="form-actions full">
                                 <button type="submit" class="mdc-button mdc-button--raised btn-sm"><span class="mdc-button__label">Save</span></button>

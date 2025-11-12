@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mdc-typography--headline5">Audit Logs</h2>
+
+<form method="get" action="/audit-logs" class="form-inline" style="margin-bottom: 1rem;">
+  <label style="margin-right: .5rem;">Limit</label>
+  <input type="number" name="limit" value="{{ limit }}" min="1" max="500" style="width: 80px; margin-right: 1rem;" />
+  <label style="margin-right: .5rem;">User ID</label>
+  <input type="number" name="user_id" value="{{ user_id or '' }}" style="width: 120px; margin-right: 1rem;" />
+  <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Apply</span></button>
+  <span class="muted" style="margin-left: 1rem;">Showing {{ count }} rows</span>
+  <a href="/audit-logs" class="mdc-button" style="margin-left: .5rem;">Reset</a>
+  {% if user_id %}
+  <a href="/users" class="mdc-button" style="margin-left: .5rem;">Users</a>
+  {% endif %}
+</form>
+
+<div class="mdc-data-table">
+  <div class="mdc-data-table__table-container">
+    <table class="mdc-data-table__table">
+      <thead>
+        <tr class="mdc-data-table__header-row">
+          <th class="mdc-data-table__header-cell">Time</th>
+          <th class="mdc-data-table__header-cell">User</th>
+          <th class="mdc-data-table__header-cell">Method</th>
+          <th class="mdc-data-table__header-cell">Route</th>
+          <th class="mdc-data-table__header-cell">Platform</th>
+          <th class="mdc-data-table__header-cell">App</th>
+          <th class="mdc-data-table__header-cell">Install</th>
+          <th class="mdc-data-table__header-cell">IP</th>
+          <th class="mdc-data-table__header-cell">Status</th>
+          <th class="mdc-data-table__header-cell">Action</th>
+        </tr>
+      </thead>
+      <tbody class="mdc-data-table__content">
+        {% for row in logs %}
+        <tr class="mdc-data-table__row">
+          <td class="mdc-data-table__cell">{{ row.created_at }}</td>
+          <td class="mdc-data-table__cell">{{ row.user_id or '-' }}</td>
+          <td class="mdc-data-table__cell">{{ row.method }}</td>
+          <td class="mdc-data-table__cell aa-wrap"><code>{{ row.route }}</code></td>
+          <td class="mdc-data-table__cell">{{ row.device_platform or '-' }}</td>
+          <td class="mdc-data-table__cell aa-wrap"><code>{{ row.app_package or '-' }}</code></td>
+          <td class="mdc-data-table__cell aa-wrap"><code>{{ row.install_id or '-' }}</code></td>
+          <td class="mdc-data-table__cell">{{ row.ip or '-' }}</td>
+          <td class="mdc-data-table__cell">{{ row.status or '-' }}</td>
+          <td class="mdc-data-table__cell">{{ row.meta.action or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<a href="/dashboard" class="mdc-button" style="margin-top: 2rem;">Back to dashboard</a>
+{% endblock %}
+

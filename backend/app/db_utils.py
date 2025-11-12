@@ -31,6 +31,8 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_2 TEXT",
         "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_3 TEXT",
         "ALTER TABLE story_templates ADD COLUMN IF NOT EXISTS demo_image_4 TEXT",
+        "ALTER TABLE users ADD COLUMN card_verified_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN last_login_at TIMESTAMPTZ",
         dedent(
             """
             CREATE TABLE IF NOT EXISTS payments (
@@ -109,6 +111,8 @@ def apply_schema_patches(engine):
         "UPDATE payments SET currency = 'aud' WHERE currency IS NULL OR currency = ''",
         "UPDATE payments SET credits_used = COALESCE(credits_used, 0.00)",
         "UPDATE story_templates SET version = COALESCE(version, 1)",
+        "UPDATE users SET card_verified_at = card_verified_at",
+        "UPDATE users SET last_login_at = last_login_at",
     ]
 
     with engine.connect() as conn:

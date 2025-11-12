@@ -1,6 +1,8 @@
 import axios from "axios";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getInstallId, getPlayIntegrityToken, getAppPackage } from "../lib/attestation";
+import { captureException } from "../lib/capture";
 
 const LOCAL_BASE = Platform.select({
   ios: "http://127.0.0.1:8000",
@@ -33,6 +35,32 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Always attach a stable install id and platform for backend heuristics
+    try {
+      const installId = await getInstallId();
+      (config.headers as any)["X-Install-Id"] = installId;
+      (config.headers as any)["X-Device-Platform"] = Platform.OS;
+      const pkg = getAppPackage();
+      if (pkg) (config.headers as any)["X-App-Package"] = pkg;
+    } catch {}
+    // Attach Play Integrity token only for sensitive endpoints
+    try {
+      const url = String(config.url || "");
+      const method = String(config.method || 'get').toLowerCase();
+      const needsIntegrity =
+        method === 'post' && (
+          url.endsWith('/auth/google') ||
+          url.endsWith('/books/create') ||
+          url.endsWith('/billing/setup-intent-free-trial') ||
+          url.endsWith('/billing/free-trial-verify-complete')
+        );
+      if (needsIntegrity) {
+        const integrity = await getPlayIntegrityToken();
+        if (integrity) {
+          (config.headers as any)["X-Play-Integrity"] = integrity;
+        }
+      }
+    } catch {}
     return config;
   },
   (error) => {
@@ -44,6 +72,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    try {
+      const status = error?.response?.status;
+      // Capture server errors and network failures
+      if (!status || status >= 500) {
+        captureException(error, {
+          url: error?.config?.url,
+          method: error?.config?.method,
+          status,
+          data: error?.response?.data,
+        });
+      }
+    } catch {}
     return Promise.reject(error);
   }
 );

@@ -50,6 +50,14 @@ export interface BillingHistoryResponse {
   items: BillingHistoryEntry[];
 }
 
+export interface SetupIntentResponse {
+  client_secret: string;
+}
+
+export interface FreeTrialVerifyResult {
+  verified: boolean;
+}
+
 export async function fetchPricing(templateSlug: string): Promise<PricingQuote> {
   const response = await api.get(`/billing/quote`, {
     params: { template_slug: templateSlug },
@@ -75,4 +83,15 @@ export async function confirmStripePayment(paymentId: number): Promise<PaymentCo
 export async function fetchBillingHistory(): Promise<BillingHistoryResponse> {
   const response = await api.get(`/billing/history`);
   return response.data as BillingHistoryResponse;
+}
+
+// Free trial $0 card verification helpers
+export async function createFreeTrialSetupIntent(templateSlug?: string): Promise<SetupIntentResponse> {
+  const response = await api.post(`/billing/setup-intent-free-trial`, templateSlug ? { template_slug: templateSlug } : {});
+  return response.data as SetupIntentResponse;
+}
+
+export async function completeFreeTrialVerification(): Promise<FreeTrialVerifyResult> {
+  const response = await api.post(`/billing/free-trial-verify-complete`, {});
+  return response.data as FreeTrialVerifyResult;
 }

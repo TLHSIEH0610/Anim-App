@@ -19,6 +19,7 @@ import redis
 from pydantic import BaseModel
 
 from ..db import get_db
+from ..auth import create_user
 from ..models import (
     Book,
     BookPage,
@@ -30,6 +31,8 @@ from ..models import (
     StoryTemplatePage,
     ControlNetImage,
     SupportTicket,
+    UserAttestation,
+    AuditLogEntry,
 )
 from ..comfyui_client import ComfyUIClient
 from ..worker.book_processor import (
@@ -752,6 +755,21 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
             }
             for b in user.books
         ]
+        # Attach minimal attestation for visibility in admin
+        att: UserAttestation | None = (
+            db.query(UserAttestation)
+            .filter(UserAttestation.user_id == user.id)
+            .order_by(UserAttestation.updated_at.desc().nullslast())
+            .first()
+        )
+        att_json = None
+        if att:
+            att_json = {
+                "device_platform": getattr(att, "device_platform", None),
+                "install_id": getattr(att, "install_id", None),
+                "app_package": getattr(att, "app_package", None),
+                "last_play_integrity_at": att.last_play_integrity_at.isoformat() if getattr(att, "last_play_integrity_at", None) else None,
+            }
         items.append(
             {
                 "id": user.id,
@@ -759,11 +777,46 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
                 "role": getattr(user, "role", "user"),
                 "credits": user.credits,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
+                "card_verified_at": user.card_verified_at.isoformat() if getattr(user, 'card_verified_at', None) else None,
+                "last_login_at": user.last_login_at.isoformat() if getattr(user, 'last_login_at', None) else None,
                 "book_count": len(books),
                 "books": books,
+                "attestation": att_json,
             }
         )
     return {"users": items}
+
+
+@router.get("/audit/logs")
+def admin_audit_logs(
+    limit: int = 100,
+    user_id: int | None = None,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    limit = max(1, min(limit, 500))
+    q = db.query(AuditLogEntry).order_by(AuditLogEntry.created_at.desc().nullslast())
+    if user_id:
+        q = q.filter(AuditLogEntry.user_id == user_id)
+    rows = q.limit(limit).all()
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "route": row.route,
+                "method": row.method,
+                "device_platform": row.device_platform,
+                "install_id": row.install_id,
+                "app_package": row.app_package,
+                "ip": row.ip,
+                "status": row.status,
+                "meta": row.meta or {},
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+        )
+    return {"logs": items, "count": len(items)}
 
 
 
@@ -1347,6 +1400,109 @@ def admin_export_user(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"message": "User exported", **info}
+
+
+@router.delete("/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Delete the specified user's account and all associated data/files (admin action).
+
+    Mirrors the behavior of /auth/account but targets an arbitrary user id. Payments are
+    anonymized and reassigned to a tombstone user; books and files are removed; user row deleted.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        deleted = {
+            "books": 0,
+            "pages": 0,
+            "files": 0,
+            "payments_anonymized": 0,
+            "user": 1,
+        }
+
+        tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
+        tombstone = db.query(User).filter(User.email == tombstone_email).first()
+        if not tombstone:
+            tombstone = create_user(db, tombstone_email, secrets.token_urlsafe(32))
+            try:
+                setattr(tombstone, "role", "system")
+                setattr(tombstone, "credits", 0)
+                db.add(tombstone)
+                db.commit(); db.refresh(tombstone)
+            except Exception:
+                db.rollback()
+
+        # Anonymize payments for this user
+        payments_q = db.query(Payment).filter(Payment.user_id == user.id)
+        deleted["payments_anonymized"] = payments_q.count()
+        payments_q.update(
+            {
+                Payment.book_id: None,
+                Payment.user_id: tombstone.id,
+                Payment.stripe_payment_intent_id: None,
+                Payment.metadata_json: {},
+            },
+            synchronize_session=False,
+        )
+
+        # Delete all books and their files
+        books = db.query(Book).filter(Book.user_id == user.id).all()
+        for book in books:
+            deleted["books"] += 1
+            # Remove uploaded originals
+            if getattr(book, 'original_image_paths', None):
+                try:
+                    paths = json.loads(book.original_image_paths)
+                    for p in paths or []:
+                        if p and os.path.exists(p):
+                            try:
+                                os.remove(p)
+                                deleted["files"] += 1
+                            except Exception:
+                                pass
+                except Exception:
+                    if os.path.exists(book.original_image_paths):
+                        try:
+                            os.remove(book.original_image_paths)
+                            deleted["files"] += 1
+                        except Exception:
+                            pass
+
+            # Remove PDF
+            if book.pdf_path and os.path.exists(book.pdf_path):
+                try:
+                    os.remove(book.pdf_path)
+                    deleted["files"] += 1
+                except Exception:
+                    pass
+
+            # Remove page images
+            pages = db.query(BookPage).filter(BookPage.book_id == book.id).all()
+            for page in pages:
+                if page.image_path and os.path.exists(page.image_path):
+                    try:
+                        os.remove(page.image_path)
+                        deleted["files"] += 1
+                    except Exception:
+                        pass
+                deleted["pages"] += 1
+            # Delete pages and book
+            db.query(BookPage).filter(BookPage.book_id == book.id).delete()
+            db.delete(book)
+
+        # Finally delete the user
+        db.delete(user)
+        db.commit()
+        return {"message": "User account and all data deleted", "deleted": deleted, "deletedAt": int(time.time())}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {exc}")
 
 
 class AdminRegeneratePayload(BaseModel):
