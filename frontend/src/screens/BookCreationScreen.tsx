@@ -1382,7 +1382,16 @@ export default function BookCreationScreen({
           />
           <Text style={{ ...typography.body, flex: 1 }}>
             I am a parent/guardian and 13+ and I have permission to upload
-            photos of the child for the purpose of creating this book.
+            photos of the child for the purpose of creating this book. By
+            continuing, I agree to the
+            <Text
+              accessibilityRole="link"
+              onPress={() => navigation.navigate("TermsOfService")}
+              style={{ color: colors.primary, textDecorationLine: "underline" }}
+            >
+              {" "}Terms & Conditions
+            </Text>
+            .
           </Text>
         </View>
       </View>
