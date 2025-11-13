@@ -33,6 +33,7 @@ from ..models import (
     SupportTicket,
     UserAttestation,
     AuditLogEntry,
+    FreeTrialUsage,
 )
 from ..comfyui_client import ComfyUIClient
 from ..worker.book_processor import (
@@ -787,6 +788,40 @@ def admin_list_users(_: None = Depends(require_admin), db: Session = Depends(get
     return {"users": items}
 
 
+@router.post("/users/{user_id}/clear-free-trial")
+def admin_clear_free_trial(
+    user_id: int,
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user: User | None = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    email_norm = (user.email or "").strip().lower()
+    deleted_usages = 0
+    try:
+        # Clear in-account flags
+        user.free_trials_used = []
+        db.add(user)
+        # Clear persisted cross-account usage markers
+        if email_norm:
+            deleted_usages = (
+                db.query(FreeTrialUsage)
+                .filter(FreeTrialUsage.email_norm == email_norm)
+                .delete(synchronize_session=False)
+            )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to clear free-trial usage: {exc}")
+
+    return {
+        "message": f"Cleared free-trial usage for user {user.id}",
+        "deleted_usages": int(deleted_usages),
+    }
+
+
 @router.get("/audit/logs")
 def admin_audit_logs(
     limit: int = 100,
@@ -805,6 +840,7 @@ def admin_audit_logs(
             {
                 "id": row.id,
                 "user_id": row.user_id,
+                "user_email": getattr(getattr(row, "user", None), "email", None),
                 "route": row.route,
                 "method": row.method,
                 "device_platform": row.device_platform,

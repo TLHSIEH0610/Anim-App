@@ -81,6 +81,18 @@ def apply_schema_patches(engine):
             "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
             ")"
         ),
+        (
+            "CREATE TABLE IF NOT EXISTS free_trial_usages ("
+            "id SERIAL PRIMARY KEY,"
+            "email_norm VARCHAR(255) NOT NULL,"
+            "free_trial_slug VARCHAR(120) NOT NULL,"
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+            "install_id VARCHAR(255),"
+            "device_platform VARCHAR(32),"
+            "app_package VARCHAR(255)"
+            ")"
+        ),
+        "CREATE INDEX IF NOT EXISTS idx_free_trial_usages_email_slug ON free_trial_usages (email_norm, free_trial_slug)",
     ]
 
     with engine.connect() as conn:

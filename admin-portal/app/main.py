@@ -866,6 +866,34 @@ async def export_user(user_id: int, request: Request):
         )
 
 
+@app.post("/users/{user_id}/clear-free-trial")
+async def clear_free_trial(user_id: int, request: Request):
+    session = get_admin_session(request)
+    if not session:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        resp = await backend_request("POST", f"/admin/users/{user_id}/clear-free-trial")
+        data = resp.json()
+        message = data.get("message", "Cleared free-trial usage")
+        deleted = data.get("deleted_usages")
+        if deleted is not None:
+            message = f"{message} (removed {deleted} record(s))"
+        return RedirectResponse(
+            f"/users?message={quote_plus(message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _format_backend_error(exc)
+        return RedirectResponse(
+            f"/users?error={quote_plus(detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except httpx.HTTPError as exc:
+        return RedirectResponse(
+            f"/users?error={quote_plus(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
 @app.get("/stories", response_class=HTMLResponse)
 async def stories_page(request: Request):
     session = get_admin_session(request)

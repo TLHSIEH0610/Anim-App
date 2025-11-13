@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.db import get_db
+from app.models import FreeTrialUsage
 from app.auth import create_user, get_user_by_email, verify_pw, create_access_token, current_user
 from app.security import enforce_android_integrity_or_warn, record_user_attestation, write_audit_log, extract_client_signals
 from pydantic import BaseModel
@@ -79,6 +80,42 @@ def _verify_google_id_token(id_token: str) -> dict[str, Any]:
 
     return data
 
+
+def _backfill_free_trials_from_usage(db: Session, user) -> None:
+    """Synchronize persisted free-trial usage (by email) back into the user's
+    free_trials_used list so the UI and pricing reflect reality immediately
+    after account creation or re-login.
+
+    This ensures users cannot regain a free trial by deleting and recreating
+    an account with the same email.
+    """
+    try:
+        email_norm = (user.email or "").strip().lower()
+        if not email_norm:
+            return
+        rows = (
+            db.query(FreeTrialUsage)
+            .filter(FreeTrialUsage.email_norm == email_norm)
+            .all()
+        )
+        if not rows:
+            return
+        existing = set(user.free_trials_used or [])
+        changed = False
+        for row in rows:
+            slug = getattr(row, "free_trial_slug", None)
+            if slug and slug not in existing:
+                existing.add(slug)
+                changed = True
+        if changed:
+            user.free_trials_used = list(existing)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+    except Exception:
+        db.rollback()
+        # Best-effort only
+
 @router.post("/register", response_model=AuthResponse)
 def register(payload: RegisterIn, db: Session = Depends(get_db)):
     if get_user_by_email(db, payload.email):
@@ -87,6 +124,8 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     try:
         u.last_login_at = datetime.now(timezone.utc)
         db.add(u); db.commit(); db.refresh(u)
+        # Backfill any prior free-trial usage for this email
+        _backfill_free_trials_from_usage(db, u)
     except Exception:
         db.rollback()
     token = create_access_token(u.id)
@@ -110,6 +149,8 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     try:
         u.last_login_at = datetime.now(timezone.utc)
         db.add(u); db.commit(); db.refresh(u)
+        # Optional safety: backfill free-trial status on login
+        _backfill_free_trials_from_usage(db, u)
     except Exception:
         db.rollback()
     token = create_access_token(u.id)
@@ -268,12 +309,17 @@ def google_login(payload: GoogleLoginIn, request: Request, db: Session = Depends
     email = profile["email"]
 
     user = get_user_by_email(db, email)
+    is_new = False
     if not user:
         random_password = secrets.token_urlsafe(32)
         user = create_user(db, email, random_password)
+        is_new = True
     try:
         user.last_login_at = datetime.now(timezone.utc)
         db.add(user); db.commit(); db.refresh(user)
+        # Backfill only if new, but harmless if repeated
+        if is_new:
+            _backfill_free_trials_from_usage(db, user)
     except Exception:
         db.rollback()
 

@@ -222,6 +222,12 @@
                                 <button type="button" class="mdc-button btn-sm" data-toggle="#edit-{{ user.id }}"><span class="mdc-button__label">Cancel</span></button>
                             </div>
                         </form>
+                        <div class="form-actions full" style="margin-top:8px;">
+                          <form method="post" action="/users/{{ user.id }}/clear-free-trial" data-loading="Clearing...">
+                            <button type="submit" class="mdc-button btn-sm"><span class="mdc-button__label">Clear Free-Trial Usage</span></button>
+                            <span class="muted small">Removes user's in-account flags and persisted usage records.</span>
+                          </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

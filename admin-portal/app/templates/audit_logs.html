@@ -23,6 +23,7 @@
         <tr class="mdc-data-table__header-row">
           <th class="mdc-data-table__header-cell">Time</th>
           <th class="mdc-data-table__header-cell">User</th>
+          <th class="mdc-data-table__header-cell">Email</th>
           <th class="mdc-data-table__header-cell">Method</th>
           <th class="mdc-data-table__header-cell">Route</th>
           <th class="mdc-data-table__header-cell">Platform</th>
@@ -38,6 +39,7 @@
         <tr class="mdc-data-table__row">
           <td class="mdc-data-table__cell">{{ row.created_at }}</td>
           <td class="mdc-data-table__cell">{{ row.user_id or '-' }}</td>
+          <td class="mdc-data-table__cell aa-wrap">{{ row.user_email or '-' }}</td>
           <td class="mdc-data-table__cell">{{ row.method }}</td>
           <td class="mdc-data-table__cell aa-wrap"><code>{{ row.route }}</code></td>
           <td class="mdc-data-table__cell">{{ row.device_platform or '-' }}</td>
