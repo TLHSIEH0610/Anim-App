@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import time
 import base64
 import copy
 from datetime import datetime, timezone
@@ -840,7 +841,7 @@ def admin_audit_logs(
             {
                 "id": row.id,
                 "user_id": row.user_id,
-                "user_email": getattr(getattr(row, "user", None), "email", None),
+                "user_email": getattr(row, "user_email", None) or (getattr(row.user, "email", None) if getattr(row, "user", None) else None),
                 "route": row.route,
                 "method": row.method,
                 "device_platform": row.device_platform,

@@ -139,6 +139,7 @@ def write_audit_log(
         signals = extract_client_signals(request)
         entry = AuditLogEntry(
             user_id=getattr(user, "id", None),
+            user_email=getattr(user, "email", None),
             route=str(getattr(request, "url", "")),
             method=str(getattr(request, "method", "")).upper(),
             device_platform=signals.get("device_platform"),

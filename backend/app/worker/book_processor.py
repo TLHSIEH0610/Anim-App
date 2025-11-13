@@ -535,11 +535,15 @@ class BookComposer:
                 bottom_spacer_after_text = 14
                 # Reserve footer area only when there is a following body page
                 page_num_block = 18 if i < total_body_pages else 0
-                # Ensure image + spacer + text + bottom spacer fit in the frame to avoid auto page breaks
+                # Add a tiny safety buffer to avoid rounding-induced spill to next page
+                safety = 4
+                # Ensure image + spacer + text + bottom spacer fit to avoid auto page breaks
                 max_img_height = max(
-                    content_height - text_height - spacer_between - bottom_spacer_after_text - page_num_block,
+                    content_height - text_height - spacer_between - bottom_spacer_after_text - page_num_block - safety,
                     0,
                 )
+
+                page_flowables = []
 
                 # Add image first, taking as much space as possible while leaving room for text
                 if page_data.get('image_path') and os.path.exists(page_data['image_path']) and max_img_height > 0:
@@ -555,21 +559,28 @@ class BookComposer:
                             img_w = img_h * aspect
                         # Create image flowable
                         img = Image(page_data['image_path'], width=img_w, height=img_h, hAlign='CENTER')
-                        try:
-                            # KeepInFrame ensures we never overflow the frame due to rounding
-                            from reportlab.platypus import KeepInFrame
-                            img_flow = KeepInFrame(content_width, max_img_height, [img], mode='shrink')
-                            story.append(img_flow)
-                        except Exception:
-                            story.append(img)
-                        story.append(Spacer(1, spacer_between))
+                        page_flowables.append(img)
+                        page_flowables.append(Spacer(1, spacer_between))
                     except Exception as e:
                         print(f"Warning: Could not add image for page {i}: {e}")
-                        story.append(Spacer(1, 24))
+                        # Keep a small spacer so text isn't glued to top border
+                        page_flowables.append(Spacer(1, 12))
+                else:
+                    # No image found; still keep a small top spacer for balance
+                    page_flowables.append(Spacer(1, 12))
 
                 # Add text underneath
-                story.append(paragraph)
-                story.append(Spacer(1, bottom_spacer_after_text))
+                page_flowables.append(paragraph)
+                page_flowables.append(Spacer(1, bottom_spacer_after_text))
+
+                try:
+                    # Keep image+text together on a single page. Our sizing above ensures it fits;
+                    # KeepTogether prevents ReportLab from splitting due to rounding errors.
+                    from reportlab.platypus import KeepTogether
+                    story.append(KeepTogether(page_flowables))
+                except Exception:
+                    # Fallback: append directly
+                    story.extend(page_flowables)
 
                 # Page break between pages (except after the last visible page)
                 if i < total_body_pages:

@@ -123,6 +123,8 @@ def apply_schema_patches(engine):
             "ALTER TABLE books ADD CONSTRAINT books_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
             "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey",
             "ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
+            # Denormalized email snapshot on audit logs for post-deletion visibility
+            "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_email VARCHAR(255)",
         ]
 
         for stmt in fk_fixes:

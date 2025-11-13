@@ -278,6 +278,7 @@ class AuditLogEntry(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True)
+    user_email = Column(String(255))
     route = Column(Text)
     method = Column(String(10))
     device_platform = Column(String(16))
