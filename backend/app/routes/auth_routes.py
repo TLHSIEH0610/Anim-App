@@ -135,7 +135,16 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
 # Note: Mock login endpoint has been removed to reduce surface area. Use Google login
 # or email/password in local/dev. If needed, reintroduce behind ALLOW_AUTH_MOCK gate.
 
-from app.models import Book, BookPage, Payment, User as UserModel
+from app.models import (
+    Book,
+    BookPage,
+    Payment,
+    User as UserModel,
+    UserAttestation,
+    Job,
+    AuditLogEntry,
+    SupportTicket,
+)
 import json
 import os
 
@@ -181,6 +190,17 @@ def delete_account(user = Depends(current_user), db: Session = Depends(get_db)):
             synchronize_session=False,
         )
 
+        # Best-effort: clear audit_logs linkage (we retain rows but detach the user)
+        db.query(AuditLogEntry).filter(AuditLogEntry.user_id == user.id).update(
+            {AuditLogEntry.user_id: None}, synchronize_session=False
+        )
+
+        # Remove attestation rows and ephemeral jobs referencing the user
+        db.query(UserAttestation).filter(UserAttestation.user_id == user.id).delete(
+            synchronize_session=False
+        )
+        db.query(Job).filter(Job.user_id == user.id).delete(synchronize_session=False)
+
         # Delete all books and their files
         books = db.query(Book).filter(Book.user_id == user.id).all()
         for book in books:
@@ -225,6 +245,11 @@ def delete_account(user = Depends(current_user), db: Session = Depends(get_db)):
             # Delete pages and book
             db.query(BookPage).filter(BookPage.book_id == book.id).delete()
             db.delete(book)
+
+        # Reassign support tickets to tombstone to preserve history
+        db.query(SupportTicket).filter(SupportTicket.user_id == user.id).update(
+            {SupportTicket.user_id: tombstone.id}, synchronize_session=False
+        )
 
         # Finally delete the user
         db.delete(user)

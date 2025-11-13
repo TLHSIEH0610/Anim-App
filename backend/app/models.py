@@ -26,7 +26,7 @@ class User(Base):
 class Job(Base):
     __tablename__ = "jobs"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     status = Column(String(32), index=True, default="queued") # queued|processing|done|failed|expired
     input_path = Column(Text, nullable=False)
     output_path = Column(Text)
@@ -41,7 +41,7 @@ class Job(Base):
 class Book(Base):
     __tablename__ = "books"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title = Column(String(255), nullable=False)
     theme = Column(String(100))  # reused to store template key or 'custom'
     target_age = Column(String(10))  # 3-5, 6-8, 9-12
@@ -250,7 +250,7 @@ class UserAttestation(Base):
     __tablename__ = "user_attestations"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     device_platform = Column(String(16))  # android|ios|web|other
     install_id = Column(String(128))
     app_package = Column(String(150))
@@ -264,7 +264,7 @@ class AuditLogEntry(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True)
     route = Column(Text)
     method = Column(String(10))
     device_platform = Column(String(16))

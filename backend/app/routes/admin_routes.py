@@ -1496,6 +1496,23 @@ def admin_delete_user(
             db.query(BookPage).filter(BookPage.book_id == book.id).delete()
             db.delete(book)
 
+        # Best-effort: clear audit_logs linkage
+        db.query(AuditLogEntry).filter(AuditLogEntry.user_id == user.id).update(
+            {AuditLogEntry.user_id: None}, synchronize_session=False
+        )
+
+        # Remove attestation rows and ephemeral jobs referencing the user
+        db.query(UserAttestation).filter(UserAttestation.user_id == user.id).delete(
+            synchronize_session=False
+        )
+        from ..models import Job  # local import to avoid circulars in type checkers
+        db.query(Job).filter(Job.user_id == user.id).delete(synchronize_session=False)
+
+        # Reassign support tickets to tombstone to preserve history
+        db.query(SupportTicket).filter(SupportTicket.user_id == user.id).update(
+            {SupportTicket.user_id: tombstone.id}, synchronize_session=False
+        )
+
         # Finally delete the user
         db.delete(user)
         db.commit()

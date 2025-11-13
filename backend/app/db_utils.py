@@ -101,6 +101,35 @@ def apply_schema_patches(engine):
                     continue
                 raise
 
+        # Ensure foreign keys have desired ON DELETE behaviors to avoid integrity errors
+        fk_fixes = [
+            "ALTER TABLE user_attestations DROP CONSTRAINT IF EXISTS user_attestations_user_id_fkey",
+            "ALTER TABLE user_attestations ADD CONSTRAINT user_attestations_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+            "ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_user_id_fkey",
+            "ALTER TABLE jobs ADD CONSTRAINT jobs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+            "ALTER TABLE books DROP CONSTRAINT IF EXISTS books_user_id_fkey",
+            "ALTER TABLE books ADD CONSTRAINT books_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+            "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey",
+            "ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
+        ]
+
+        for stmt in fk_fixes:
+            trans = conn.begin()
+            try:
+                conn.execute(text(stmt))
+                trans.commit()
+            except Exception as exc:
+                trans.rollback()
+                message = str(exc).lower()
+                if (
+                    "already exists" in message
+                    or "duplicate" in message
+                    or "does not exist" in message
+                ):
+                    # benign if constraint already set or table not present yet
+                    continue
+                raise
+
     post_updates = [
         "UPDATE book_workflow_snapshots SET workflow_slug = COALESCE(workflow_slug, 'legacy')",
         "UPDATE book_workflow_snapshots SET workflow_version = COALESCE(workflow_version, 0)",

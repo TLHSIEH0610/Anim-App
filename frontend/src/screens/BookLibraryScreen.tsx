@@ -45,6 +45,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Header from "../components/Header";
 import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -85,14 +86,21 @@ function BookListCard({
   const [imgLoading, setImgLoading] = useState<boolean>(true);
   const [downloading, setDownloading] = useState<boolean>(false);
   const genderRaw = book.template_params?.gender as
-    | 'male'
-    | 'female'
+    | "male"
+    | "female"
     | string
     | undefined;
-  const genderLabel = genderRaw === 'male' ? 'Boy' : genderRaw === 'female' ? 'Girl' : genderRaw ? String(genderRaw) : 'n/a';
+  const genderLabel =
+    genderRaw === "male"
+      ? "Boy"
+      : genderRaw === "female"
+      ? "Girl"
+      : genderRaw
+      ? String(genderRaw)
+      : "n/a";
   useEffect(() => {
     try {
-      console.log('[Purchased][BookData]', JSON.stringify(book));
+      console.log("[Purchased][BookData]", JSON.stringify(book));
     } catch {}
   }, [book]);
 
@@ -139,6 +147,17 @@ function BookListCard({
   }, [book.id, book.title, coverUri, directResizeUri]);
 
   // Two-column layout: image (left) and details (right)
+  const createdLabel = (() => {
+    try {
+      return new Date(book.created_at).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return String(book.created_at || "");
+    }
+  })();
 
   return (
     <Card style={styles.bookItem}>
@@ -157,18 +176,18 @@ function BookListCard({
             </Text>
             {(userRole === "admin" || userRole === "superadmin") &&
               !isInProgress && (
-              <Button
-                title="🔄"
-                onPress={() => onRegenerate(book)}
-                variant="secondary"
-                size="sm"
-              />
-            )}
+                <Button
+                  title="🔄"
+                  onPress={() => onRegenerate(book)}
+                  variant="secondary"
+                  size="sm"
+                />
+              )}
           </View>
           <Chip
             compact
             style={{
-              marginLeft: 'auto',
+              marginLeft: "auto",
               backgroundColor: STATUS_COLORS[book.status] || colors.textMuted,
             }}
             textStyle={{ color: "#fff", fontWeight: "600" }}
@@ -184,7 +203,10 @@ function BookListCard({
           <View style={styles.coverThumbWrap}>
             <Image
               source={{ uri: coverUri }}
-              style={[styles.coverThumb, { width: "100%", height: targetHeight }]}
+              style={[
+                styles.coverThumb,
+                { width: "100%", height: targetHeight },
+              ]}
               contentFit="cover"
               cachePolicy="memory-disk"
               placeholder={{ blurhash: BLURHASH }}
@@ -210,111 +232,17 @@ function BookListCard({
         ) : null}
 
         <View style={styles.detailsBlock}>
-          {/* Status row with actions (chip moved to title row) */}
-          <View style={styles.bookStatus}>
-            {book.status !== "completed" && book.status !== "failed" && (
+          {/* Status row with actions (chip moved to title row). Only render when needed. */}
+          {book.status !== "completed" && book.status !== "failed" && (
+            <View style={styles.bookStatus}>
               <View style={styles.progressBar}>
                 <ProgressBar
                   progress={(book.progress_percentage || 0) / 100}
                   color={STATUS_COLORS[book.status] || colors.textMuted}
                 />
               </View>
-            )}
-            {false && (
-              <>
-                <Button
-                  title="View"
-                  onPress={() => onPress(book)}
-                  variant="primary"
-                  size="sm"
-                  // leftIcon={
-                  //   <MaterialCommunityIcons
-                  //     name="eye"
-                  //     size={18}
-                  //     color={colors.surface}
-                  //   />
-                  // }
-                />
-                <Button
-                  title="Download"
-                  onPress={async () => {
-                    try {
-                      const pdfUrl = getBookPdfUrl(book.id);
-                      const fileName = `${(book.title || "book")
-                        .replace(/[^a-z0-9]+/gi, "_")
-                        .toLowerCase()}.pdf`;
-                      const destinationPath = `${
-                        FileSystem.cacheDirectory ??
-                        FileSystem.documentDirectory ??
-                        ""
-                      }${fileName}`;
-                      const downloadResult = await FileSystem.downloadAsync(
-                        pdfUrl,
-                        destinationPath,
-                        token
-                          ? { headers: { Authorization: `Bearer ${token}` } }
-                          : undefined
-                      );
-                      if (Platform.OS === "android") {
-                        try {
-                          const permissions =
-                            await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-                          if (!permissions.granted) {
-                            Alert.alert(
-                              "Permission required",
-                              "Storage permission is required to save the PDF."
-                            );
-                            return;
-                          }
-                          const targetUri =
-                            await FileSystem.StorageAccessFramework.createFileAsync(
-                              permissions.directoryUri,
-                              fileName,
-                              "application/pdf"
-                            );
-                          const fileBase64 = await FileSystem.readAsStringAsync(
-                            downloadResult.uri,
-                            { encoding: FileSystem.EncodingType.Base64 }
-                          );
-                          await FileSystem.writeAsStringAsync(
-                            targetUri,
-                            fileBase64,
-                            { encoding: FileSystem.EncodingType.Base64 }
-                          );
-                          Alert.alert(
-                            "Saved",
-                            "PDF saved to the folder you selected."
-                          );
-                        } catch (e) {
-                          Alert.alert("Save failed", "Could not save the PDF.");
-                        }
-                      } else {
-                        await Share.share({
-                          url: downloadResult.uri,
-                          title: book.title,
-                          message: `Your book "${book.title}" is ready as a PDF.`,
-                        });
-                      }
-                    } catch (err) {
-                      Alert.alert(
-                        "Download failed",
-                        "Unable to download PDF. Please try again."
-                      );
-                    }
-                  }}
-                  variant="info"
-                  size="sm"
-                  // leftIcon={
-                  //   <MaterialCommunityIcons
-                  //     name="download"
-                  //     size={18}
-                  //     color={colors.textPrimary}
-                  //   />
-                  // }
-                />
-              </>
-            )}
-          </View>
+            </View>
+          )}
           {book.status === "failed" && (
             <Text style={styles.failedNote}>
               We are fixing it now! Please check back soon.
@@ -324,17 +252,17 @@ function BookListCard({
           <View style={styles.detailsHeader}>
             <View style={{ flex: 1, marginRight: spacing(2) }}>
               {!!book.template_description && (
-                <Text style={styles.bookDetails} numberOfLines={2}>
+                <Text style={styles.bookDetails}>
                   {book.template_description}
                 </Text>
               )}
-              <Text style={styles.bookDetails}>
-                Age: {book.target_age || "n/a"} • Gender: {genderLabel} • {book.page_count} pages
+              <Text style={styles.bookSubDetails}>
+                Age: {book.target_age || "n/a"} • Gender: {genderLabel} •{" "}
+                {book.page_count} pages
               </Text>
             </View>
           </View>
-
-          <Text style={styles.bookDate}>Created: {new Date(book.created_at).toLocaleDateString()}</Text>
+          <Text style={styles.bookDate}>Created: {createdLabel}</Text>
           <View style={styles.bottomRow}>
             <View style={styles.primaryActions}>
               {book.status === "completed" && (
@@ -351,59 +279,77 @@ function BookListCard({
                     disabled={downloading}
                     onPress={async () => {
                       setDownloading(true);
+                      const fileName = `${(book.title || "book")
+                        .replace(/[^a-z0-9]+/gi, "_")
+                        .toLowerCase()}.pdf`;
                       try {
                         const pdfUrl = getBookPdfUrl(book.id);
-                        const fileName = `${(book.title || "book")
-                          .replace(/[^a-z0-9]+/gi, "_")
-                          .toLowerCase()}.pdf`;
-                        const destinationPath = `${
+                        const dest = `${
                           FileSystem.cacheDirectory ??
                           FileSystem.documentDirectory ??
                           ""
                         }${fileName}`;
                         const downloadResult = await FileSystem.downloadAsync(
                           pdfUrl,
-                          destinationPath,
+                          dest,
                           token
                             ? { headers: { Authorization: `Bearer ${token}` } }
                             : undefined
                         );
                         if (Platform.OS === "android") {
+                          // Primary: Storage Access Framework (user picks folder)
                           try {
                             const permissions =
                               await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-                            if (!permissions.granted) {
-                              Alert.alert(
-                                "Permission required",
-                                "Storage permission is required to save the PDF."
-                              );
-                              return;
-                            }
-                            const targetUri =
-                              await FileSystem.StorageAccessFramework.createFileAsync(
-                                permissions.directoryUri,
-                                fileName,
-                                "application/pdf"
-                              );
-                            const fileBase64 =
-                              await FileSystem.readAsStringAsync(
+                            if (permissions.granted) {
+                              const targetUri =
+                                await FileSystem.StorageAccessFramework.createFileAsync(
+                                  permissions.directoryUri,
+                                  fileName,
+                                  "application/pdf"
+                                );
+                              const fileBase64 = await FileSystem.readAsStringAsync(
                                 downloadResult.uri,
                                 { encoding: FileSystem.EncodingType.Base64 }
                               );
-                            await FileSystem.writeAsStringAsync(
-                              targetUri,
-                              fileBase64,
-                              { encoding: FileSystem.EncodingType.Base64 }
-                            );
-                            Alert.alert(
-                              "Saved",
-                              "PDF saved to the folder you selected."
-                            );
+                              await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
+                                encoding: FileSystem.EncodingType.Base64,
+                              });
+                              Alert.alert("Saved", "PDF saved to the folder you selected.");
+                              return;
+                            }
                           } catch (e) {
-                            Alert.alert(
-                              "Save failed",
-                              "Could not save the PDF."
-                            );
+                            console.warn("[Download][SAF] failed, will fallback:", e);
+                          }
+
+                          // Fallback: save to Downloads via MediaLibrary (older Androids)
+                          try {
+                            const perm = await MediaLibrary.requestPermissionsAsync();
+                            if (perm.status !== "granted") {
+                              throw new Error("MediaLibrary permission not granted");
+                            }
+                            const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+                            let album = await MediaLibrary.getAlbumAsync("Download");
+                            if (!album) {
+                              album = await MediaLibrary.createAlbumAsync("Download", asset, false);
+                            } else {
+                              await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+                            }
+                            Alert.alert("Saved", "PDF saved to Downloads folder");
+                            return;
+                          } catch (e) {
+                            console.warn("[Download][MediaLibrary] fallback failed:", e);
+                            try {
+                              await Share.share({
+                                url: downloadResult.uri,
+                                title: book.title,
+                                message: `Your book \"${book.title}\" is ready as a PDF.`,
+                              });
+                            } catch (shareErr) {
+                              console.warn("[Download][Share] fallback failed:", shareErr);
+                              Alert.alert("Save failed", "Could not save the PDF.");
+                            }
+                            return;
                           }
                         } else {
                           await Share.share({
@@ -413,10 +359,8 @@ function BookListCard({
                           });
                         }
                       } catch (err) {
-                        Alert.alert(
-                          "Download failed",
-                          "Unable to download PDF. Please try again."
-                        );
+                        console.warn("[Download] error:", err);
+                        Alert.alert("Download failed", "Unable to download PDF. Please try again.");
                       } finally {
                         setDownloading(false);
                       }
@@ -514,16 +458,19 @@ export default function BookLibraryScreen({
       setConfirm({ visible: false, type: null, book: null });
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { Alert } = require('react-native');
+        const { Alert } = require("react-native");
         Alert.alert(
-          confirm.type === 'delete' ? 'Delete failed' : 'Regenerate failed',
-          'Please try again in a moment.'
+          confirm.type === "delete" ? "Delete failed" : "Regenerate failed",
+          "Please try again in a moment."
         );
       } catch {}
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { captureException } = require('../lib/capture');
-        captureException(error, { flow: 'book_confirm_action', type: confirm.type });
+        const { captureException } = require("../lib/capture");
+        captureException(error, {
+          flow: "book_confirm_action",
+          type: confirm.type,
+        });
       } catch {}
     } finally {
       setConfirmProcessing(false);
@@ -596,7 +543,7 @@ export default function BookLibraryScreen({
           </Dialog.Title>
           <Dialog.Content>
             {confirmProcessing ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <ActivityIndicator />
                 <Text style={{ marginLeft: spacing(2) }}>Working...</Text>
               </View>
@@ -758,13 +705,13 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   imageSpinner: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleRow: {
     flexDirection: "row",
@@ -772,8 +719,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing(2),
   },
   titleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     minWidth: 0,
   },
@@ -783,10 +730,9 @@ const styles = StyleSheet.create({
     gap: spacing(2),
   },
   detailsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing(1),
+    // flexDirection: "row",
+    // alignItems: "center",
+    // justifyContent: "space-between",
   },
   detailsActions: {
     flexDirection: "row",
@@ -836,13 +782,17 @@ const styles = StyleSheet.create({
       android: "serif",
       default: "serif",
     }) as any,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.5,
     textShadowColor: "rgba(157, 78, 221, 0.35)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
   bookDetails: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  bookSubDetails: {
     ...typography.caption,
     color: colors.textSecondary,
   },

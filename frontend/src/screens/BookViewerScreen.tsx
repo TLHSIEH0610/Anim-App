@@ -496,7 +496,7 @@ export default function BookViewerScreen({
               leftIcon={
                 <MaterialCommunityIcons
                   name="arrow-left"
-                  size={20}
+                  size={16}
                   color={colors.surface}
                 />
               }
@@ -527,7 +527,7 @@ export default function BookViewerScreen({
               rightIcon={
                 <MaterialCommunityIcons
                   name="arrow-right"
-                  size={20}
+                  size={16}
                   color={colors.surface}
                 />
               }
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   },
   navigationContainer: {
     backgroundColor: colors.lightYellow,
-    paddingVertical: 15,
+    paddingVertical: 6,
     borderTopWidth: 1,
     borderTopColor: colors.primarySoft,
   },
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: "column",
-    padding: 20,
+    padding: 6,
     gap: 10,
     backgroundColor: colors.lightYellow,
     borderTopWidth: 1,

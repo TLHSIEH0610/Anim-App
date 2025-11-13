@@ -49,14 +49,13 @@ Ensure the application respects original client IP and scheme when running
 behind Cloudflare Tunnel / reverse proxies. This allows audit logging to
 record the real remote IP instead of the Docker bridge (e.g., 172.18.0.1).
 """
-app.add_middleware(ProxyHeadersMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ProxyHeadersMiddleware)
 
 app.include_router(auth_routes.router)
 app.include_router(job_routes.router)
