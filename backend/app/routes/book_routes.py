@@ -153,6 +153,9 @@ async def create_book(
                     raise HTTPException(400, "Free trial already consumed")
                 if not apply_free_trial_flag:
                     raise HTTPException(400, "apply_free_trial flag must be true to consume free trial")
+                # Enforce that the user has completed $0 card verification
+                if getattr(user, "card_verified_at", None) is None:
+                    raise HTTPException(400, "Card verification required before using a free trial")
         else:
             if not payment_id:
                 raise HTTPException(402, "Payment required before book creation")

@@ -12,6 +12,7 @@ export interface PricingQuote {
   credits_required: number;
   credits_balance: number;
   card_available?: boolean;
+  card_verified?: boolean;
 }
 
 export interface PaymentResult {

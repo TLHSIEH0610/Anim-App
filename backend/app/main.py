@@ -11,7 +11,12 @@ from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
 from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_routes, support_routes
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+# Proxy headers middleware location differs by Starlette/Uvicorn versions.
+# Prefer Starlette's, but fall back to Uvicorn if unavailable.
+try:  # Starlette >= 0.20
+    from starlette.middleware.proxy_headers import ProxyHeadersMiddleware  # type: ignore
+except Exception:  # pragma: no cover
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # type: ignore
 from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
 from .default_users import ensure_default_users

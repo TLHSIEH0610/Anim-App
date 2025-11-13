@@ -52,6 +52,7 @@ def _serialize_quote(user: User, quote: PriceQuote) -> Dict[str, Any]:
         "credits_required": float(quote.credits_required),
         "credits_balance": float(user.credits or 0),
         "card_available": BillingConfig.stripe_enabled(),
+        "card_verified": bool(getattr(user, "card_verified_at", None)),
     }
 
 

@@ -603,9 +603,8 @@ export default function BookCreationScreen({
       if (prev === "google_pay" && gpayAvailable) {
         return prev;
       }
-      if (freeTrialAvailable) {
-        return "free_trial";
-      }
+      // Intentionally avoid auto-selecting free trial to ensure
+      // the user explicitly triggers verification.
       if (creditsAvailable) {
         return "credits";
       }
@@ -760,8 +759,7 @@ export default function BookCreationScreen({
     updateForm("templateKey", template.slug);
   };
 
-  const handleUseFreeTrial = () => {
-    (async () => {
+  const handleUseFreeTrial = async (): Promise<boolean> => {
       if (
         !pricingQuote ||
         !pricingQuote.free_trial_slug ||
@@ -830,15 +828,16 @@ export default function BookCreationScreen({
         setPaymentId(null);
         setCardDetailsComplete(false);
         setCardFieldError(null);
+        return true;
       } catch (e: any) {
         const msg = e?.message || "Unable to complete $0 verification.";
         setPaymentError(msg);
         setSelectedPaymentMethod(null);
         captureException(e, { flow: "free_trial" });
+        return false;
       } finally {
         setIsPaymentLoading(false);
       }
-    })();
   };
 
   const handlePayWithCredits = () => {
@@ -1116,6 +1115,15 @@ export default function BookCreationScreen({
           throw new Error(
             "Free trial is no longer available for this template."
           );
+        }
+        // Ensure verification is completed before proceeding. If not yet
+        // verified in this session, trigger the $0 verification now.
+        if (paymentMode !== "free_trial") {
+          const ok = await handleUseFreeTrial();
+          if (!ok) {
+            // Verification failed or cancelled
+            throw new Error("Please complete card verification to use a free trial.");
+          }
         }
         nextMode = "free_trial";
       } else if (selectedPaymentMethod === "credits") {
