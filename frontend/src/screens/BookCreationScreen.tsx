@@ -1963,7 +1963,7 @@ export default function BookCreationScreen({
                 color={colors.primaryDark}
               />
             </TouchableRipple>
-            <Text style={styles.title}>Create Children-s Book</Text>
+            <Text style={styles.title}>Create Children’s Book</Text>
           </View>
         </View>
 

@@ -24,6 +24,7 @@ import {
 } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -181,41 +182,53 @@ export default function BookViewerScreen({
       const localPath = await downloadToDocumentDirectory(pdfUrl, fileName);
 
       if (Platform.OS === "android") {
+        // Primary: SAF user-selected folder
         try {
           const permissions =
             await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-          if (!permissions.granted) {
-            setSnackbar({
-              visible: true,
-              message: "Storage permission is required to save the PDF.",
-            });
-            return;
-          }
-
-          const targetUri =
-            await FileSystem.StorageAccessFramework.createFileAsync(
+          if (permissions.granted) {
+            const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
               permissions.directoryUri,
               fileName,
               "application/pdf"
             );
-          // Read the downloaded PDF and write it directly without reprocessing
-          const fileBase64 = await FileSystem.readAsStringAsync(localPath, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
+            const fileBase64 = await FileSystem.readAsStringAsync(localPath, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
 
-          setSnackbar({
-            visible: true,
-            message: "PDF saved to the folder you selected.",
-          });
-        } catch (androidError) {
-          console.error("Android PDF save error:", androidError);
-          setSnackbar({
-            visible: true,
-            message: "Could not save the PDF. Please try again.",
-          });
+            setSnackbar({ visible: true, message: "PDF saved to the folder you selected." });
+            return;
+          }
+        } catch (e) {
+          if (__DEV__) console.warn("[Viewer][SAF] failed, fallback to MediaLibrary", e);
+        }
+
+        // Fallback: Downloads via MediaLibrary
+        try {
+          const perm = await MediaLibrary.requestPermissionsAsync();
+          if (perm.status !== "granted") throw new Error("MediaLibrary permission not granted");
+          const asset = await MediaLibrary.createAssetAsync(localPath);
+          let album = await MediaLibrary.getAlbumAsync("Download");
+          if (!album) {
+            album = await MediaLibrary.createAlbumAsync("Download", asset, false);
+          } else {
+            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+          }
+          setSnackbar({ visible: true, message: "PDF saved to Downloads folder" });
+          return;
+        } catch (e) {
+          if (__DEV__) console.warn("[Viewer][MediaLibrary] fallback failed, sharing instead", e);
+          try {
+            await Share.share({ url: localPath, title: bookData.title, message: `Your book "${bookData.title}" is ready as a PDF.` });
+            return;
+          } catch (shareErr) {
+            if (__DEV__) console.warn("[Viewer][Share] failed", shareErr);
+            setSnackbar({ visible: true, message: "Could not save the PDF. Please try again." });
+            return;
+          }
         }
       } else {
         // iOS can share the downloaded file path directly
@@ -424,17 +437,20 @@ export default function BookViewerScreen({
                         }));
                       }}
                       onError={(e: any) => {
-                        try {
-                          const msg =
-                            e?.error?.message ||
-                            String(e?.error || "Image load failed");
-                          // eslint-disable-next-line no-console
-                          console.warn(
-                            "[BookViewer] image load error",
-                            msg,
-                            url
-                          );
-                        } catch {}
+                        if (__DEV__) {
+                          try {
+                            const msg =
+                              e?.error?.message ||
+                              String(e?.error || "Image load failed");
+                            const safeUrl = url ? url.replace(/\?.*$/, '') : url;
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                              "[BookViewer] image load error",
+                              msg,
+                              safeUrl
+                            );
+                          } catch {}
+                        }
                         setImageLoading((prev) => ({
                           ...prev,
                           [currentPage]: false,

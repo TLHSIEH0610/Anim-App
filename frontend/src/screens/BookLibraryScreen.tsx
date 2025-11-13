@@ -128,22 +128,26 @@ function BookListCard({
     : null;
 
   useEffect(() => {
-    // Debug logging for purchased tab cover URLs
-    try {
-      console.log(
-        `[Purchased] ${book.title} (#${book.id}) cover-thumb-public URL: ${coverUri}`
-      );
-      if (book.preview_image_path) {
+    // Debug logging for purchased tab cover URLs (DEV only; strip tokens)
+    if (__DEV__) {
+      try {
+        const strip = (u?: string | null) =>
+          u ? String(u).replace(/\?.*$/,'') : u;
         console.log(
-          `[Purchased] ${book.title} (#${book.id}) preview_image_path: ${book.preview_image_path}`
+          `[Purchased] ${book.title} (#${book.id}) cover-thumb-public URL: ${strip(coverUri)}`
         );
-      }
-      if (directResizeUri) {
-        console.log(
-          `[Purchased] ${book.title} (#${book.id}) resize-public URL: ${directResizeUri}`
-        );
-      }
-    } catch {}
+        if (book.preview_image_path) {
+          console.log(
+            `[Purchased] ${book.title} (#${book.id}) preview_image_path: ${book.preview_image_path}`
+          );
+        }
+        if (directResizeUri) {
+          console.log(
+            `[Purchased] ${book.title} (#${book.id}) resize-public URL: ${strip(directResizeUri)}`
+          );
+        }
+      } catch {}
+    }
   }, [book.id, book.title, coverUri, directResizeUri]);
 
   // Two-column layout: image (left) and details (right)
@@ -214,12 +218,15 @@ function BookListCard({
               onLoadStart={() => setImgLoading(true)}
               onLoad={() => setImgLoading(false)}
               onError={(e: any) => {
-                try {
-                  console.warn(
-                    `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${coverUri}`,
-                    e?.error || e
-                  );
-                } catch {}
+                if (__DEV__) {
+                  try {
+                    const safeUri = coverUri ? coverUri.replace(/\?.*$/, '') : coverUri;
+                    console.warn(
+                      `[Purchased][ImageError] book=${book.id} title="${book.title}" uri=${safeUri}`,
+                      e?.error || e
+                    );
+                  } catch {}
+                }
                 setImgLoading(false);
               }}
             />
@@ -392,6 +399,10 @@ export default function BookLibraryScreen({
 }: BookLibraryScreenProps) {
   const { user, token, logout } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
+  const latestBooksRef = React.useRef<Book[]>(books);
+  useEffect(() => {
+    latestBooksRef.current = books;
+  }, [books]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [confirm, setConfirm] = useState<{
@@ -506,10 +517,10 @@ export default function BookLibraryScreen({
     loadBooks();
 
     const interval = setInterval(() => {
-      const hasInProgressBooks = books.some(
+      const snapshot = latestBooksRef.current || [];
+      const hasInProgressBooks = snapshot.some(
         (book) => !["completed", "failed"].includes(book.status)
       );
-
       if (hasInProgressBooks) {
         loadBooks(true); // Refresh in background
       }
