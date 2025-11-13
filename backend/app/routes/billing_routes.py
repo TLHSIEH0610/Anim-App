@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..db import get_db
-from ..models import Payment, StoryTemplate, User
+from ..models import Payment, StoryTemplate, User, FreeTrialUsage
 from ..pricing import PriceQuote, resolve_story_price
 from ..security import extract_client_signals, record_user_attestation, write_audit_log, enforce_android_integrity_or_warn
 from datetime import datetime, timezone
@@ -103,6 +103,27 @@ def get_quote(
 ):
     template = _load_template(db, template_slug)
     quote = resolve_story_price(user, template)
+    # Persisted free-trial consumption by email (survives account deletion/recreate)
+    try:
+        if quote.free_trial_slug and not quote.free_trial_consumed:
+            email_norm = (user.email or "").strip().lower()
+            if email_norm:
+                exists = (
+                    db.query(FreeTrialUsage)
+                    .filter(
+                        FreeTrialUsage.email_norm == email_norm,
+                        FreeTrialUsage.free_trial_slug == quote.free_trial_slug,
+                    )
+                    .first()
+                )
+                if exists:
+                    quote.free_trial_consumed = True
+                    quote.final_price = quote.base_price
+                    quote.promotion_type = None
+                    quote.promotion_label = None
+    except Exception:
+        # Non-fatal; fall back to user-scoped rules
+        pass
     return _serialize_quote(user, quote)
 
 
@@ -378,7 +399,23 @@ def create_free_trial_setup_intent(
 
     # Final consumption guard using the resolved free_slug
     trials = set(user.free_trials_used or [])
-    if free_slug and free_slug in trials:
+    # Cross-account guard: has this email consumed the free trial previously?
+    email_norm = (user.email or "").strip().lower()
+    prior_by_email = None
+    try:
+        if email_norm and free_slug:
+            prior_by_email = (
+                db.query(FreeTrialUsage)
+                .filter(
+                    FreeTrialUsage.email_norm == email_norm,
+                    FreeTrialUsage.free_trial_slug == free_slug,
+                )
+                .first()
+            )
+    except Exception:
+        prior_by_email = None
+
+    if free_slug and (free_slug in trials or prior_by_email is not None):
         raise HTTPException(status_code=400, detail="Free trial already consumed")
 
     signals = extract_client_signals(request)

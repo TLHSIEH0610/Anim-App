@@ -3,6 +3,66 @@
 {% block content %}
 <h2 class="mdc-typography--headline5">User Management</h2>
 
+<div class="mdc-card" style="padding:12px 16px; margin: 12px 0 16px;">
+  <form id="user-filters" class="form-grid one-col" onsubmit="return false;">
+    <div>
+      <label for="filter-email">Filter by email</label>
+      <input id="filter-email" type="text" placeholder="example@domain.com" />
+    </div>
+    <div class="badge-group" style="margin-top:6px;">
+      <span class="badge-group__label">Flags</span>
+      <label class="badge"><input type="checkbox" id="filter-attested" /> Integrity</label>
+      <label class="badge"><input type="checkbox" id="filter-verified" /> Verified</label>
+      <label class="badge"><input type="checkbox" id="filter-hasbooks" /> Has books</label>
+      <span class="badge" id="filter-count" style="margin-left:auto;">&nbsp;</span>
+    </div>
+  </form>
+  <script>
+    (function(){
+      function applyFilters(){
+        const email = (document.getElementById('filter-email').value || '').trim().toLowerCase();
+        const needAttested = document.getElementById('filter-attested').checked;
+        const needVerified = document.getElementById('filter-verified').checked;
+        const needBooks = document.getElementById('filter-hasbooks').checked;
+        const rows = document.querySelectorAll('tr.user-row');
+        let shown = 0;
+        rows.forEach(function(row){
+          const rowEmail = row.getAttribute('data-email') || '';
+          const attested = row.getAttribute('data-attested') === 'true';
+          const verified = row.getAttribute('data-verified') === 'true';
+          const hasbooks = row.getAttribute('data-hasbooks') === 'true';
+          let ok = true;
+          if (email && !rowEmail.includes(email)) ok = false;
+          if (needAttested && !attested) ok = false;
+          if (needVerified && !verified) ok = false;
+          if (needBooks && !hasbooks) ok = false;
+          const editId = row.getAttribute('data-edit-id');
+          const editRow = editId ? document.getElementById(editId) : null;
+          if (ok){
+            row.style.display = '';
+            if (editRow) editRow.style.display = '';
+            shown++;
+          } else {
+            row.style.display = 'none';
+            if (editRow) editRow.style.display = 'none';
+          }
+        });
+        const badge = document.getElementById('filter-count');
+        if (badge){ badge.textContent = shown + ' shown'; }
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        ['filter-email','filter-attested','filter-verified','filter-hasbooks'].forEach(function(id){
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('input', applyFilters);
+          el.addEventListener('change', applyFilters);
+        });
+        applyFilters();
+      });
+    })();
+  </script>
+</div>
+
 <div class="mdc-data-table">
     <div class="mdc-data-table__table-container">
         <table class="mdc-data-table__table">
@@ -21,9 +81,12 @@
             </thead>
             <tbody class="mdc-data-table__content">
                 {% for user in users %}
-                <tr class="mdc-data-table__row">
+                {% set attested = 1 if (user.attestation and user.attestation.last_play_integrity_at) else 0 %}
+                {% set verified = 1 if user.card_verified_at else 0 %}
+                {% set hasbooks = 1 if (user.book_count and user.book_count > 0) else 0 %}
+                <tr class="mdc-data-table__row user-row" data-email="{{ (user.email or '') | lower }}" data-attested="{{ 'true' if attested else 'false' }}" data-verified="{{ 'true' if verified else 'false' }}" data-hasbooks="{{ 'true' if hasbooks else 'false' }}" data-edit-id="edit-{{ user.id }}">
                     <td class="mdc-data-table__cell">{{ user.id }}</td>
-                    <td class="mdc-data-table__cell">{{ user.email }}</td>
+                    <td class="mdc-data-table__cell aa-wrap">{{ user.email }}</td>
                     <td class="mdc-data-table__cell">
                         {% set role = (user.role or 'user') %}
                         {% if role == 'superadmin' %}

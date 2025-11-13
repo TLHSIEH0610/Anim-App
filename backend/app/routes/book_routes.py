@@ -14,7 +14,7 @@ from app.security import enforce_android_integrity_or_warn, record_user_attestat
 from jose import jwt
 from app.auth import SECRET_KEY, ALGO
 from app.db import get_db
-from app.models import Book, BookPage, StoryTemplate, Payment
+from app.models import Book, BookPage, StoryTemplate, Payment, FreeTrialUsage
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
 from app.storage import save_upload
 from app.pricing import resolve_story_price
@@ -236,6 +236,21 @@ async def create_book(
             if pricing_quote.free_trial_slug not in trials:
                 trials.append(pricing_quote.free_trial_slug)
                 user.free_trials_used = trials
+            # Persist a cross-account usage marker keyed by normalized email
+            try:
+                email_norm = (user.email or "").strip().lower()
+                if email_norm:
+                    sig = extract_client_signals(request)
+                    usage = FreeTrialUsage(
+                        email_norm=email_norm,
+                        free_trial_slug=pricing_quote.free_trial_slug,
+                        install_id=sig.get("install_id"),
+                        device_platform=sig.get("device_platform"),
+                        app_package=sig.get("app_package"),
+                    )
+                    db.add(usage)
+            except Exception:
+                pass
 
         if payment_record:
             payment_record.book_id = book.id

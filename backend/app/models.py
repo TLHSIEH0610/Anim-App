@@ -93,6 +93,19 @@ class Book(Base):
     )
 
 
+class FreeTrialUsage(Base):
+    __tablename__ = "free_trial_usages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email_norm = Column(String(255), index=True, nullable=False)
+    free_trial_slug = Column(String(120), index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    # Optional device hints for audit/heuristics
+    install_id = Column(String(255))
+    device_platform = Column(String(32))
+    app_package = Column(String(255))
+
+
 class BookPage(Base):
     __tablename__ = "book_pages"
     id = Column(Integer, primary_key=True, index=True)
