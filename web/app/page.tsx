@@ -1,30 +1,25 @@
 import Link from 'next/link'
-import GoogleSignIn from '@/components/GoogleSignIn'
-import { cookies } from 'next/headers'
 
 export default function Home() {
-  const cookieStore = cookies()
-  const token = cookieStore.get('auth_token')?.value
-
   return (
     <main>
-      <h1 style={{fontSize: '2rem', fontWeight: 700}}>AnimApp Web</h1>
-      <p>Create AI‑illustrated children’s books on the web.</p>
-      <div style={{display: 'flex', gap: 12, margin: '16px 0'}}>
-        <Link href="/books" className="btn">Go to Library</Link>
-        <Link href="/create" className="btn">Create a Book</Link>
+      <div className="grid md:grid-cols-2 gap-8 items-center">
+        <div>
+          <h1 className="text-4xl font-extrabold leading-tight">Create magical children’s books with your photos</h1>
+          <p className="mt-3 text-gray-600">Personalized stories, beautiful illustrations, and instant sharing. Sign in to get started.</p>
+          <div className="mt-5 flex gap-3">
+            <Link href="/login" className="btn">Continue with Google</Link>
+            <Link href="/support" className="btn" style={{ background: 'transparent', color: 'inherit', borderColor: 'hsl(var(--border))' }}>Learn more</Link>
+          </div>
+          <p className="text-xs text-gray-500 mt-3">By continuing you agree to our <Link className="underline" href="/legal/terms">Terms</Link> and <Link className="underline" href="/legal/privacy">Privacy Policy</Link>.</p>
+        </div>
+        <div className="hidden md:block">
+          <div className="rounded-xl border border-[hsl(var(--border))] p-6 bg-white shadow-card">
+            <div className="h-64 bg-[url('https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1200&auto=format&fit=crop')] bg-cover bg-center rounded-md" />
+            <div className="mt-3 text-sm text-gray-600">Make every bedtime unique with personalized adventures.</div>
+          </div>
+        </div>
       </div>
-      <section style={{marginTop: 24}}>
-        {token ? (
-          <p>You are signed in. Visit your <Link href="/books">library</Link>.</p>
-        ) : (
-          <>
-            <h2>Sign in</h2>
-            <GoogleSignIn />
-          </>
-        )}
-      </section>
     </main>
   )
 }
-

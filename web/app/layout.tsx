@@ -1,20 +1,28 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import "./globals.css";
+import Providers from "@/app/providers";
+import { MUIThemeProvider } from "@/theme";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: 'AnimApp Web',
+  title: "Kid to Story Web",
   description: "Create children's books with AI illustrations",
-}
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>
-        <div style={{maxWidth: 1040, margin: '0 auto', padding: '1rem'}}>
-          {children}
-        </div>
+        <MUIThemeProvider>
+          <Providers>
+            <AppShell>{children}</AppShell>
+          </Providers>
+        </MUIThemeProvider>
       </body>
     </html>
-  )
+  );
 }
-

@@ -37,6 +37,14 @@ npm run dev
 - CORS: ensure the backend allows `http://localhost:3000` in CORS for local dev if credentials are enforced.
 - Images: we use `<img>` for dynamic hosts; switch to `next/image` once prod domains are known.
 
+### Verify env usage (API base)
+- The Next app reads `NEXT_PUBLIC_API_BASE` from `web/.env`.
+- All fetches to the backend go through `/api/proxy` or `/api/forward`, which import `API_BASE` from `src/lib/env.ts`.
+- Quick check:
+  - Start the app (`npm run dev`) and open `http://localhost:3000/api/debug/env`.
+  - You should see `apiBaseConstant` equal to your `NEXT_PUBLIC_API_BASE`.
+  - Any response from `/api/proxy` or `/api/forward` will include header `x-animapp-api-base` with the same value (inspect via DevTools → Network).
+
 ## Next steps
 
 - Add user profile fetch and UI (uses `/auth/me`).

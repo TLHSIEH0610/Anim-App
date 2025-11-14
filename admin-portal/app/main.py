@@ -39,7 +39,7 @@ if _SENTRY_DSN:
     except Exception:
         pass
 
-app = FastAPI(title="AnimApp Admin Portal")
+app = FastAPI(title="Kid to Story Admin Portal")
 
 # Resolve template/static directories relative to this file to avoid CWD issues
 _BASE_DIR = Path(__file__).parent

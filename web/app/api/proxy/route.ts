@@ -17,9 +17,10 @@ export async function GET(req: NextRequest) {
     cache: 'no-store',
   })
   const body = await r.text()
-  return new NextResponse(body, {
+  const res = new NextResponse(body, {
     status: r.status,
     headers: { 'content-type': r.headers.get('content-type') || 'application/json' },
   })
+  res.headers.set('x-animapp-api-base', API_BASE)
+  return res
 }
-

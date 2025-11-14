@@ -44,6 +44,6 @@ async function handle(req: NextRequest) {
       'content-type': r.headers.get('content-type') || 'application/octet-stream',
     },
   })
+  res.headers.set('x-animapp-api-base', API_BASE)
   return res
 }
-
