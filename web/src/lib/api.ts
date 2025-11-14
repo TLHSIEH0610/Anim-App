@@ -1,6 +1,6 @@
 "use client"
 import { API_BASE } from '@/lib/env'
-import type { Book } from '@animapp/shared'
+import type { Book, StoryTemplate } from '@animapp/shared'
 import { getOrCreateInstallId } from '@/lib/installId'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
@@ -42,7 +42,11 @@ export async function listBooks(): Promise<Book[]> {
   // Use server proxy to attach httpOnly auth cookie
   const r = await fetch(`/api/proxy?path=${encodeURIComponent('/books/list')}`, { credentials: 'include' })
   if (!r.ok) throw new Error(await r.text())
-  return r.json()
+  const data = await r.json()
+  if (Array.isArray(data)) return data
+  if (Array.isArray((data as any)?.items)) return (data as any).items
+  if (Array.isArray((data as any)?.books)) return (data as any).books
+  return []
 }
 
 export async function getBook(id: string | number): Promise<any> {
@@ -57,6 +61,16 @@ export async function getQuote(templateSlug?: string): Promise<any> {
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
+
+export async function listStoryTemplates(): Promise<StoryTemplate[]> {
+  const r = await fetch(`/api/proxy?path=${encodeURIComponent('/books/stories/templates')}`, { credentials: 'include' })
+  if (!r.ok) throw new Error(await r.text())
+  const data = await r.json()
+  if (Array.isArray(data?.stories)) return data.stories
+  return []
+}
+
+export function authToken(): string | null { return authTokenFromCookie() }
 
 export function getThumbUrl(opts: { bookId?: number; path?: string; token?: string; width?: number; height?: number; version?: string | number | null }) {
   const w = opts.width || 360

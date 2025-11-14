@@ -342,3 +342,23 @@ def google_login(payload: GoogleLoginIn, request: Request, db: Session = Depends
             role=getattr(user, "role", None),
         ),
     )
+
+
+@router.get("/me")
+def me(user = Depends(current_user)):
+    """Return the authenticated user's basic profile.
+
+    This endpoint is used by the web app to hydrate session state and to
+    validate cookies in middleware. Returns 401 if not authenticated.
+    """
+    if not user:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
+    name = getattr(user, "name", None) or (user.email.split("@")[0] if getattr(user, "email", None) else None)
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": name,
+        "picture": getattr(user, "picture", None),
+        "card_verified_at": getattr(user, "card_verified_at", None),
+        "last_login_at": getattr(user, "last_login_at", None),
+    }

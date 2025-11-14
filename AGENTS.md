@@ -114,11 +114,12 @@ Developer tips
 - Why Next.js over Expo Web: first‑class web UX/SEO, simpler Stripe + Google flows, no RN Web shims. Mobile app remains in `frontend/`.
 
 - Key files
-  - App shell: `web/app/layout.tsx`, `web/app/page.tsx`, `web/app/globals.css`
+  - App shell: `web/app/layout.tsx`, `web/app/page.tsx`, `web/app/globals.css`, `web/src/components/AppShell.tsx`
+  - SPA providers: `web/src/app/providers.tsx` (TanStack Query + Toaster), `web/src/theme.tsx` (MUI theme)
   - Auth (GIS → backend JWT cookie): `web/src/components/GoogleSignIn.tsx`, `web/app/api/login/route.ts`, `web/app/api/logout/route.ts`
   - Books UI: `web/app/books/page.tsx` (library), `web/app/books/[id]/page.tsx` (viewer, polls status)
   - Create flow: `web/app/create/page.tsx` (multipart upload; supports `apply_free_trial=true`)
-  - Checkout: `web/app/checkout/page.tsx` (quote), `web/app/checkout/card/page.tsx`, `web/app/checkout/free-trial/page.tsx`
+  - Checkout: unified tabs `web/app/checkout/page.tsx`
   - API helpers: `web/src/lib/api.ts`, env: `web/src/lib/env.ts`, install id: `web/src/lib/installId.ts`
   - Route guard: `web/middleware.ts` protects `/books`, `/create`, `/checkout`
   - Client headers are attached where applicable: `X-Install-Id` (UUID), `X-Device-Platform=web`, `X-App-Package=animapp-web`
@@ -152,7 +153,7 @@ Developer tips
   - Vercel config `web/vercel.json` present. Set the three NEXT_PUBLIC_* vars in Vercel project settings.
 
 - Quick TODOs (nice‑to‑haves)
-  - Add `/auth/me` fetch + user chip in header.
+  - Add `/auth/me` fetch + user chip in header (see `web/src/lib/auth.ts`).
   - Convert images to `next/image` with domain allowlist.
   - Expand Playwright to cover auth + mocked payments; add MSW for backend stubs.
   - Optional: server actions with a small API proxy to centralize headers and errors.

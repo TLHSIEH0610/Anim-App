@@ -16,15 +16,18 @@ type BookDetail = {
 
 function pageImageUrl(bookId: number, page: number, v?: string | null, w?: number) {
   const params = new URLSearchParams()
+  params.set('bookId', String(bookId))
+  params.set('page', String(page))
   if (w) params.set('w', String(w))
-  if (v) params.set('v', v)
-  return `${API_BASE}/books/${bookId}/pages/${page}/image-public?${params.toString()}`
+  if (v) params.set('v', String(v))
+  return `/api/image/book/page?${params.toString()}`
 }
 
 export default function BookDetailPage({ params }: { params: { id: string } }) {
   const id = params.id
   const [book, setBook] = useState<BookDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState<number>(1)
 
   useEffect(() => {
     async function load() {
@@ -44,6 +47,26 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
   const version = book?.completed_at || book?.updated_at || book?.created_at || undefined
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!book) return
+      if (e.key === 'ArrowRight') setPage((p) => Math.min((book.page_count || 1), p + 1))
+      if (e.key === 'ArrowLeft') setPage((p) => Math.max(1, p - 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [book])
+
+  // Prefetch next image
+  useEffect(() => {
+    if (!book) return
+    const next = page + 1
+    if (next <= (book.page_count || 0)) {
+      const img = new Image()
+      img.src = pageImageUrl(Number(id), next, version || undefined, 1024)
+    }
+  }, [page, book, id, version])
+
   return (
     <main>
       <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
@@ -54,21 +77,23 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       {error && <p style={{color: 'crimson'}}>{error}</p>}
       {!book && !error && <p>Loading…</p>}
       {book && (
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginTop: 16}}>
-          {Array.from({ length: book.page_count || (book.pages?.length || 0) }, (_, i) => i + 1).map((n) => {
-            const pageV = book.pages?.find((p) => p.page_number === n)?.image_completed_at || version
-            return (
-              <div key={n} className="card" style={{padding: 8}}>
-                <div style={{width: '100%', aspectRatio: '3/4', background: '#f2f2f2', borderRadius: 6, overflow: 'hidden'}}>
-                  <img alt={`Page ${n}`} src={pageImageUrl(Number(id), n, pageV || undefined, 1024)} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
-                </div>
-                <div style={{marginTop: 6, color: '#666'}}>Page {n}</div>
-              </div>
-            )
-          })}
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Link className="btn" href={`/books/${id}/status`}>Status</Link>
+            <div className="text-sm text-gray-600">Use ← → keys</div>
+          </div>
+          <div className="grid place-items-center">
+            <div className="w-full max-w-3xl aspect-[3/4] bg-gray-100 rounded-md overflow-hidden">
+              <img alt={`Page ${page}`} src={pageImageUrl(Number(id), page, version || undefined, 1280)} className="w-full h-full object-contain" />
+            </div>
+            <div className="mt-2 text-sm text-gray-600">Page {page} / {book.page_count || book.pages?.length || 0}</div>
+            <div className="mt-3 flex gap-2">
+              <button className="btn" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+              <button className="btn" onClick={() => setPage((p) => Math.min((book.page_count || 1), p + 1))}>Next</button>
+            </div>
+          </div>
         </div>
       )}
     </main>
   )
 }
-

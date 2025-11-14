@@ -1,19 +1,18 @@
 "use client"
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { getThumbUrl, listStoryTemplates, authToken } from '@/lib/api'
+import { listBooks } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export default function BooksPage() {
-  const { data, isLoading, error } = useQuery({ queryKey: ['stories','templates'], queryFn: listStoryTemplates })
+export default function PurchasedPage() {
+  const { data, isLoading, error } = useQuery({ queryKey: ['books','purchased'], queryFn: listBooks })
   const list = Array.isArray(data) ? data : []
-  const token = authToken() || ''
 
   return (
     <main>
-      <h1 className="text-xl font-semibold">All Books</h1>
+      <h1 className="text-xl font-semibold">Purchased</h1>
       <div className="flex gap-3 my-3">
-        <Link href="/purchased" className="btn">Purchased</Link>
+        <Link href="/books" className="btn">All Books</Link>
         <Link href="/create" className="btn">Create</Link>
       </div>
       {error && <p className="text-red-600">{String((error as any)?.message || error)}</p>}
@@ -27,15 +26,17 @@ export default function BooksPage() {
           ))}
         </div>
       )}
-      {!isLoading && list.length === 0 && <p>No templates found.</p>}
+      {!isLoading && list.length === 0 && (
+        <p>No books yet. Try <Link className="underline" href="/create">creating one</Link>.</p>
+      )}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {list.map((t) => (
-          <div key={t.slug} className="card">
+        {list.map((b) => (
+          <Link key={b.id} href={`/books/${b.id}`} className="card">
             <div className="w-full aspect-[3/4] bg-gray-100 overflow-hidden rounded-md">
-              {t.cover_path ? (
+              {b.cover_path ? (
                 <img
-                  alt={t.name}
-                  src={`/api/image/resize?path=${encodeURIComponent(t.cover_path)}&w=360&h=480${t.version ? `&v=${t.version}` : ''}`}
+                  alt={b.title}
+                  src={`/api/image/book/cover-thumb?bookId=${b.id}&w=360&h=480${b.completed_at || b.updated_at || b.created_at ? `&v=${encodeURIComponent(b.completed_at || b.updated_at || b.created_at as any)}` : ''}`}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -43,14 +44,10 @@ export default function BooksPage() {
               )}
             </div>
             <div className="mt-2">
-              <div className="font-semibold truncate">{t.name}</div>
-              <div className="text-xs text-gray-500">{t.page_count} pages • ${(t.final_price ?? t.price_dollars ?? 0).toFixed?.(2) || t.final_price}</div>
+              <div className="font-semibold truncate">{b.title}</div>
+              <div className="text-xs text-gray-500">{b.status}</div>
             </div>
-            <div className="mt-2 flex gap-2">
-              <Link href={`/create?template_slug=${encodeURIComponent(t.slug)}`} className="btn">Create</Link>
-              {t.promotion_label && <span className="text-xs text-blue-700 bg-blue-50 rounded-full px-2 py-1">{t.promotion_label}</span>}
-            </div>
-          </div>
+          </Link>
         ))}
       </div>
     </main>

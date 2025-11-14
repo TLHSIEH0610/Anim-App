@@ -18,15 +18,11 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/lib/*": [
-        "src/lib/*"
-      ],
-      "@/components/*": [
-        "src/components/*"
-      ],
-      "@animapp/shared": [
-        "../packages/shared/src"
-      ]
+      "@/lib/*": ["src/lib/*"],
+      "@/components/*": ["src/components/*"],
+      "@/app/*": ["src/app/*"],
+      "@/theme": ["src/theme"],
+      "@animapp/shared": ["../packages/shared/src"]
     },
     "incremental": true,
     "plugins": [
