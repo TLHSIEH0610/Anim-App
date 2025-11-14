@@ -1,0 +1,46 @@
+name: Web CI
+
+on:
+  push:
+    paths:
+      - 'web/**'
+      - 'packages/shared/**'
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'packages/shared/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/package.json
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Run E2E (smoke)
+        env:
+          NEXT_PUBLIC_API_BASE: http://localhost:8000
+          NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: dummy
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_dummy
+        run: |
+          # Start Next in the background for smoke tests; it won’t hit backend routes
+          nohup npm run dev >/dev/null 2>&1 &
+          npx wait-on http://localhost:3000
+          npm run test:e2e
+

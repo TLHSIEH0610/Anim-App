@@ -1,0 +1,8 @@
+:root { --bg: #ffffff; --fg: #121212; --muted: #666; --card: #fafafa; --border: #eee; }
+html, body { background: var(--bg); color: var(--fg); padding: 0; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+a { color: inherit; text-decoration: none; }
+.btn { display: inline-flex; align-items: center; gap: 8px; background: #111; color: #fff; padding: 8px 12px; border-radius: 999px; border: 1px solid #000; font-weight: 600; }
+.btn:hover { background: #000; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: block; }
+.input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+
