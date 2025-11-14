@@ -133,10 +133,12 @@ const PrivacyPolicyScreen = () => {
         <Text style={styles.sectionTitle}>6. Data Retention</Text>
         <Text style={styles.paragraph}>
           We retain personal information for as long as your account is active
-          or as needed to provide the Services. Generated books and uploaded
-          assets are stored so you can revisit purchases, unless you request
-          deletion or remove them through account settings. We may retain
-          certain records after closure to comply with legal, tax, or accounting
+          or as needed to provide the Services. Generated books, images, and
+          related files are stored for your convenience; unless otherwise
+          stated, we keep generated content and backups for up to 60 days, after
+          which it may be deleted or archived. You can delete content at any
+          time from within the app or by contacting us. We may retain certain
+          records after account closure to comply with legal, tax, or accounting
           requirements.
         </Text>
       </View>

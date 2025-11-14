@@ -228,17 +228,17 @@ const TermsOfServiceScreen = () => {
         </Text>
       </View>
 
-      {/* 16 - 60 day retention */}
+      {/* 16 - Data storage & retention */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>16. Data Storage and Retention</Text>
         <Text style={styles.paragraph}>
           Generated stories, images, and related files may be stored on our
           systems for your convenience, but we do not guarantee permanent
-          availability. Unless otherwise stated in the app, we only keep
-          generated content and backups for up to 60 days, after which it may be
-          deleted or archived. Please download and save your stories promptly if
-          you wish to keep them. We are not responsible for loss of content that
-          is deleted in accordance with this policy.
+          availability. Unless otherwise stated, we keep generated content and
+          backups for up to 60 days. Account information may be kept while your
+          account is active and as needed to provide the Services. For details
+          about other categories (e.g., audit logs, payments), please see our
+          Privacy Policy.
         </Text>
       </View>
 

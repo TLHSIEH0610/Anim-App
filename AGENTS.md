@@ -107,3 +107,52 @@ Developer tips
 - Prefer `getThumbUrl({ … })` in list/grid UIs; pass a `version` so changes reflect immediately.
 - For high‑fidelity/detail screens (viewer), use `getBookPageImageUrl` with an appropriate width (e.g., device width), `cachePolicy="none"`, and a placeholder.
 - If you ever see 422 on a cover URL, double‑check route order and the request path (should be `/books/stories/…`, not `/books/{id}/…`).
+
+## 11. Web App (Next.js) – 2025‑11
+- Scope: a minimal Next.js web client that talks to the existing FastAPI backend (auth, library, details, create, checkout). Lives under `web/`.
+
+- Why Next.js over Expo Web: first‑class web UX/SEO, simpler Stripe + Google flows, no RN Web shims. Mobile app remains in `frontend/`.
+
+- Key files
+  - App shell: `web/app/layout.tsx`, `web/app/page.tsx`, `web/app/globals.css`
+  - Auth (GIS → backend JWT cookie): `web/src/components/GoogleSignIn.tsx`, `web/app/api/login/route.ts`, `web/app/api/logout/route.ts`
+  - Books UI: `web/app/books/page.tsx` (library), `web/app/books/[id]/page.tsx` (viewer, polls status)
+  - Create flow: `web/app/create/page.tsx` (multipart upload; supports `apply_free_trial=true`)
+  - Checkout: `web/app/checkout/page.tsx` (quote), `web/app/checkout/card/page.tsx`, `web/app/checkout/free-trial/page.tsx`
+  - API helpers: `web/src/lib/api.ts`, env: `web/src/lib/env.ts`, install id: `web/src/lib/installId.ts`
+  - Route guard: `web/middleware.ts` protects `/books`, `/create`, `/checkout`
+  - Client headers are attached where applicable: `X-Install-Id` (UUID), `X-Device-Platform=web`, `X-App-Package=animapp-web`
+  - Shared types (can be used by mobile later): `packages/shared/`
+
+- Environment (web/.env – client‑side only; do not put secrets)
+  - `NEXT_PUBLIC_API_BASE=http://localhost:8000`
+  - `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com`
+  - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx`
+  - Note: backend must allow origin `http://localhost:3000` in CORS and include headers `Authorization, X-Install-Id, X-Device-Platform, X-App-Package`.
+
+- How to run
+  - `cd web && npm install && npm run dev` → http://localhost:3000
+  - Sign in on `/` (Google button) → JWT is set as `auth_token` httpOnly cookie.
+  - Library `/books` → lists books via `/books/list`, shows tokenized cover thumbnails (`getThumbUrl`).
+  - Details `/books/{id}` → polls `/books/{id}`; renders per‑page images via `GET /books/{id}/pages/{n}/image-public?w=...&v=...`.
+  - Create `/create` → multipart POST `/books/create` (+ optional `apply_free_trial=true`).
+  - Checkout `/checkout` → fetch `GET /billing/quote` and branch:
+    - Card: `/checkout/card` → `POST /billing/stripe-intent` → Stripe confirm → `POST /billing/stripe-confirm` → redirect `/create`.
+    - Free‑trial: `/checkout/free-trial` → `POST /billing/setup-intent-free-trial` → Stripe confirmSetup → `POST /billing/free-trial-verify-complete` → redirect `/create?apply_free_trial=true`.
+
+- Images & caching
+  - Using `<img>` for now to avoid host allowlist; swap to `next/image` when prod domains are fixed.
+  - Pass `token=` and `v=` query; backend already returns ETag/Cache‑Control and 304s as documented above.
+
+- CI/E2E
+  - GitHub Action: `.github/workflows/web-ci.yml` runs typecheck, build, and a Playwright smoke (`web/tests/smoke.spec.ts`).
+  - Local E2E: `cd web && npx playwright install --with-deps && npm run test:e2e`.
+
+- Deploy
+  - Vercel config `web/vercel.json` present. Set the three NEXT_PUBLIC_* vars in Vercel project settings.
+
+- Quick TODOs (nice‑to‑haves)
+  - Add `/auth/me` fetch + user chip in header.
+  - Convert images to `next/image` with domain allowlist.
+  - Expand Playwright to cover auth + mocked payments; add MSW for backend stubs.
+  - Optional: server actions with a small API proxy to centralize headers and errors.

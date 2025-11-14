@@ -45,7 +45,9 @@ export const ServerStatusProvider = ({ children }: ServerStatusProviderProps) =>
       setIsBackendReachable(true);
       setLastError(null);
     } catch (error: any) {
-      console.warn("[server-status] backend health check failed", error?.message || error);
+      if (__DEV__) {
+        console.warn("[server-status] backend health check failed", error?.message || error);
+      }
       setIsBackendReachable(false);
       setLastError(error?.message || "Unable to reach the server.");
     } finally {

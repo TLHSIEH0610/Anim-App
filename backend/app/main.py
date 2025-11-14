@@ -54,11 +54,28 @@ Ensure the application respects original client IP and scheme when running
 behind Cloudflare Tunnel / reverse proxies. This allows audit logging to
 record the real remote IP instead of the Docker bridge (e.g., 172.18.0.1).
 """
+# CORS: default to explicit local Next.js origins, configurable via env
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+if _cors_env:
+    _origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+else:
+    _origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "*",
+        "Authorization",
+        "X-Install-Id",
+        "X-Device-Platform",
+        "X-App-Package",
+    ],
+    allow_credentials=True,
 )
 app.add_middleware(ProxyHeadersMiddleware)
 
