@@ -526,61 +526,44 @@ class BookComposer:
                 content_width = self.page_width - (2 * self.margin)
                 content_height = self.page_height - (2 * self.margin)
 
-                # Prepare text and measure its height within the frame
-                text_content = (page_data.get('text_content') or '').strip()
-                paragraph = Paragraph(text_content if text_content else "(Illustration)", story_style)
-                _, text_height = paragraph.wrap(content_width, content_height)
-
-                spacer_between = 12
-                bottom_spacer_after_text = 14
                 # Reserve footer area only when there is a following body page
                 page_num_block = 18 if i < total_body_pages else 0
-                # Add a tiny safety buffer to avoid rounding-induced spill to next page
+                # Small safety to counter rounding differences
                 safety = 4
-                # Ensure image + spacer + text + bottom spacer fit to avoid auto page breaks
-                max_img_height = max(
-                    content_height - text_height - spacer_between - bottom_spacer_after_text - page_num_block - safety,
-                    0,
-                )
+                available_h = max(content_height - page_num_block - safety, 0)
 
-                page_flowables = []
+                # Build the page contents as a single shrink-to-fit block to avoid auto page breaks
+                text_content = (page_data.get('text_content') or '').strip()
+                paragraph = Paragraph(text_content if text_content else "(Illustration)", story_style)
 
-                # Add image first, taking as much space as possible while leaving room for text
-                if page_data.get('image_path') and os.path.exists(page_data['image_path']) and max_img_height > 0:
+                block_items = []
+                # Image (if present)
+                img_path = page_data.get('image_path')
+                if img_path and os.path.exists(img_path):
                     try:
-                        with PILImage.open(page_data['image_path']) as pil_img:
+                        with PILImage.open(img_path) as pil_img:
                             orig_w, orig_h = pil_img.size
                         aspect = orig_w / float(orig_h or 1)
-                        # Try full content width
+                        # Aim for full width; height will be adjusted if needed by KeepInFrame shrink
                         img_w = content_width
                         img_h = img_w / aspect
-                        if img_h > max_img_height:
-                            img_h = max_img_height
-                            img_w = img_h * aspect
-                        # Create image flowable
-                        img = Image(page_data['image_path'], width=img_w, height=img_h, hAlign='CENTER')
-                        page_flowables.append(img)
-                        page_flowables.append(Spacer(1, spacer_between))
+                        block_items.append(Image(img_path, width=img_w, height=img_h, hAlign='CENTER'))
+                        block_items.append(Spacer(1, 12))
                     except Exception as e:
                         print(f"Warning: Could not add image for page {i}: {e}")
-                        # Keep a small spacer so text isn't glued to top border
-                        page_flowables.append(Spacer(1, 12))
+                        block_items.append(Spacer(1, 8))
                 else:
-                    # No image found; still keep a small top spacer for balance
-                    page_flowables.append(Spacer(1, 12))
+                    block_items.append(Spacer(1, 8))
 
-                # Add text underneath
-                page_flowables.append(paragraph)
-                page_flowables.append(Spacer(1, bottom_spacer_after_text))
+                # Text
+                block_items.append(paragraph)
+                block_items.append(Spacer(1, 10))
 
                 try:
-                    # Keep image+text together on a single page. Our sizing above ensures it fits;
-                    # KeepTogether prevents ReportLab from splitting due to rounding errors.
-                    from reportlab.platypus import KeepTogether
-                    story.append(KeepTogether(page_flowables))
+                    from reportlab.platypus import KeepInFrame
+                    story.append(KeepInFrame(content_width, available_h, block_items, mode='shrink', hAlign='CENTER'))
                 except Exception:
-                    # Fallback: append directly
-                    story.extend(page_flowables)
+                    story.extend(block_items)
 
                 # Page break between pages (except after the last visible page)
                 if i < total_body_pages:
