@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() ||
     (me?.email?.[0]?.toUpperCase() ?? "U");
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh flex flex-col">
       <AppBar
         color="inherit"
         position="sticky"
@@ -134,7 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </Toolbar>
       </AppBar>
-      <main className="mx-auto max-w-6xl px-4 py-4">{children}</main>
+      <main className="flex-1 mx-auto max-w-6xl px-4 py-4">{children}</main>
       <footer className="border-t border-[hsl(var(--border))] mt-8">
         <div className="mx-auto max-w-6xl px-4 py-8 text-xs text-gray-500">
           © {new Date().getFullYear()} Kid to Story
