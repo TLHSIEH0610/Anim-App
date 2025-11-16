@@ -84,3 +84,17 @@ export function getThumbUrl(opts: { bookId?: number; path?: string; token?: stri
   }
   return ''
 }
+
+export async function deleteBook(id: number): Promise<void> {
+  const r = await fetch(`/api/forward?path=${encodeURIComponent(`/books/${id}`)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!r.ok) {
+    throw new Error(await r.text())
+  }
+}
+
+export function getBookPdfUrl(id: number): string {
+  return `${API_BASE}/books/${id}/pdf`
+}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { API_BASE } from '@/lib/env'
+import { useParams } from 'next/navigation'
 
 type BookDetail = {
   id: number
@@ -23,8 +24,8 @@ function pageImageUrl(bookId: number, page: number, v?: string | null, w?: numbe
   return `/api/image/book/page?${params.toString()}`
 }
 
-export default function BookDetailPage({ params }: { params: { id: string } }) {
-  const id = params.id
+export default function BookDetailPage() {
+  const { id } = useParams<{ id: string }>()
   const [book, setBook] = useState<BookDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
@@ -70,7 +71,6 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   return (
     <main>
       <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <Link href="/books" className="btn">Back</Link>
         <h1 style={{fontSize: '1.6rem', fontWeight: 600, margin: 0}}>{book?.title || 'Book'}</h1>
         {book && <span style={{color: '#666'}}>• {book.status}</span>}
       </div>

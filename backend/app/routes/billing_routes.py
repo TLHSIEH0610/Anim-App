@@ -40,6 +40,7 @@ def _decimal_to_float(value: Decimal) -> float:
 
 
 def _serialize_quote(user: User, quote: PriceQuote) -> Dict[str, Any]:
+    discount_value = quote.discount_price
     return {
         "currency": quote.currency,
         "base_price": _decimal_to_float(quote.base_price),
@@ -48,7 +49,11 @@ def _serialize_quote(user: User, quote: PriceQuote) -> Dict[str, Any]:
         "promotion_label": quote.promotion_label,
         "free_trial_slug": quote.free_trial_slug,
         "free_trial_consumed": quote.free_trial_consumed,
-        "discount_price": _decimal_to_float(quote.final_price) if quote.promotion_type == "discount" else None,
+        # Dynamic discount for this user (when promotion_type == 'discount')
+        "discount_price": _decimal_to_float(discount_value) if discount_value is not None else None,
+        "discount": _decimal_to_float(discount_value) if discount_value is not None else None,
+        # Convenience alias for clients: only present while the free-trial slug remains unused
+        "free_slug": None if quote.free_trial_consumed else quote.free_trial_slug,
         "credits_required": float(quote.credits_required),
         "credits_balance": float(user.credits or 0),
         "card_available": BillingConfig.stripe_enabled(),
@@ -212,7 +217,8 @@ def create_stripe_intent(
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,
             currency=quote.currency,
-            automatic_payment_methods={"enabled": True},
+            # Disable Link/"Save my info" by explicitly allowing only card
+            payment_method_types=["card"],
             metadata={
                 "user_id": str(user.id),
                 "template_slug": template.slug,
@@ -421,7 +427,8 @@ def create_free_trial_setup_intent(
     signals = extract_client_signals(request)
     try:
         setup = stripe.SetupIntent.create(
-            automatic_payment_methods={"enabled": True},
+            # Disable Link/"Save my info" by explicitly allowing only card
+            payment_method_types=["card"],
             usage="off_session",
             metadata={
                 "purpose": "free_trial_verify",

@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AppBar from "@mui/material/AppBar";
@@ -9,20 +10,24 @@ import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import { useQuery } from "@tanstack/react-query";
 import { getMe } from "@/lib/auth";
 
 const nav = [
-  { href: "/books", label: "All Books" },
+  { href: "/books", label: "Books" },
   { href: "/purchased", label: "Purchased" },
-  { href: "/create", label: "Create" },
-  { href: "/account", label: "Account" },
   { href: "/support", label: "Support" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: getMe });
+  const [menuEl, setMenuEl] = React.useState<null | HTMLElement>(null);
+  const menuOpen = Boolean(menuEl);
+  const openMenu = (e: React.MouseEvent<HTMLElement>) => setMenuEl(e.currentTarget);
+  const closeMenu = () => setMenuEl(null);
   const initials =
     me?.name
       ?.split(" ")
@@ -32,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() ||
     (me?.email?.[0]?.toUpperCase() ?? "U");
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh flex flex-col">
       <AppBar
         color="inherit"
         position="sticky"
@@ -44,49 +49,78 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }}
       >
         <Toolbar sx={{ maxWidth: "1024px", mx: "auto", width: "100%" }}>
-          <Typography
-            variant="h6"
-            component={Link as any}
-            href="/"
-            sx={{ flexGrow: 1, textDecoration: "none", color: "inherit" }}
-          >
-            Kid to Story
-          </Typography>
-          <Box sx={{ display: { xs: "none", md: "flex" }, gap: 1, mr: 2 }}>
-            {nav.map((n) => (
-              <Button
-                key={n.href}
-                component={Link as any}
-                href={n.href}
-                size="small"
-                variant={pathname?.startsWith(n.href) ? "contained" : "text"}
-                color={pathname?.startsWith(n.href) ? "primary" : "inherit"}
+          <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+            <Link
+              href="/"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "inherit",
+              }}
+            >
+              <Box
+                component="span"
+                sx={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  bgcolor: "purple.600",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.15)",
+                }}
               >
-                {n.label}
-              </Button>
-            ))}
+                <Box
+                  component="img"
+                  src="/landing/logo.png"
+                  alt="Kid to Story logo"
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}
+              >
+                Kid to Story
+              </Typography>
+            </Link>
           </Box>
+          {me && (
+            <Box sx={{ display: { xs: "none", md: "flex" }, gap: 1, mr: 2 }}>
+              {nav.map((n) => (
+                <Button
+                  key={n.href}
+                  component={Link as any}
+                  href={n.href}
+                  size="small"
+                  variant={pathname?.startsWith(n.href) ? "contained" : "text"}
+                  color={pathname?.startsWith(n.href) ? "primary" : "inherit"}
+                >
+                  {n.label}
+                </Button>
+              ))}
+            </Box>
+          )}
           {me ? (
             <>
               <Tooltip title={me.email}>
-                <IconButton
-                  component={Link as any}
-                  href="/account"
-                  size="small"
-                >
+                <IconButton size="small" onClick={openMenu} onMouseEnter={openMenu} aria-controls={menuOpen ? 'user-menu' : undefined} aria-haspopup="true" aria-expanded={menuOpen ? 'true' : undefined}>
                   <Avatar sx={{ width: 32, height: 32 }}>{initials}</Avatar>
                 </IconButton>
               </Tooltip>
-              <Box
-                component="form"
-                action="/api/logout"
-                method="post"
-                sx={{ ml: 1, display: { xs: "none", md: "block" } }}
-              >
-                <Button type="submit" variant="outlined" size="small">
-                  Sign out
-                </Button>
-              </Box>
+              <Menu id="user-menu" anchorEl={menuEl} open={menuOpen} onClose={closeMenu} onClick={closeMenu} transformOrigin={{ horizontal: 'right', vertical: 'top' }} anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}>
+                <MenuItem component={Link as any} href="/account/billing">Billing</MenuItem>
+                <MenuItem component={Link as any} href="/account">Account</MenuItem>
+                <MenuItem component={Link as any} href="/api/logout">Sign out</MenuItem>
+              </Menu>
             </>
           ) : (
             <Button
@@ -100,7 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </Toolbar>
       </AppBar>
-      <main className="mx-auto max-w-6xl px-4 py-4">{children}</main>
+      <main className="flex-1 mx-auto max-w-6xl px-4 py-4">{children}</main>
       <footer className="border-t border-[hsl(var(--border))] mt-8">
         <div className="mx-auto max-w-6xl px-4 py-8 text-xs text-gray-500">
           © {new Date().getFullYear()} Kid to Story

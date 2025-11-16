@@ -1,11 +1,12 @@
 "use client"
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 
 type Status = { status: string; progress_percentage?: number; message?: string }
 
-export default function BookStatusPage({ params }: { params: { id: string } }) {
-  const id = params.id
+export default function BookStatusPage() {
+  const { id } = useParams<{ id: string }>()
   const { data, isLoading, error } = useQuery<Status>({
     queryKey: ['book', id, 'status'],
     queryFn: async () => {
@@ -41,4 +42,3 @@ export default function BookStatusPage({ params }: { params: { id: string } }) {
     </main>
   )
 }
-

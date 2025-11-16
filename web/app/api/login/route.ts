@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { API_BASE, SECURE_COOKIES } from '@/lib/env'
+import { API_BASE } from '@/lib/env'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,11 +20,12 @@ export async function POST(req: NextRequest) {
     const token = data?.access_token || data?.token || data?.accessToken
     if (!token) return NextResponse.json({ error: 'No token in response' }, { status: 500 })
 
+    const isHttps = (req.headers.get('x-forwarded-proto') || '').toLowerCase() === 'https' || req.nextUrl.protocol === 'https:'
     const res = NextResponse.json({ ok: true, user: data?.user || null })
     res.cookies.set('auth_token', token, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: SECURE_COOKIES,
+      secure: isHttps, // only mark secure when the request is over HTTPS
       path: '/',
       maxAge: 60 * 60 * 24 * 30, // 30 days
     })
@@ -33,4 +34,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
-
