@@ -25,13 +25,18 @@ export type StoryTemplate = {
   page_count: number
   cover_path?: string | null
   demo_images?: (string | null)[]
+  storyline_pages?: { page_number: number; image_prompt: string }[]
   currency?: string | null
   price_dollars?: number | null
   discount_price?: number | null
+   // Dynamic discount for current user/session (maps to backend "discount")
+  discount?: number | null
   final_price?: number | null
   promotion_type?: string | null
   promotion_label?: string | null
   free_trial_slug?: string | null
+  // Convenience alias: free-trial slug only when not yet consumed
+  free_slug?: string | null
   free_trial_consumed?: boolean
   credits_required?: number | null
   credits_balance?: number | null

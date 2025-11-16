@@ -746,6 +746,7 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 }
             )
 
+        discount_value = quote.discount_price
         stories.append(
             {
                 "slug": template.slug,
@@ -763,12 +764,18 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
                 ],
                 "currency": quote.currency,
                 "price_dollars": _decimal_to_float(template.price_dollars),
+                # Configured discount on the template (static)
                 "discount_price": _decimal_to_float(template.discount_price),
+                # Effective final price for this user (after free-trial/discount)
                 "final_price": _decimal_to_float(quote.final_price),
+                # Dynamic discount amount for this user (used by web as "Sale")
+                "discount": _decimal_to_float(discount_value) if discount_value is not None else None,
                 "promotion_type": quote.promotion_type,
                 "promotion_label": quote.promotion_label,
                 "free_trial_slug": quote.free_trial_slug,
                 "free_trial_consumed": quote.free_trial_consumed,
+                # Convenience alias: only set when the free-trial slug is still available
+                "free_slug": None if quote.free_trial_consumed else quote.free_trial_slug,
                 "credits_required": quote.credits_required,
                 "credits_balance": user.credits,
                 "storyline_pages": storyline_pages,

@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const config: NextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   experimental: {
     // appDir is default in Next 13+ (kept for clarity)
   },

@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 
 // Protect selected routes and enforce a clear auth state (valid or logged-out)
-const protectedPrefixes = ['/books', '/purchased', '/create', '/checkout', '/account']
+const protectedPrefixes = ['/books', '/purchased', '/create', '/checkout', '/account', '/support']
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

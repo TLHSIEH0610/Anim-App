@@ -234,8 +234,23 @@ def restore_backup(timestamp: str) -> None:
         while os.path.exists(candidate):
             candidate = f"{backup_existing}_{suffix}"
             suffix += 1
-        shutil.move(MEDIA_ROOT, candidate)
+        try:
+            # Prefer an atomic move of the entire directory when possible
+            shutil.move(MEDIA_ROOT, candidate)
+        except OSError as exc:
+            # When MEDIA_ROOT is a mount point or busy, moving the root may fail (e.g., Errno 16)
+            # Fallback: create a sibling backup and move the contents instead
+            os.makedirs(candidate, exist_ok=True)
+            for name in os.listdir(MEDIA_ROOT):
+                src = os.path.join(MEDIA_ROOT, name)
+                dst = os.path.join(candidate, name)
+                try:
+                    shutil.move(src, dst)
+                except Exception:
+                    # Best-effort; skip files that cannot be moved
+                    pass
     os.makedirs(MEDIA_ROOT, exist_ok=True)
+    # Unpack into MEDIA_ROOT; archive contains the media directory contents
     shutil.unpack_archive(media_archive_path, MEDIA_ROOT)
 
     shutil.rmtree(tmp_dir, ignore_errors=True)

@@ -1,20 +1,51 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { getQuote } from '@/lib/api'
 import { Tabs, Tab, Box, TextField, Alert } from '@mui/material'
-import StripeProvider from '@/components/StripeProvider'
+import { Elements } from '@stripe/react-stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
+import { STRIPE_PK } from '@/lib/env'
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { API_BASE } from '@/lib/env'
 
-function CardTab({ template_slug }: { template_slug: string }) {
+const stripePromise = STRIPE_PK ? loadStripe(STRIPE_PK) : null
+
+function CardForm({ clientSecret, paymentId, template_slug }: { clientSecret: string, paymentId: string, template_slug: string }) {
   const stripe = useStripe()
   const elements = useElements()
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [pi, setPi] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setLoading(true); setError(null)
+    try {
+      const { error: ce } = await stripe.confirmPayment({ elements, confirmParams: { return_url: window.location.origin + '/checkout' }, redirect: 'if_required' })
+      if (ce) throw ce
+      const r = await fetch(`/api/forward?path=${encodeURIComponent('/billing/stripe-confirm')}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: paymentId }) })
+      if (!r.ok) throw new Error(await r.text())
+      const data = await r.json()
+      const pid = data?.payment_id || paymentId
+      try { sessionStorage.setItem('pendingPaymentId', String(pid || '')) } catch {}
+      window.location.href = `/create/success?template_slug=${encodeURIComponent(template_slug)}&paid=true&payment_id=${encodeURIComponent(String(pid||''))}`
+    } catch (e: any) { setError(e.message) } finally { setLoading(false) }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <PaymentElement options={{ paymentMethodOrder: ['card'] }} />
+      <Box mt={2}><button className="btn" disabled={loading} type="submit">{loading ? 'Processing…' : 'Pay'}</button></Box>
+    </form>
+  )
+}
+
+function CardTab({ template_slug }: { template_slug: string }) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [paymentId, setPaymentId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     async function createPI() {
       try {
@@ -24,46 +55,54 @@ function CardTab({ template_slug }: { template_slug: string }) {
         if (!r.ok) throw new Error(await r.text())
         const data = await r.json()
         setClientSecret(data.client_secret || data.clientSecret)
-        setPi(data.payment_intent_id || data.id)
+        setPaymentId(String(data.payment_id || data.id || ''))
       } catch (e: any) { setError(e.message) }
     }
     createPI()
   }, [template_slug])
+  return (
+    <Box mt={2}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {clientSecret && stripePromise && (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <CardForm clientSecret={clientSecret} paymentId={paymentId!} template_slug={template_slug} />
+        </Elements>
+      )}
+    </Box>
+  )
+}
+
+function SetupForm({ clientSecret, setupId, template_slug }: { clientSecret: string, setupId: string, template_slug: string }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!stripe || !elements) return
     setLoading(true); setError(null)
     try {
-      const { error: ce } = await stripe.confirmPayment({ elements, confirmParams: { return_url: window.location.origin + '/checkout' }, redirect: 'if_required' })
+      const { error: ce } = await stripe.confirmSetup({ elements, confirmParams: { return_url: window.location.origin + '/checkout' }, redirect: 'if_required' })
       if (ce) throw ce
-      const r = await fetch(`/api/forward?path=${encodeURIComponent('/billing/stripe-confirm')}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_intent_id: pi }) })
+      const r = await fetch(`/api/forward?path=${encodeURIComponent('/billing/free-trial-verify-complete')}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup_intent_id: setupId, template_slug }) })
       if (!r.ok) throw new Error(await r.text())
-      window.location.href = `/books/create?template_slug=${encodeURIComponent(template_slug)}&paid=true`
+      window.location.href = `/create/success?template_slug=${encodeURIComponent(template_slug)}&apply_free_trial=true`
     } catch (e: any) { setError(e.message) } finally { setLoading(false) }
   }
 
   return (
-    <Box mt={2}>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {clientSecret && (
-        <form onSubmit={onSubmit}>
-          <PaymentElement />
-          <Box mt={2}><button className="btn" disabled={loading} type="submit">{loading ? 'Processing…' : 'Pay'}</button></Box>
-        </form>
-      )}
-    </Box>
+    <form onSubmit={onSubmit}>
+      <PaymentElement options={{ paymentMethodOrder: ['card'] }} />
+      <Box mt={2}><button className="btn" disabled={loading} type="submit">{loading ? 'Verifying…' : 'Verify'}</button></Box>
+    </form>
   )
 }
 
 function FreeTrialTab({ template_slug }: { template_slug: string }) {
-  const stripe = useStripe()
-  const elements = useElements()
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [setupId, setSetupId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
   useEffect(() => {
     async function createSetup() {
       try {
@@ -78,35 +117,22 @@ function FreeTrialTab({ template_slug }: { template_slug: string }) {
     }
     createSetup()
   }, [template_slug])
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!stripe || !elements) return
-    setLoading(true); setError(null)
-    try {
-      const { error: ce } = await stripe.confirmSetup({ elements, confirmParams: { return_url: window.location.origin + '/checkout' }, redirect: 'if_required' })
-      if (ce) throw ce
-      const r = await fetch(`/api/forward?path=${encodeURIComponent('/billing/free-trial-verify-complete')}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup_intent_id: setupId, template_slug }) })
-      if (!r.ok) throw new Error(await r.text())
-      window.location.href = `/books/create?template_slug=${encodeURIComponent(template_slug)}&apply_free_trial=true`
-    } catch (e: any) { setError(e.message) } finally { setLoading(false) }
-  }
-
   return (
     <Box mt={2}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {clientSecret && (
-        <form onSubmit={onSubmit}>
-          <PaymentElement />
-          <Box mt={2}><button className="btn" disabled={loading} type="submit">{loading ? 'Verifying…' : 'Verify'}</button></Box>
-        </form>
+      {clientSecret && stripePromise && (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <SetupForm clientSecret={clientSecret} setupId={setupId!} template_slug={template_slug} />
+        </Elements>
       )}
     </Box>
   )
 }
 
-export default function CheckoutPage({ searchParams }: { searchParams: { template_slug?: string } }) {
-  const [slug, setSlug] = useState(searchParams.template_slug || 'base')
+export const dynamic = 'force-dynamic'
+function CheckoutPageInner() {
+  const sp = useSearchParams()
+  const [slug, setSlug] = useState(sp.get('template_slug') || 'base')
   const [quote, setQuote] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(0)
@@ -118,10 +144,8 @@ export default function CheckoutPage({ searchParams }: { searchParams: { templat
   const freeTrial = Boolean(quote?.free_trial_available)
 
   return (
-    <StripeProvider>
       <main>
         <div className="flex items-center gap-3">
-          <Link href="/books" className="btn">Library</Link>
           <h1 className="text-xl font-semibold m-0">Checkout</h1>
         </div>
         <Box mt={2} maxWidth={520}>
@@ -140,6 +164,13 @@ export default function CheckoutPage({ searchParams }: { searchParams: { templat
           </Box>
         </Box>
       </main>
-    </StripeProvider>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutPageInner />
+    </Suspense>
   )
 }
