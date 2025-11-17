@@ -1,5 +1,16 @@
+import type { Metadata } from "next";
 import GoogleSignIn from "@/components/GoogleSignIn";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Login – Kid to Story",
+  description:
+    "Sign in with Google to create, save, and share personalized children’s storybooks with Kid to Story.",
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function LoginPage() {
   return (

@@ -1,4 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Kid to Story – Personalized Children’s Storybooks from Your Photos",
+  description:
+    "Turn your child into the hero of their own child book or story book. Upload a photo, pick a magical adventure, and get a personalized children’s storybook in minutes.",
+  openGraph: {
+    title: "Kid to Story – Personalized Children’s Storybooks",
+    description:
+      "Create magical, personalized children’s cartoon story books using your own photos. Fantasy castles, space missions, forest adventures, and more.",
+    url: "https://kid-to-story.life/",
+    siteName: "Kid to Story",
+    type: "website",
+  },
+};
 
 export default function Home() {
   return (
@@ -52,8 +67,9 @@ export default function Home() {
             </h1>
             <p className="mt-4 text-base md:text-lg text-gray-600 max-w-xl">
               Upload a photo, pick a magical adventure, and get a personalized
-              storybook that looks like your child — ready to read, share, and
-              print.
+              child book — a cartoon-style story book that looks like your child —
+              ready to read, share, and print. Parents use Kid to Story to create
+              keepsake childbooks and digital kids&apos; storybooks in minutes.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {/* <Link href="/login" className="btn">
@@ -107,7 +123,7 @@ export default function Home() {
             How it works
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Three simple steps from photo to magical storybook.
+            Three simple steps from photo to magical kids&apos; story book or picture child book.
           </p>
           <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-stretch md:justify-between">
             {/* Card 1: Select Your Story */}
