@@ -96,5 +96,6 @@ export async function deleteBook(id: number): Promise<void> {
 }
 
 export function getBookPdfUrl(id: number): string {
-  return `${API_BASE}/books/${id}/pdf`
+  // Use Next API to attach auth cookie and stream the PDF
+  return `/api/pdf/book?bookId=${encodeURIComponent(String(id))}`
 }

@@ -121,7 +121,7 @@ export default function Home() {
               </p>
               <div className="mt-4 flex items-center justify-center">
                 <img
-                  src="/how_it_work_1.png"
+                  src="/landing/how_it_work_1.png"
                   alt="Illustration of choosing a children’s story template"
                   className="h-36 w-36 object-contain rounded-2xl shadow-sm"
                 />
@@ -144,7 +144,7 @@ export default function Home() {
               </p>
               <div className="mt-4 flex items-center justify-center">
                 <img
-                  src="/how_it_work_2.png"
+                  src="/landing/how_it_work_2.png"
                   alt="Illustration of uploading a child photo to personalize the story"
                   className="h-36 w-36 object-contain rounded-2xl shadow-sm"
                 />
@@ -167,7 +167,7 @@ export default function Home() {
               </p>
               <div className="mt-4 flex items-center justify-center">
                 <img
-                  src="/how_it_work_3.png"
+                  src="/landing/how_it_work_3.png"
                   alt="Illustration of downloading the finished personalized storybook PDF"
                   className="h-36 w-36 object-contain rounded-2xl shadow-sm"
                 />

@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -165,9 +164,7 @@ function CreatePageInner() {
     const tpl = templates.find((t) => t.slug === templateSlug);
     const storyLabel = tpl?.name || "Story";
     const cleanName = (name || "").trim();
-    const auto = cleanName
-      ? `${storyLabel} - ${cleanName}`
-      : `${storyLabel} - Character Name`;
+    const auto = cleanName ? `${storyLabel} - ${cleanName}` : storyLabel;
     setValue("title", auto, { shouldValidate: true });
   }, [templateSlug, name, templates, setValue]);
 
@@ -239,22 +236,9 @@ async function createBookAndRedirect({ applyFreeTrial, paidId }: { applyFreeTria
     <Suspense fallback={null}>
       <main>
         <div className="flex items-center gap-3">
-          {templateSlug === "space_explorer_1_page" && (
-            <div className="text-sm text-gray-600">
-              <Link href="/books" className="underline">
-                Books
-              </Link>
-              <span> / </span>
-              <Link
-                href={`/books/stories/${encodeURIComponent(templateSlug)}`}
-                className="underline"
-              >
-                {selectedTpl?.name || "Space Explorer Free Trial"}
-              </Link>
-              <span> / </span>
-              <span>Create Book</span>
-            </div>
-          )}
+          <h1 className="text-xl font-semibold m-0">
+            {watch('title')?.trim() || selectedTpl?.name || 'Create Book'}
+          </h1>
         </div>
         <Box my={6} maxWidth={980}>
           <Stepper activeStep={step} alternativeLabel>

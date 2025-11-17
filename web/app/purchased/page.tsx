@@ -53,7 +53,7 @@ export default function PurchasedPage() {
         <p className="text-red-600 mt-1">{actionError}</p>
       )}
       {isLoading && (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="card">
               <Skeleton className="w-full aspect-[3/4]" />
@@ -71,67 +71,65 @@ export default function PurchasedPage() {
           .
         </p>
       )}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {list.map((b) => (
-          <div key={b.id} className="card">
-            <Link href={`/books/${b.id}`} className="block">
-              <div className="w-full aspect-[3/4] bg-gray-100 overflow-hidden rounded-md">
-                {b.cover_path ? (
-                  <img
-                    alt={b.title}
-                    src={`/api/image/book/cover-thumb?bookId=${
-                      b.id
-                    }&w=360&h=480${
-                      b.completed_at || b.updated_at || b.created_at
-                        ? `&v=${encodeURIComponent(
-                            b.completed_at ||
-                              b.updated_at ||
-                              (b.created_at as any)
-                          )}`
-                        : ""
-                    }`}
-                    className="w-full h-full object-cover"
-                  />
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {list.map((b) => {
+          const isCompleted = b.status === 'completed'
+          const isFailed = b.status === 'failed'
+          const isGenerating = b.status === 'generating_images' || b.status === 'creating' || b.status === 'generating_story' || b.status === 'composing'
+          const disableAll = !isCompleted
+          const coverUrl = `/api/image/book/cover-thumb?bookId=${b.id}&w=360&h=480${
+            b.completed_at || b.created_at
+              ? `&v=${encodeURIComponent((b.completed_at as any) || (b.created_at as any))}`
+              : ''
+          }`
+          return (
+            <div key={b.id} className="card">
+              <div className="block">
+                <div className="w-full aspect-[3/4] bg-gray-100 overflow-hidden rounded-md grid place-items-center relative">
+                  {isGenerating || isFailed ? (
+                    <div className="w-full h-full grid place-items-center text-gray-500">
+                      <div className="text-sm">{isFailed ? 'Generation failed' : 'Generating images…'}</div>
+                    </div>
+                  ) : (
+                    <img alt={b.title} src={coverUrl} className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="mt-2">
+                  <div className="font-semibold whitespace-normal break-words">{b.title}</div>
+                  <div className="text-xs text-gray-500">{b.status}</div>
+                  {isFailed && (
+                    <div className="mt-1 text-xs text-red-600">We ran into an issue. Our team is fixing it — thanks for your patience.</div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 flex gap-2">
+                {disableAll ? (
+                  <span className="btn" style={{ opacity: 0.5, pointerEvents: 'none' }}>View</span>
                 ) : (
-                  <div className="w-full h-full grid place-items-center text-gray-500">
-                    No cover
-                  </div>
+                  <Link href={`/books/${b.id}`} className="btn">View</Link>
                 )}
-              </div>
-              <div className="mt-2">
-                <div className="font-semibold truncate">{b.title}</div>
-                <div className="text-xs text-gray-500">{b.status}</div>
-              </div>
-            </Link>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Link href={`/books/${b.id}`} className="btn">
-                View
-              </Link>
-              {b.status === "completed" && (
+                {isCompleted ? (
+                  <button type="button" className="btn" onClick={() => handleDownload(b.id)}>Open PDF</button>
+                ) : (
+                  <span className="btn" style={{ opacity: 0.5, pointerEvents: 'none' }}>Open PDF</span>
+                )}
                 <button
                   type="button"
                   className="btn"
-                  onClick={() => handleDownload(b.id)}
+                  style={{
+                    background: "hsl(var(--danger))",
+                    borderColor: "hsl(var(--danger))",
+                    opacity: disableAll ? 0.5 : 1,
+                  }}
+                  disabled={disableAll || deletingId === b.id}
+                  onClick={() => handleDelete(b.id, b.title)}
                 >
-                  Download
+                  {deletingId === b.id ? 'Deleting…' : 'Delete'}
                 </button>
-              )}
-              <button
-                type="button"
-                className="btn"
-                style={{
-                  background: "transparent",
-                  color: "inherit",
-                  borderColor: "hsl(var(--border))",
-                }}
-                disabled={deletingId === b.id}
-                onClick={() => handleDelete(b.id, b.title)}
-              >
-                {deletingId === b.id ? "Deleting…" : "Delete"}
-              </button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </main>
   );

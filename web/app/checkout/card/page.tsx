@@ -68,12 +68,17 @@ function CardForm({
   return (
     <form
       onSubmit={onSubmit}
-      style={{ display: "grid", gap: 12, maxWidth: 520, marginTop: 16 }}
+      style={{ display: "grid", gap: 12, maxWidth: 520, margin: "16px auto 0" }}
     >
       <PaymentElement options={{ paymentMethodOrder: ["card"] }} />
       {error && <p style={{ color: "crimson" }}>{error}</p>}
-      <button className="btn" type="submit" disabled={loading}>
-        <p className="text-center"> {loading ? "Processing…" : "Pay"}</p>
+      <button
+        className="btn"
+        type="submit"
+        disabled={loading}
+        style={{ justifySelf: "center", minWidth: 180 }}
+      >
+        <span>{loading ? "Processing…" : "Pay"}</span>
       </button>
     </form>
   );

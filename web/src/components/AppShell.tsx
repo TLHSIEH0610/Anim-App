@@ -12,7 +12,7 @@ import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe } from "@/lib/auth";
 
 const nav = [
@@ -23,7 +23,12 @@ const nav = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: getMe });
+  const qc = useQueryClient();
+  const { data: me, refetch } = useQuery({ queryKey: ["me"], queryFn: getMe });
+  // Ensure auth UI updates on route changes (e.g., after /api/logout redirect)
+  React.useEffect(() => {
+    try { qc.invalidateQueries({ queryKey: ["me"] }); } catch {}
+  }, [pathname, qc]);
   const [menuEl, setMenuEl] = React.useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuEl);
   const openMenu = (e: React.MouseEvent<HTMLElement>) => setMenuEl(e.currentTarget);
@@ -36,6 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .slice(0, 2)
       .toUpperCase() ||
     (me?.email?.[0]?.toUpperCase() ?? "U");
+  const contentMax = 'max-w-6xl'
   return (
     <div className="min-h-dvh flex flex-col">
       <AppBar
@@ -134,9 +140,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </Toolbar>
       </AppBar>
-      <main className="flex-1 mx-auto max-w-6xl px-4 py-4">{children}</main>
+      <main className={`flex-1 mx-auto ${contentMax} px-4 py-4`}>{children}</main>
       <footer className="border-t border-[hsl(var(--border))] mt-8">
-        <div className="mx-auto max-w-6xl px-4 py-8 text-xs text-gray-500">
+        <div className={`mx-auto ${contentMax} px-4 py-8 text-xs text-gray-500`}>
           © {new Date().getFullYear()} Kid to Story
         </div>
       </footer>

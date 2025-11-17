@@ -49,3 +49,5 @@ npm run dev
 
 - Add user profile fetch and UI (uses `/auth/me`).
 - Expand Playwright tests to cover auth + flows with test doubles for backend.
+
+ 
