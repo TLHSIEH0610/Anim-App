@@ -23,9 +23,9 @@ import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./src/screens/TermsOfServiceScreen";
 import DeleteAccountScreen from "./src/screens/DeleteAccountScreen";
 import DeleteReceiptScreen from "./src/screens/DeleteReceiptScreen";
+import { UpdateRequiredProvider } from "./src/context/UpdateRequiredContext";
 import { Platform } from "react-native";
 import { initAppIntegrity } from "./src/lib/attestation";
-import { UpdateRequiredProvider } from "./src/context/UpdateRequiredContext";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -42,43 +42,46 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="AllBooks">
-        {user ? (
-          <>
-            <Stack.Screen name="AllBooks" component={AllBooksScreen} />
-            <Stack.Screen name="TemplateDemo" component={require('./src/screens/TemplateDemoScreen').default} />
-            <Stack.Screen name="BookLibrary" component={BookLibraryScreen} />
-            <Stack.Screen name="Account" component={AccountScreen} />
-            <Stack.Screen name="BookCreation" component={BookCreationScreen} />
-            <Stack.Screen name="BookStatus" component={BookStatusScreen} />
-            <Stack.Screen name="BookViewer" component={BookViewerScreen} />
-            <Stack.Screen name="BillingHistory" component={BillingHistoryScreen} />
-            <Stack.Screen name="Support" component={SupportScreen} />
-            <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
-            <Stack.Screen name="DeleteReceipt" component={DeleteReceiptScreen} />
-          </>
-        ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
-        )}
-        <Stack.Screen
-          name="PrivacyPolicy"
-          component={PrivacyPolicyScreen}
-          options={{
-            headerShown: true,
-            title: "Privacy Policy",
-            presentation: "modal",
-          }}
-        />
-        <Stack.Screen
-          name="TermsOfService"
-          component={TermsOfServiceScreen}
-          options={{
-            headerShown: true,
-            title: "Terms of Service",
-            presentation: "modal",
-          }}
-        />
-      </Stack.Navigator>
+      {/* Ensure update-required overlay still has navigation context */}
+      <UpdateRequiredProvider>
+        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="AllBooks">
+          {user ? (
+            <>
+              <Stack.Screen name="AllBooks" component={AllBooksScreen} />
+              <Stack.Screen name="TemplateDemo" component={require('./src/screens/TemplateDemoScreen').default} />
+              <Stack.Screen name="BookLibrary" component={BookLibraryScreen} />
+              <Stack.Screen name="Account" component={AccountScreen} />
+              <Stack.Screen name="BookCreation" component={BookCreationScreen} />
+              <Stack.Screen name="BookStatus" component={BookStatusScreen} />
+              <Stack.Screen name="BookViewer" component={BookViewerScreen} />
+              <Stack.Screen name="BillingHistory" component={BillingHistoryScreen} />
+              <Stack.Screen name="Support" component={SupportScreen} />
+              <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+              <Stack.Screen name="DeleteReceipt" component={DeleteReceiptScreen} />
+            </>
+          ) : (
+            <Stack.Screen name="Login" component={LoginScreen} />
+          )}
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{
+              headerShown: true,
+              title: "Privacy Policy",
+              presentation: "modal",
+            }}
+          />
+          <Stack.Screen
+            name="TermsOfService"
+            component={TermsOfServiceScreen}
+            options={{
+              headerShown: true,
+              title: "Terms of Service",
+              presentation: "modal",
+            }}
+          />
+        </Stack.Navigator>
+      </UpdateRequiredProvider>
     </NavigationContainer>
   );
 }
@@ -115,13 +118,11 @@ export default function App() {
   const appTree = (
     <PaperProvider theme={materialTheme}>
       <AuthProvider>
-        <UpdateRequiredProvider>
-          <ServerStatusProvider>
-            <ServerStatusGate>
-              <AppContent />
-            </ServerStatusGate>
-          </ServerStatusProvider>
-        </UpdateRequiredProvider>
+        <ServerStatusProvider>
+          <ServerStatusGate>
+            <AppContent />
+          </ServerStatusGate>
+        </ServerStatusProvider>
       </AuthProvider>
     </PaperProvider>
   );

@@ -45,11 +45,22 @@ export const ServerStatusProvider = ({ children }: ServerStatusProviderProps) =>
       setIsBackendReachable(true);
       setLastError(null);
     } catch (error: any) {
-      if (__DEV__) {
-        console.warn("[server-status] backend health check failed", error?.message || error);
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail;
+
+      // Treat "update_required" (HTTP 426) as a reachable backend so that
+      // the app can mount and show the dedicated update screen instead of
+      // the generic "server unavailable" UI.
+      if (status === 426 && detail && detail.code === "update_required") {
+        setIsBackendReachable(true);
+        setLastError(null);
+      } else {
+        if (__DEV__) {
+          console.warn("[server-status] backend health check failed", error?.message || error);
+        }
+        setIsBackendReachable(false);
+        setLastError(error?.message || "Unable to reach the server.");
       }
-      setIsBackendReachable(false);
-      setLastError(error?.message || "Unable to reach the server.");
     } finally {
       setLastChecked(new Date());
       setIsChecking(false);
