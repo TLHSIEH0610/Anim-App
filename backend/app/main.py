@@ -62,6 +62,8 @@ else:
     _origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://kid-to-story.life",
+        "https://kid-to-story.win",
     ]
 
 app.add_middleware(
