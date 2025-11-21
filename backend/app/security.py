@@ -97,6 +97,85 @@ def enforce_android_integrity_or_warn(request: Request, *, action: str) -> None:
         # If warn, we just record an audit row; caller may also log
 
 
+def _min_app_build_enforced() -> bool:
+    raw = (os.getenv("ENFORCE_MIN_APP_BUILD") or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    return False
+
+
+def _min_app_build_for_platform(device_platform: Optional[str]) -> Optional[int]:
+    if not device_platform:
+        return None
+    key = None
+    if device_platform == "android":
+        key = "MIN_APP_BUILD_ANDROID"
+    elif device_platform == "ios":
+        key = "MIN_APP_BUILD_IOS"
+    if not key:
+        return None
+    raw = (os.getenv(key) or "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except Exception:
+        return None
+
+
+def _update_url_for_platform(device_platform: Optional[str]) -> Optional[str]:
+    if not device_platform:
+        return None
+    if device_platform == "android":
+        return (os.getenv("APP_UPDATE_URL_ANDROID") or "").strip() or None
+    if device_platform == "ios":
+        return (os.getenv("APP_UPDATE_URL_IOS") or "").strip() or None
+    return None
+
+
+def enforce_min_client_build(request: Request) -> None:
+    """
+    Enforce a minimum native app build for mobile clients.
+
+    - Only applies when ENFORCE_MIN_APP_BUILD is true-ish.
+    - Only enforces for device_platform in {android, ios}.
+    - Uses X-App-Build (numeric) from headers; if missing/invalid,
+      the request is treated as below-min and update is required.
+    - Responds with HTTP 426 and a structured detail payload:
+      {"code": "update_required", "platform": "...", "min_build": ..., "update_url": "..."}.
+    """
+    if not _min_app_build_enforced():
+        return
+
+    signals = extract_client_signals(request)
+    platform = (signals.get("device_platform") or "").lower() or None
+    if platform not in {"android", "ios"}:
+        # Do not enforce on web/other clients
+        return
+
+    min_build = _min_app_build_for_platform(platform)
+    if not min_build:
+        # No minimum configured for this platform
+        return
+
+    raw_build = _get_header(request, "X-App-Build")
+    try:
+        build = int(raw_build) if raw_build and raw_build.strip() else None
+    except Exception:
+        build = None
+
+    if build is None or build < min_build:
+        update_url = _update_url_for_platform(platform)
+        detail: Dict[str, Any] = {
+            "code": "update_required",
+            "platform": platform,
+            "min_build": min_build,
+        }
+        if update_url:
+            detail["update_url"] = update_url
+        raise HTTPException(status_code=426, detail=detail)
+
+
 def record_user_attestation(db: Session, user: User, signals: Dict[str, Any]) -> None:
     try:
         ua = (

@@ -25,6 +25,7 @@ import DeleteAccountScreen from "./src/screens/DeleteAccountScreen";
 import DeleteReceiptScreen from "./src/screens/DeleteReceiptScreen";
 import { Platform } from "react-native";
 import { initAppIntegrity } from "./src/lib/attestation";
+import { UpdateRequiredProvider } from "./src/context/UpdateRequiredContext";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -114,11 +115,13 @@ export default function App() {
   const appTree = (
     <PaperProvider theme={materialTheme}>
       <AuthProvider>
-        <ServerStatusProvider>
-          <ServerStatusGate>
-            <AppContent />
-          </ServerStatusGate>
-        </ServerStatusProvider>
+        <UpdateRequiredProvider>
+          <ServerStatusProvider>
+            <ServerStatusGate>
+              <AppContent />
+            </ServerStatusGate>
+          </ServerStatusProvider>
+        </UpdateRequiredProvider>
       </AuthProvider>
     </PaperProvider>
   );

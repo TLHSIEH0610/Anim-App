@@ -516,6 +516,15 @@ COMFYUI_WORKFLOW=/app/workflows/Anmi-App.json
 SECRET_KEY=your-jwt-secret-key-change-in-production
 ACCESS_TOKEN_EXPIRE_MINUTES=43200  # 30 days
 
+# (Optional) Mobile app minimum build enforcement
+# When enabled, Android/iOS apps below the configured build are blocked with HTTP 426 update_required.
+# Web (Next.js) is not affected.
+ENFORCE_MIN_APP_BUILD=false
+MIN_APP_BUILD_ANDROID=100
+MIN_APP_BUILD_IOS=100
+APP_UPDATE_URL_ANDROID=https://play.google.com/store/apps/details?id=com.arnie.kidtostory
+APP_UPDATE_URL_IOS=https://apps.apple.com/app/your-app-id
+
 # Logging
 LOG_LEVEL=INFO
 ```
@@ -546,6 +555,13 @@ COMFYUI_WORKFLOW=~/Documents/AnimApp/workflows/Anmi-App.json
 # JWT
 SECRET_KEY=dev-secret-key-change-in-production
 ACCESS_TOKEN_EXPIRE_MINUTES=43200
+
+# (Optional) Mobile app minimum build enforcement (usually disabled for local dev)
+ENFORCE_MIN_APP_BUILD=false
+MIN_APP_BUILD_ANDROID=100
+MIN_APP_BUILD_IOS=100
+APP_UPDATE_URL_ANDROID=https://play.google.com/store/apps/details?id=com.arnie.kidtostory
+APP_UPDATE_URL_IOS=https://apps.apple.com/app/your-app-id
 ```
 
 ### Frontend `.env`

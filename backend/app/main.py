@@ -6,7 +6,8 @@ try:
     from sentry_sdk.integrations.fastapi import FastApiIntegration as _FastApiIntegration
 except Exception:  # pragma: no cover
     _FastApiIntegration = None
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from .db import engine, Base, get_db, SessionLocal
 from . import models  # noqa: F401 (register models)
 from .routes import auth_routes, job_routes, book_routes, admin_routes, billing_routes, support_routes
@@ -21,6 +22,7 @@ from .default_workflows import ensure_default_workflows
 from .default_stories import ensure_default_stories
 from .default_users import ensure_default_users
 from .db_utils import apply_schema_patches
+from .security import enforce_min_client_build
 from sqlalchemy import text
 
 # create tables at startup (simple approach for dev)
@@ -87,6 +89,15 @@ app.include_router(book_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(billing_routes.router)
 app.include_router(support_routes.router)
+
+
+@app.middleware("http")
+async def min_client_build_middleware(request: Request, call_next):
+  try:
+      enforce_min_client_build(request)
+  except HTTPException as exc:
+      return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+  return await call_next(request)
 
 @app.get("/")
 def read_root():

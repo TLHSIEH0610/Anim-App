@@ -1,8 +1,10 @@
 import axios from "axios";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getInstallId, getPlayIntegrityToken, getAppPackage } from "../lib/attestation";
+import { getInstallId, getPlayIntegrityToken, getAppPackage, getAppVersionInfo } from "../lib/attestation";
 import { captureException } from "../lib/capture";
+import { emitLogoutRequested } from "../lib/authEvents";
+import { emitUpdateRequired } from "../lib/updateEvents";
 
 const LOCAL_BASE = Platform.select({
   ios: "http://127.0.0.1:8000",
@@ -42,6 +44,9 @@ api.interceptors.request.use(
       (config.headers as any)["X-Device-Platform"] = Platform.OS;
       const pkg = getAppPackage();
       if (pkg) (config.headers as any)["X-App-Package"] = pkg;
+      const { version, build } = getAppVersionInfo();
+      if (version) (config.headers as any)["X-App-Version"] = version;
+      if (build) (config.headers as any)["X-App-Build"] = build;
     } catch {}
     // Attach Play Integrity token only for sensitive endpoints
     try {
@@ -74,8 +79,14 @@ api.interceptors.response.use(
   (error) => {
     try {
       const status = error?.response?.status;
-      // Capture server errors and network failures
-      if (!status || status >= 500) {
+      const detail = error?.response?.data?.detail;
+      if (status === 401) {
+        // Token is invalid or expired; trigger a global logout so UI returns to Login
+        emitLogoutRequested();
+      } else if (status === 426 && detail && detail.code === "update_required") {
+        emitUpdateRequired(detail);
+      } else if (!status || status >= 500) {
+        // Capture server errors and network failures
         captureException(error, {
           url: error?.config?.url,
           method: error?.config?.method,

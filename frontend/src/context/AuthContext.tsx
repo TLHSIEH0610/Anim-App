@@ -6,6 +6,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onLogoutRequested } from "../lib/authEvents";
 
 interface User {
   id: string;
@@ -41,11 +42,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-
-  useEffect(() => {
-    loadStoredAuth();
-  }, []);
-
   const loadStoredAuth = async () => {
     try {
       const storedToken = await AsyncStorage.getItem("auth_token");
@@ -62,6 +58,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Always set loading to false after checking storage
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    loadStoredAuth();
+  }, []);
 
   const login = async (authToken: string, userData: User) => {
     try {
@@ -84,6 +84,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error("Error clearing auth data:", error);
     }
   };
+
+  useEffect(() => {
+    const unsubscribe = onLogoutRequested(() => {
+      // Fire and forget; AuthContext will clear state and storage
+      logout();
+    });
+    return unsubscribe;
+  }, [logout]);
 
   return (
     <AuthContext.Provider

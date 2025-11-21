@@ -44,6 +44,19 @@ export function getAppPackage(): string | undefined {
   }
 }
 
+export function getAppVersionInfo(): { version?: string; build?: string } {
+  try {
+    const version = Application?.nativeApplicationVersion || Application?.applicationVersion || undefined;
+    const build = Application?.nativeBuildVersion || undefined;
+    return {
+      version: typeof version === 'string' && version.trim().length ? version.trim() : undefined,
+      build: typeof build === 'string' && build.trim().length ? build.trim() : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 let preparedIntegrity = false;
 
 export async function initAppIntegrity(): Promise<boolean> {
