@@ -1,14 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Prefer the official Expo module that supports SDK 53+/Gradle 8
 import * as AppIntegrity from '@expo/app-integrity';
-// Optional: app id for fallback package name only
-let Application: any;
-try {
-  // eslint-disable-next-line no-new-func
-  const req = (Function('return require')() as any);
-  Application = req ? req('expo-application') : undefined;
-} catch {}
+import * as Application from 'expo-application';
 
 /**
  * Stable per-install identifier stored on device (not upload analytics IDFA).

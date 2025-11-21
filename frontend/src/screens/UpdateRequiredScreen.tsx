@@ -5,12 +5,14 @@ import Header from "../components/Header";
 import Button from "../components/Button";
 import { colors, spacing, typography } from "../styles/theme";
 import type { UpdateRequiredInfo } from "../lib/updateEvents";
+import { getAppVersionInfo } from "../lib/attestation";
 
 interface Props {
   info: UpdateRequiredInfo;
 }
 
 const UpdateRequiredScreen: React.FC<Props> = ({ info }) => {
+  const { version, build } = getAppVersionInfo();
   const updateUrl = info.update_url || null;
 
   const handleOpenStore = () => {
@@ -42,6 +44,13 @@ const UpdateRequiredScreen: React.FC<Props> = ({ info }) => {
             Minimum required build: <Text style={styles.detailStrong}>{info.min_build}</Text>
           </Text>
         )}
+        <Text style={styles.detail}>
+          Current version:{" "}
+          <Text style={styles.detailStrong}>
+            {version || "unknown"}
+            {build ? ` (build ${build})` : ""}
+          </Text>
+        </Text>
         {updateUrl ? (
           <Button
             title={`Open ${platformLabel}`}
@@ -93,4 +102,3 @@ const styles = StyleSheet.create({
 });
 
 export default UpdateRequiredScreen;
-
