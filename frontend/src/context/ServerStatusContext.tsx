@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { api } from "../api/client";
+import { onServerUnreachable, ServerUnreachablePayload } from "../lib/serverStatusEvents";
 
 type ServerStatusContextValue = {
   isBackendReachable: boolean | null;
@@ -82,6 +83,19 @@ export const ServerStatusProvider = ({ children }: ServerStatusProviderProps) =>
       subscription.remove();
     };
   }, [checkBackend]);
+
+  useEffect(() => {
+    const handleUnreachable = (payload?: ServerUnreachablePayload) => {
+      setIsBackendReachable(false);
+      setLastError(payload?.message || "Unable to reach the server.");
+      setLastChecked(new Date());
+      if (!isChecking) {
+        checkBackend();
+      }
+    };
+    const unsubscribe = onServerUnreachable(handleUnreachable);
+    return unsubscribe;
+  }, [checkBackend, isChecking]);
 
   const value = useMemo<ServerStatusContextValue>(
     () => ({

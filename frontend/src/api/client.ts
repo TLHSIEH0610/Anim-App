@@ -5,6 +5,7 @@ import { getInstallId, getPlayIntegrityToken, getAppPackage, getAppVersionInfo }
 import { captureException } from "../lib/capture";
 import { emitLogoutRequested } from "../lib/authEvents";
 import { emitUpdateRequired } from "../lib/updateEvents";
+import { emitServerUnreachable } from "../lib/serverStatusEvents";
 
 const LOCAL_BASE = Platform.select({
   ios: "http://127.0.0.1:8000",
@@ -93,6 +94,12 @@ api.interceptors.response.use(
           status,
           data: error?.response?.data,
         });
+      }
+    } catch {}
+    try {
+      // Network or connectivity failure: notify server status gate so it can show offline UI
+      if (!error?.response) {
+        emitServerUnreachable({ message: error?.message });
       }
     } catch {}
     return Promise.reject(error);
