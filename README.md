@@ -503,6 +503,10 @@ REDIS_URL=redis://redis:6379/0
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=https://your-domain.com  # For remote/Cloudflare setup, or host.docker.internal:8188 for local
 
+# Optional: RunPod Serverless fallback (used when local ComfyUI is unavailable)
+# RUNPOD_API_KEY=your-runpod-api-key
+# RUNPOD_ENDPOINT_ID=your-endpoint-id  # e.g. jh1jrmc32ar9ma
+
 # Google OAuth (comma-separated client IDs accepted by the backend)
 GOOGLE_OAUTH_CLIENT_IDS=android-client-id.apps.googleusercontent.com,web-client-id.apps.googleusercontent.com
 
@@ -540,6 +544,10 @@ REDIS_URL=redis://localhost:6379/0
 
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=127.0.0.1:8188  # For local, or https://your-domain.com for remote/Cloudflare setup
+
+# Optional: RunPod Serverless fallback (used when local ComfyUI is unavailable)
+# RUNPOD_API_KEY=your-runpod-api-key
+# RUNPOD_ENDPOINT_ID=your-endpoint-id  # e.g. jh1jrmc32ar9ma
 
 # Google OAuth (comma-separated client IDs accepted by the backend)
 GOOGLE_OAUTH_CLIENT_IDS=android-client-id.apps.googleusercontent.com,web-client-id.apps.googleusercontent.com

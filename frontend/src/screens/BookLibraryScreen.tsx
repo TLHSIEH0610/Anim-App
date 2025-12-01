@@ -524,7 +524,7 @@ export default function BookLibraryScreen({
       if (hasInProgressBooks) {
         loadBooks(true); // Refresh in background
       }
-    }, 10000); // Check every 10 seconds
+    }, 20000); // Check every 20 seconds
 
     return () => clearInterval(interval);
   }, [token]);

@@ -828,6 +828,12 @@ export default function BookCreationScreen({
         setPaymentId(null);
         setCardDetailsComplete(false);
         setCardFieldError(null);
+
+        // 6) Immediately create the book using the free trial
+        await createChildBook({
+          paymentModeOverride: "free_trial",
+          paymentIdOverride: null,
+        });
         return true;
       } catch (e: any) {
         const msg = e?.message || "Unable to complete $0 verification.";
@@ -1116,16 +1122,10 @@ export default function BookCreationScreen({
             "Free trial is no longer available for this template."
           );
         }
-        // Ensure verification is completed before proceeding. If not yet
-        // verified in this session, trigger the $0 verification now.
-        if (paymentMode !== "free_trial") {
-          const ok = await handleUseFreeTrial();
-          if (!ok) {
-            // Verification failed or cancelled
-            throw new Error("Please complete card verification to use a free trial.");
-          }
-        }
-        nextMode = "free_trial";
+        // Free-trial flow is handled immediately when selecting the option.
+        // If we reach this handler with free_trial selected, do nothing.
+        setIsPaymentLoading(false);
+        return;
       } else if (selectedPaymentMethod === "credits") {
         const required = quote.credits_required ?? 0;
         const balance = quote.credits_balance ?? 0;

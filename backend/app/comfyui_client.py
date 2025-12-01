@@ -21,15 +21,43 @@ except Exception:
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class ComfyUIClient:
-    def __init__(self, server_address: str = "127.0.0.1:8188"):
+    def __init__(self, server_address: str = "127.0.0.1:8188", fallback_address: Optional[str] = None):
         self.server_address = server_address
+        self.fallback_address = fallback_address
         self.client_id = str(uuid.uuid4())
-        # Determine if the server address includes the protocol (http/https)
-        if "://" in server_address:
-            self.base_url = server_address
-        else:
-            # Default to http if no protocol specified
-            self.base_url = f"http://{server_address}"
+        self.base_url = self._normalize(server_address)
+        # If primary is unreachable and a fallback is provided, switch to it.
+        if fallback_address and not self._is_reachable(self.base_url):
+            alt = self._normalize(fallback_address)
+            if self._is_reachable(alt):
+                self.base_url = alt
+                if sentry_sdk is not None:
+                    try:
+                        sentry_sdk.capture_message(f"ComfyUIClient switched to fallback server {alt}", level="warning")
+                    except Exception:
+                        pass
+            else:
+                # Still keep primary; errors will surface when used.
+                if sentry_sdk is not None:
+                    try:
+                        sentry_sdk.capture_message("ComfyUIClient fallback unreachable; using primary despite failed check", level="warning")
+                    except Exception:
+                        pass
+
+    def _normalize(self, addr: str) -> str:
+        """Ensure server address has protocol."""
+        if "://" in addr:
+            return addr
+        return f"http://{addr}"
+
+    def _is_reachable(self, base_url: str) -> bool:
+        """Lightweight reachability check against /system_stats."""
+        url = f"{base_url.rstrip('/')}/system_stats"
+        try:
+            resp = requests.get(url, timeout=5, verify=not ("localhost" in base_url or "127.0.0.1" in base_url))
+            return resp.status_code == 200
+        except Exception:
+            return False
         
     def _build_url(self, endpoint: str) -> str:
         """Build a full URL for the given endpoint"""

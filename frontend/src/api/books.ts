@@ -283,6 +283,7 @@ export async function createBook(
     const response = await api.post("/books/create", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
+        // Override default JSON header so FastAPI treats this as multipart
         "Content-Type": "multipart/form-data",
       },
       timeout: 60000, // 1 minute timeout for upload
