@@ -77,6 +77,35 @@ def require_admin(x_admin_secret: Optional[str] = Header(None)) -> None:
         raise HTTPException(status_code=403, detail="Admin access denied")
 
 
+def _extract_prompt_from_workflow(workflow: Dict[str, Any]) -> Optional[str]:
+    """Best-effort extraction of the active positive prompt from a workflow snapshot.
+
+    Prefers Qwen image-edit nodes, then falls back to CLIPTextEncode nodes.
+    """
+    try:
+        # Qwen image edit prompt
+        for node in workflow.values():
+            if not isinstance(node, dict):
+                continue
+            if node.get("class_type") == "TextEncodeQwenImageEditPlus":
+                inputs = node.get("inputs") or {}
+                text = inputs.get("prompt")
+                if isinstance(text, str) and text.strip():
+                    return text
+        # Legacy CLIPTextEncode prompt
+        for node in workflow.values():
+            if not isinstance(node, dict):
+                continue
+            if node.get("class_type") == "CLIPTextEncode":
+                inputs = node.get("inputs") or {}
+                text = inputs.get("text")
+                if isinstance(text, str) and text.strip():
+                    return text
+    except Exception:
+        return None
+    return None
+
+
 def _inject_keypoint_into_workflow(workflow: Dict[str, Any], filename: str) -> None:
     """Best-effort: set the keypoint/pose LoadImage node to a given filename.
 
@@ -173,21 +202,22 @@ def _to_decimal(value: Optional[float]) -> Optional[Decimal]:
 
 
 def _story_template_to_dict(template: StoryTemplate) -> dict:
-    pages = [
-        {
-            "page_number": page.page_number,
-            "story_text": page.story_text,
-            "image_prompt": page.image_prompt,
-            "positive_prompt": page.positive_prompt,
-            "negative_prompt": page.negative_prompt or "",
-            "pose_prompt": page.pose_prompt or "",
-            "image_kp": page.keypoint_image,
-            "workflow": page.workflow_slug,
-            "seed": page.seed,
-            "cover_text": getattr(page, 'cover_text', None),
-        }
-        for page in sorted(template.pages, key=lambda p: p.page_number)
-    ]
+    pages = []
+    for page in sorted(template.pages, key=lambda p: p.page_number):
+        pages.append(
+            {
+                "page_number": page.page_number,
+                "story_text": page.story_text,
+                # Qwen-based workflows: this slug references a Story Image/body reference.
+                "story_image": getattr(page, "story_image", None),
+                # Optional overrides; when omitted, the workflow defaults are used.
+                "positive_prompt": page.positive_prompt or "",
+                "negative_prompt": page.negative_prompt or "",
+                "cover_text": getattr(page, "cover_text", None),
+                "description": getattr(page, "description", None),
+                "workflow": page.workflow_slug,
+            }
+        )
 
     return {
         "id": template.id,
@@ -513,6 +543,11 @@ def _legacy_admin_get_workflow(
     )
 
     if snapshot:
+        workflow_payload: dict = {}
+        try:
+            workflow_payload = snapshot.workflow_json if isinstance(snapshot.workflow_json, dict) else {}
+        except Exception:
+            workflow_payload = {}
         prompt = None
         page_record = (
             db.query(BookPage)
@@ -522,10 +557,13 @@ def _legacy_admin_get_workflow(
             )
             .first()
         )
-        if page_record and page_record.enhanced_prompt:
-            prompt = page_record.enhanced_prompt
-        elif book.positive_prompt:
-            prompt = book.positive_prompt
+        # Prefer the prompt that actually lived inside the workflow snapshot.
+        prompt = _extract_prompt_from_workflow(workflow_payload) or None
+        if not prompt:
+            if page_record and page_record.enhanced_prompt:
+                prompt = page_record.enhanced_prompt
+            elif book.positive_prompt:
+                prompt = book.positive_prompt
 
         # Prepare workflow JSON for display, injecting keypoint filename if known
         wf = copy.deepcopy(snapshot.workflow_json)
@@ -582,7 +620,14 @@ def _legacy_admin_get_workflow(
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
     workflow = copy.deepcopy(base_workflow)
-    if filenames:
+    # For legacy SDXL/InstantID workflows, wire original images dynamically.
+    # Qwen image-edit graphs do not use ApplyInstantID and will fail the legacy
+    # dynamic wiring step, so skip it when we detect a Qwen workflow.
+    try:
+        is_qwen = comfy_client._is_qwen_image_edit_workflow(workflow)  # type: ignore[attr-defined]
+    except Exception:
+        is_qwen = False
+    if filenames and not is_qwen:
         workflow = comfy_client.prepare_dynamic_workflow(workflow, filenames)
 
     prompt = None
@@ -648,7 +693,7 @@ def _legacy_admin_get_workflow(
     return {
         "book_id": book.id,
         "image_filenames": filenames,
-        "prompt": prompt,
+        "prompt": prompt or _extract_prompt_from_workflow(workflow),
         "story_source": book.story_source,
         "template_key": book.template_key,
         "template_params": book.template_params,
@@ -1171,12 +1216,9 @@ def admin_create_story_template(
     db.flush()
 
     for page in sorted(payload.pages, key=lambda p: p.page_number):
-        keypoint_slug = _resolve_keypoint_slug(page.image_kp, db)
-        if keypoint_slug is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Page {page.page_number} requires an 'image_kp' slug",
-            )
+        # Prefer explicit story_image slug; fall back to legacy image_kp field.
+        story_image_raw = page.story_image or page.image_kp
+        story_image_slug = _resolve_keypoint_slug(story_image_raw, db) if story_image_raw else None
         workflow_value = None
         if page.workflow is not None:
             try:
@@ -1201,15 +1243,17 @@ def admin_create_story_template(
             story_template_id=template.id,
             page_number=page.page_number,
             story_text=page.story_text,
-            image_prompt=page.image_prompt,
-            positive_prompt=page.positive_prompt,
+            image_prompt=(page.image_prompt or ""),
+            positive_prompt=(page.positive_prompt or ""),
             negative_prompt=page.negative_prompt or "",
-            pose_prompt=page.pose_prompt or "",
+            pose_prompt=(page.pose_prompt or ""),
             controlnet_image=None,
-            keypoint_image=keypoint_slug,
+            # In the Qwen workflow, keypoint_image now represents the story image slug.
+            keypoint_image=story_image_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
             cover_text=page.cover_text or None,
+            description=page.description or None,
         )
         db.add(page_row)
 
@@ -1273,12 +1317,8 @@ def admin_update_story_template(
     db.query(StoryTemplatePage).filter(StoryTemplatePage.story_template_id == template.id).delete()
 
     for page in sorted(payload.pages, key=lambda p: p.page_number):
-        keypoint_slug = _resolve_keypoint_slug(page.image_kp, db)
-        if keypoint_slug is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Page {page.page_number} requires an 'image_kp' slug",
-            )
+        story_image_raw = page.story_image or page.image_kp
+        story_image_slug = _resolve_keypoint_slug(story_image_raw, db) if story_image_raw else None
         workflow_value = None
         if page.workflow is not None:
             try:
@@ -1303,15 +1343,16 @@ def admin_update_story_template(
             story_template_id=template.id,
             page_number=page.page_number,
             story_text=page.story_text,
-            image_prompt=page.image_prompt,
-            positive_prompt=page.positive_prompt,
+            image_prompt=(page.image_prompt or ""),
+            positive_prompt=(page.positive_prompt or ""),
             negative_prompt=page.negative_prompt or "",
-            pose_prompt=page.pose_prompt or "",
+            pose_prompt=(page.pose_prompt or ""),
             controlnet_image=None,
-            keypoint_image=keypoint_slug,
+            keypoint_image=story_image_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
             cover_text=page.cover_text or None,
+            description=page.description or None,
         )
         db.add(page_row)
 
@@ -1575,14 +1616,22 @@ class WorkflowUpsertPayload(BaseModel):
 class StoryTemplatePagePayload(BaseModel):
     page_number: int
     story_text: str
-    image_prompt: str
-    positive_prompt: str
+    # Optional legacy image prompt; Qwen-based workflows typically do not need this.
+    image_prompt: Optional[str] = None
+    # Optional positive/negative prompt overrides; when omitted, the workflow's
+    # baked-in defaults are used.
+    positive_prompt: Optional[str] = None
     negative_prompt: Optional[str] = None
     pose_prompt: Optional[str] = None
-    image_kp: str
+    # Historically named image_kp for ControlNet keypoints; in the Qwen workflow
+    # this now represents the slug of a story image (body reference). New configs
+    # should prefer story_image; image_kp is retained for backwards compatibility.
+    image_kp: Optional[str] = None
+    story_image: Optional[str] = None
     workflow: Optional[str] = None
     seed: Optional[int] = None
     cover_text: Optional[str] = None
+    description: Optional[str] = None
 
 
 class StoryTemplatePayload(BaseModel):
@@ -1726,6 +1775,7 @@ def admin_regenerate_page(
     positive_prompt: Optional[str] = None
     negative_prompt: Optional[str] = None
     keypoint_slug: Optional[str] = None
+    story_image_slug: Optional[str] = None
 
     # Use template overrides when in template mode
     overrides = {}
@@ -1745,6 +1795,7 @@ def admin_regenerate_page(
             positive_prompt = ovr.get("positive") or page_rec.enhanced_prompt or book.positive_prompt
             negative_prompt = ovr.get("negative") or book.negative_prompt
             keypoint_slug = ovr.get("keypoint")
+            story_image_slug = ovr.get("story_image") or keypoint_slug
             if ovr.get("workflow"):
                 workflow_slug = ovr.get("workflow")
 
@@ -1794,7 +1845,7 @@ def admin_regenerate_page(
     else:
         raise HTTPException(status_code=400, detail="Invalid mode; use 'edited' or 'template'")
 
-    # Upload keypoint image if provided in overrides
+    # Upload keypoint image if provided in overrides (legacy SDXL/InstantID path)
     kp_uploaded: Optional[str] = None
     if keypoint_slug:
         kp_record = db.query(ControlNetImage).filter(ControlNetImage.slug == keypoint_slug).first()
@@ -1825,6 +1876,13 @@ def admin_regenerate_page(
                     pass
                 raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
 
+    # Resolve story/body image path for Qwen workflows
+    story_image_path: Optional[str] = None
+    if story_image_slug:
+        si_record = db.query(ControlNetImage).filter(ControlNetImage.slug == story_image_slug).first()
+        if si_record and si_record.image_path and os.path.exists(si_record.image_path):
+            story_image_path = si_record.image_path
+
     # Prepare input reference images
     try:
         input_paths = json.loads(book.original_image_paths) if book.original_image_paths else []
@@ -1840,13 +1898,19 @@ def admin_regenerate_page(
             fixed_basename=f"book{book.id}_p{page}",
         )
     else:
+        is_qwen = False
+        try:
+            is_qwen = comfy_client._is_qwen_image_edit_workflow(workflow_json)  # type: ignore[attr-defined]
+        except Exception:
+            is_qwen = False
         result = comfy_client.process_image_to_animation(
             input_image_paths=input_paths,
             workflow_json=workflow_json,
             custom_prompt=positive_prompt,
             control_prompt=negative_prompt,
-            keypoint_filename=kp_uploaded,
+            keypoint_filename=kp_uploaded if not is_qwen else None,
             fixed_basename=f"book{book.id}_p{page}",
+            story_image_path=story_image_path if is_qwen else None,
         )
 
     if result.get("status") != "success" or not result.get("output_path"):
@@ -2272,185 +2336,23 @@ def admin_media_resize(
         except Exception:
             pass
         return FileResponse(str(file_path), headers={"Cache-Control": "public, max-age=600"})
-# New workflow inspector using DB-backed stories/workflows
 @router.get("/books/{book_id}/workflow")
 def admin_get_workflow(
     book_id: int,
-
     page: int = Query(0, ge=0),
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
+    """
+    Workflow inspector endpoint for a given book/page.
 
-        raise HTTPException(status_code=404, detail="Book not found")
-
-    story_template = _load_story_template(book.template_key)
-    workflow_slug = story_template.workflow_slug if story_template else "base"
-
-    definition = (
-        db.query(WorkflowDefinition)
-        .filter(WorkflowDefinition.slug == workflow_slug, WorkflowDefinition.is_active.is_(True))
-        .order_by(WorkflowDefinition.version.desc())
-        .first()
-    )
-    if not definition:
-        raise HTTPException(status_code=404, detail="Workflow definition not found")
-
-    base_workflow = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
-
-    image_paths = _load_original_images(book)
-    filenames = [Path(p).name for p in image_paths]
-
-    snapshot_rows = (
-        db.query(BookWorkflowSnapshot.page_number)
-        .filter(BookWorkflowSnapshot.book_id == book_id)
-        .distinct()
-        .all()
-    )
-    snapshot_pages = [row.page_number for row in snapshot_rows]
-
-    page_rows = (
-        db.query(BookPage.page_number)
-        .filter(BookPage.book_id == book_id)
-        .all()
-    )
-    page_numbers = [row.page_number for row in page_rows]
-
-    available_set = {0}
-    available_set.update(p for p in snapshot_pages if p is not None)
-    available_set.update(p for p in page_numbers if p is not None)
-    if page not in available_set:
-        available_set.add(page)
-    available_pages = sorted(available_set)
-
-    snapshot = (
-        db.query(BookWorkflowSnapshot)
-        .filter(
-            BookWorkflowSnapshot.book_id == book_id,
-            BookWorkflowSnapshot.page_number == page,
-        )
-        .order_by(BookWorkflowSnapshot.created_at.desc())
-        .first()
-    )
-
-    if snapshot:
-        prompt = None
-        page_record = (
-            db.query(BookPage)
-            .filter(
-                BookPage.book_id == book_id,
-                BookPage.page_number == page,
-            )
-            .first()
-        )
-        if page_record and page_record.enhanced_prompt:
-            prompt = page_record.enhanced_prompt
-        elif book.positive_prompt:
-            prompt = book.positive_prompt
-
-        # Derive regenerate mode tag from workflow_slug suffix if present
-        regen_mode = None
-        try:
-            if isinstance(snapshot.workflow_slug, str):
-                if snapshot.workflow_slug.endswith(":edited"):
-                    regen_mode = "edited"
-                elif snapshot.workflow_slug.endswith(":template"):
-                    regen_mode = "template"
-        except Exception:
-            regen_mode = None
-
-        return {
-            "book_id": book.id,
-            "image_filenames": filenames,
-            "prompt": prompt,
-            "story_source": book.story_source,
-            "template_key": book.template_key,
-            "template_params": book.template_params,
-            "page_number": page,
-            "prompt_id": snapshot.prompt_id,
-            "workflow": snapshot.workflow_json,
-            "source": "stored",
-            "regenerate_mode": regen_mode,
-            "snapshot_created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
-            "page_count": book.page_count,
-            "available_pages": available_pages,
-            "workflow_version": snapshot.workflow_version,
-            "workflow_slug": snapshot.workflow_slug,
-            # Include page/book error metadata for admin UI
-            "image_status": page_record.image_status if page_record else None,
-            "image_error": page_record.image_error if page_record else None,
-            "book_status": book.status,
-            "book_error_message": book.error_message,
-        }
-
-    comfy_client = ComfyUIClient(COMFYUI_SERVER)
-    workflow = copy.deepcopy(base_workflow)
-    if filenames:
-        workflow = comfy_client.prepare_dynamic_workflow(workflow, filenames)
-
-    prompt = None
-    target_page = (
-        db.query(BookPage)
-        .filter(
-            BookPage.book_id == book_id,
-            BookPage.page_number == page,
-        )
-        .first()
-    )
-    if target_page and target_page.enhanced_prompt:
-        prompt = target_page.enhanced_prompt
-    elif book.positive_prompt:
-        prompt = book.positive_prompt
-
-    control_prompt = None
-
-    if book.story_source == "template" and book.template_key and story_template:
-        try:
-            temp_book = SimpleNamespace(
-                title=book.title,
-                template_key=book.template_key,
-                page_count=book.page_count,
-                story_source=book.story_source,
-                template_params=book.template_params,
-                target_age=book.target_age or story_template.age,
-                character_description=book.character_description,
-            )
-            _, overrides = _build_story_from_template(temp_book, story_template)
-            if target_page:
-                override = overrides.get(target_page.page_number)
-                if override:
-                    control_prompt = override.get("control")
-        except Exception:
-            control_prompt = None
-
-    if not control_prompt and target_page and target_page.image_description:
-        control_prompt = target_page.image_description
-
-    if prompt:
-        workflow = comfy_client._update_prompt(workflow, prompt, control_prompt)  # type: ignore[attr-defined]
-
-    return {
-        "book_id": book.id,
-        "image_filenames": filenames,
-        "prompt": prompt,
-        "story_source": book.story_source,
-        "template_key": book.template_key,
-        "template_params": book.template_params,
-        "page_number": page,
-        "source": "reconstructed",
-        "workflow": workflow,
-        "page_count": book.page_count,
-        "available_pages": available_pages,
-        "workflow_version": definition.version,
-        "workflow_slug": workflow_slug,
-        # Include page/book error metadata for admin UI
-        "image_status": target_page.image_status if target_page else None,
-        "image_error": target_page.image_error if target_page else None,
-        "book_status": book.status,
-        "book_error_message": book.error_message,
-    }
+    Delegates to the legacy implementation which already:
+      - Loads the correct workflow definition based on the story template.
+      - Prefers prompts embedded in the stored workflow snapshot (including Qwen node 348).
+      - Falls back to BookPage.enhanced_prompt or Book.positive_prompt when needed.
+      - Injects keypoint/story image filenames into the workflow JSON for display.
+    """
+    return _legacy_admin_get_workflow(book_id=book_id, page=page, _=_, db=db)
 
 @router.post("/test/comfy-run")
 def admin_test_comfy_run(

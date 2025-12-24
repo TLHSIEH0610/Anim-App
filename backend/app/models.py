@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, ForeignKey, Text, Float, JSON, Numeric
-from sqlalchemy.orm import relationship, foreign
+from sqlalchemy.orm import relationship, foreign, synonym
 from datetime import datetime, timezone
 from decimal import Decimal
 from .db import Base
@@ -222,12 +222,19 @@ class StoryTemplatePage(Base):
     story_template_id = Column(Integer, ForeignKey("story_templates.id"), nullable=False, index=True)
     page_number = Column(Integer, nullable=False)
     story_text = Column(Text, nullable=False)
-    image_prompt = Column(Text, nullable=False)
-    positive_prompt = Column(Text, nullable=False)
+    # Legacy prompt fields (optional, mostly ignored by the Qwen pipeline).
+    image_prompt = Column(Text, nullable=False, default="")
+    positive_prompt = Column(Text, nullable=False, default="")
     negative_prompt = Column(Text)
-    pose_prompt = Column(Text, nullable=False)
+    pose_prompt = Column(Text, nullable=False, default="")
     controlnet_image = Column(String(150))
+    # Historically used for ControlNet keypoint masks; in the Qwen workflow
+    # this is repurposed as the slug of a "story image" (body reference).
     keypoint_image = Column(String(150))
+    # Alias for clearer semantics in Qwen-based pipelines.
+    story_image = synonym("keypoint_image")
+    # Optional per-page admin description (e.g. for internal notes or UI).
+    description = Column(Text)
     workflow_slug = Column(String(100))
     seed = Column(BigInteger)
     cover_text = Column(Text)

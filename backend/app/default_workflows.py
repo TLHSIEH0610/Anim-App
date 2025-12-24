@@ -147,13 +147,18 @@ def ensure_default_workflows(session_factory):
     from app.fixtures import load_workflow_fixtures
     from app.models import WorkflowDefinition  # local import to avoid circular
 
-    fixture_records = load_workflow_fixtures()
-    payloads = [record for _, record in fixture_records]
-    if not payloads:
-        payloads = DEFAULT_WORKFLOWS
-
     session = session_factory()
     try:
+        # Seed workflows *only* when the table is empty.
+        # This gives admins full control to delete/modify workflows (including "base")
+        # without them being recreated on every startup from fixtures.
+        existing_count = session.query(WorkflowDefinition).count()
+        if existing_count > 0:
+            return
+
+        fixture_records = load_workflow_fixtures()
+        payloads = [record for _, record in fixture_records] or DEFAULT_WORKFLOWS
+
         for wf in payloads:
             slug = wf.get("slug")
             if not slug:

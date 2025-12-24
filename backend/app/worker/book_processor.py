@@ -256,12 +256,23 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
     if cover_candidates:
         cover_t = cover_candidates[0]
         cover_story = _format_template_text(cover_t.story_text, replacements)
-        cover_img_prompt = _format_template_text(cover_t.image_prompt, replacements)
-        cover_pos = _format_template_text(cover_t.positive_prompt, replacements) if cover_t.positive_prompt else ""
-        cover_neg = _format_template_text(cover_t.negative_prompt, replacements) if getattr(cover_t, 'negative_prompt', None) else ""
-        cover_pose = _format_template_text(cover_t.pose_prompt, replacements) if cover_t.pose_prompt else ""
-        cover_kp = cover_t.keypoint_image
-        cover_workflow = (getattr(cover_t, 'workflow_slug', None) or '').strip() or 'cover'
+        cover_img_prompt_raw = getattr(cover_t, "image_prompt", None) or ""
+        cover_img_prompt = _format_template_text(cover_img_prompt_raw, replacements) if cover_img_prompt_raw else ""
+        cover_pos_raw = getattr(cover_t, "positive_prompt", None) or ""
+        cover_pos = _format_template_text(cover_pos_raw, replacements) if cover_pos_raw else ""
+        cover_neg_raw = getattr(cover_t, "negative_prompt", None) or ""
+        cover_neg = _format_template_text(cover_neg_raw, replacements) if cover_neg_raw else ""
+        cover_pose_raw = getattr(cover_t, "pose_prompt", None) or ""
+        cover_pose = _format_template_text(cover_pose_raw, replacements) if cover_pose_raw else ""
+        # For Qwen workflows, this slug now represents the story/body image for the cover.
+        cover_story_image_slug = getattr(cover_t, "story_image", None) or cover_t.keypoint_image
+        # For Qwen and modern flows, we do not default to a special "cover" workflow slug;
+        # if no explicit workflow is set on the cover template row, the main template
+        # workflow_slug will be used instead.
+        raw_cover_wf = getattr(cover_t, "workflow_slug", None)
+        if isinstance(raw_cover_wf, str):
+            raw_cover_wf = raw_cover_wf.strip() or None
+        cover_workflow = raw_cover_wf
         cover_text_value = None
         try:
             cover_text_value = getattr(cover_t, 'cover_text', None)
@@ -276,7 +287,8 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             "page": 0,
             "text": cover_story,
             "image_description": cover_img_prompt,
-            "image_kp": cover_kp,
+            "image_kp": cover_story_image_slug,
+            "story_image": cover_story_image_slug,
             "workflow": cover_workflow,
             "seed": getattr(cover_t, 'seed', None) if getattr(cover_t, 'seed', None) not in ("", None) else None,
         })
@@ -286,8 +298,11 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             cov_override["positive"] = cover_pos.strip()
         if cover_neg.strip():
             cov_override["negative"] = cover_neg.strip()
-        if cover_kp:
-            cov_override["keypoint"] = cover_kp
+        if cover_story_image_slug:
+            # Historically this was keyed as "keypoint"; retain that for compatibility
+            # but also expose a clearer "story_image" key for Qwen workflows.
+            cov_override["keypoint"] = cover_story_image_slug
+            cov_override["story_image"] = cover_story_image_slug
         if cover_pose and cover_pose.strip():
             cov_override["pose"] = cover_pose.strip()
         if cover_workflow:
@@ -311,11 +326,15 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         page_template = body_templates[index % len(body_templates)]
 
         story_text = _format_template_text(page_template.story_text, replacements)
-        image_prompt = _format_template_text(page_template.image_prompt, replacements)
-        positive_prompt = _format_template_text(page_template.positive_prompt, replacements) if page_template.positive_prompt else ""
-        negative_prompt = _format_template_text(page_template.negative_prompt, replacements) if getattr(page_template, "negative_prompt", None) else ""
-        pose_prompt = _format_template_text(page_template.pose_prompt, replacements) if page_template.pose_prompt else ""
-        keypoint_slug = page_template.keypoint_image
+        image_prompt_raw = getattr(page_template, "image_prompt", None) or ""
+        image_prompt = _format_template_text(image_prompt_raw, replacements) if image_prompt_raw else ""
+        positive_raw = getattr(page_template, "positive_prompt", None) or ""
+        positive_prompt = _format_template_text(positive_raw, replacements) if positive_raw else ""
+        negative_raw = getattr(page_template, "negative_prompt", None) or ""
+        negative_prompt = _format_template_text(negative_raw, replacements) if negative_raw else ""
+        pose_raw = getattr(page_template, "pose_prompt", None) or ""
+        pose_prompt = _format_template_text(pose_raw, replacements) if pose_raw else ""
+        story_image_slug = getattr(page_template, "story_image", None) or page_template.keypoint_image
 
         workflow_override_slug = getattr(page_template, "workflow_slug", None)
         if isinstance(workflow_override_slug, str):
@@ -334,7 +353,8 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
                 "page": page_number,
                 "text": story_text,
                 "image_description": image_prompt,
-                "image_kp": keypoint_slug,
+                "image_kp": story_image_slug,
+                "story_image": story_image_slug,
                 "workflow": workflow_override_slug,
                 "seed": seed_value,
             }
@@ -345,8 +365,11 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             override["positive"] = positive_prompt.strip()
         if negative_prompt.strip():
             override["negative"] = negative_prompt.strip()
-        if keypoint_slug:
-            override["keypoint"] = keypoint_slug
+        if story_image_slug:
+            # Preserve legacy "keypoint" key for non-Qwen workflows while
+            # introducing a clearer "story_image" key for Qwen pipelines.
+            override["keypoint"] = story_image_slug
+            override["story_image"] = story_image_slug
         if pose_prompt and pose_prompt.strip():
             override["pose"] = pose_prompt.strip()
         if workflow_override_slug:
@@ -820,6 +843,21 @@ def create_childbook(book_id: int):
 
                     print(f"Using {len(image_paths)} reference image(s) for character consistency")
 
+                    # In Qwen workflows, this slug now represents the story/body image;
+                    # in legacy SDXL/InstantID flows it continues to be used as a keypoint.
+                    story_image_slug = prompt_override.get("story_image") or keypoint_slug
+                    story_image_path: Optional[str] = None
+                    if story_image_slug:
+                        si_record = (
+                            session.query(ControlNetImage)
+                            .filter(ControlNetImage.slug == story_image_slug)
+                            .first()
+                        )
+                        if si_record and si_record.image_path and os.path.exists(si_record.image_path):
+                            story_image_path = si_record.image_path
+                        else:
+                            print(f"Story image '{story_image_slug}' not found or missing path")
+
                     keypoint_filename: Optional[str] = None
                     keypoint_image_path: Optional[str] = None
                     if keypoint_slug:
@@ -877,14 +915,30 @@ def create_childbook(book_id: int):
 
                     result = None
                     primary_error: Optional[Exception] = None
+                    is_qwen_workflow = False
+                    try:
+                        is_qwen_workflow = comfyui_client._is_qwen_image_edit_workflow(workflow)  # type: ignore[attr-defined]
+                    except Exception:
+                        is_qwen_workflow = False
                     if 'comfy_reachable' in locals() and comfy_reachable:
                         try:
+                            # For Qwen image-edit workflows, treat template positive_prompt
+                            # as an optional override only. When no override is provided,
+                            # let the workflow's built-in prompt (e.g. node 348) stand.
+                            if is_qwen_workflow:
+                                custom_prompt = positive_override or None
+                                control_prompt_arg = None
+                            else:
+                                custom_prompt = page.enhanced_prompt
+                                control_prompt_arg = negative_prompt
+
                             result = comfyui_client.process_image_to_animation(
                                 image_paths,
                                 copy.deepcopy(workflow),
-                                page.enhanced_prompt,
-                                negative_prompt,
-                                keypoint_filename=keypoint_filename,
+                                custom_prompt,
+                                control_prompt_arg,
+                                keypoint_filename=keypoint_filename if not is_qwen_workflow else None,
+                                story_image_path=story_image_path if is_qwen_workflow else None,
                             )
                         except Exception as e:
                             primary_error = e
@@ -894,7 +948,8 @@ def create_childbook(book_id: int):
                     # Fallback to RunPod Serverless when local ComfyUI fails
                     if not (result and result.get("status") == "success" and result.get("output_path")):
                         runpod = _get_runpod_fallback()
-                        if runpod:
+                        # RunPod fallback is only supported for legacy SDXL/InstantID flows today.
+                        if runpod and not is_qwen_workflow:
                             try:
                                 result = runpod.process_image_to_animation(
                                     workflow,

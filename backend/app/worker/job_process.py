@@ -111,8 +111,13 @@ def comfyui_process_image(input_path: str) -> str:
 
     if comfy_reachable:
         try:
-            # For this worker we only ever send a single image
-            result = client.process_image_to_animation([input_path], workflow, keypoint_filename=None)
+            # For this worker we only ever send a single image; Qwen-based
+            # multi-reference workflows are handled in the book processor.
+            result = client.process_image_to_animation(
+                [input_path],
+                workflow,
+                keypoint_filename=None,
+            )
         except Exception as e:
             primary_error = e
     else:

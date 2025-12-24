@@ -92,6 +92,50 @@ class ComfyUIClient:
                 cleaned[key] = val
         return cleaned
 
+    def _is_qwen_image_edit_workflow(self, workflow: Dict[str, Any]) -> bool:
+        """Detect whether the workflow uses Qwen image-edit nodes."""
+        try:
+            for node in workflow.values():
+                if isinstance(node, dict) and node.get("class_type") == "TextEncodeQwenImageEditPlus":
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _prepare_qwen_image_edit_workflow(
+        self,
+        workflow: Dict[str, Any],
+        story_image_name: str,
+        face_image_name: str,
+        custom_prompt: Optional[str] = None,
+        control_prompt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Wire story/body and face reference images into a Qwen image edit workflow."""
+        try:
+            for node_id, node in workflow.items():
+                if not isinstance(node, dict):
+                    continue
+                if node.get("class_type") != "LoadImage":
+                    continue
+                meta = node.get("_meta", {}) if isinstance(node.get("_meta", {}), dict) else {}
+                title = meta.get("title", "")
+                inputs = node.setdefault("inputs", {})
+                if title == "Body Reference":
+                    inputs["image"] = story_image_name
+                    inputs["load_from_upload"] = True
+                elif title == "Face Reference":
+                    inputs["image"] = face_image_name
+                    inputs["load_from_upload"] = True
+
+            if custom_prompt:
+                for node in workflow.values():
+                    if isinstance(node, dict) and node.get("class_type") == "TextEncodeQwenImageEditPlus":
+                        inputs = node.setdefault("inputs", {})
+                        inputs["prompt"] = custom_prompt
+        except Exception as prep_err:
+            print(f"[ComfyUI] Failed to prepare Qwen workflow: {prep_err}")
+        return workflow
+
     def queue_prompt(self, prompt: Dict[str, Any]) -> str:
         """Queue a prompt and return the prompt ID"""
         url = self._build_url("prompt")
@@ -367,6 +411,7 @@ class ComfyUIClient:
         control_prompt: str | None = None,
         keypoint_filename: str | None = None,
         fixed_basename: Optional[str] = None,
+        story_image_path: Optional[str] = None,
     ) -> Dict:
         """
         Process image(s) through ComfyUI workflow
@@ -404,100 +449,129 @@ class ComfyUIClient:
 
                 print(f"Processing {len(input_image_paths)} image(s) with ComfyUI")
 
-                # Upload all images to ComfyUI
-                image_filenames = []
+                # Upload all face/reference images to ComfyUI
+                image_filenames: List[str] = []
                 for i, image_path in enumerate(input_image_paths):
                     print(f"Uploading image {i+1}/{len(input_image_paths)}: {image_path}")
                     filename = self._upload_image(image_path)
                     print(f"[ComfyUI] Uploaded image stored as: {filename}")
                     image_filenames.append(filename)
 
-                # Prepare workflow with dynamic adjustments based on number of images
+                story_image_uploaded: Optional[str] = None
+                if story_image_path:
+                    try:
+                        story_image_uploaded = self._upload_image(story_image_path)
+                        print(f"[ComfyUI] Uploaded story image stored as: {story_image_uploaded}")
+                    except Exception as story_err:
+                        print(f"[ComfyUI] Failed to upload story image '{story_image_path}': {story_err}")
+
                 import copy
                 workflow = copy.deepcopy(workflow_json)
-                if image_filenames:
-                    workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
+                is_qwen = self._is_qwen_image_edit_workflow(workflow)
 
-                # Inject keypoint into the workflow if provided
-                if keypoint_filename:
-                    try:
-                        # If we were given just a filename, try uploading the actual file into ComfyUI's upload store
-                        # so LoadImage nodes with load_from_upload can find it.
-                        keypoint_to_use = keypoint_filename
+                if is_qwen and story_image_uploaded:
+                    # Qwen image edit path: first reference image is the face; story/body image is separate.
+                    if not image_filenames:
+                        event["status"] = "error"
+                        event["context"]["reason"] = "missing_face_reference"
+                        return {
+                            "status": "failed",
+                            "error": "Qwen workflow requires at least one face reference image.",
+                        }
+                    face_filename = image_filenames[0]
+                    workflow = self._prepare_qwen_image_edit_workflow(
+                        workflow,
+                        story_image_name=story_image_uploaded,
+                        face_image_name=face_filename,
+                        custom_prompt=custom_prompt,
+                        control_prompt=control_prompt,
+                    )
+                else:
+                    # Legacy SDXL / InstantID pipeline: dynamic multi-image wiring +
+                    # optional keypoint injection and CLIP text overrides.
+                    if image_filenames:
+                        workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
+
+                    # Inject keypoint into the workflow if provided
+                    if keypoint_filename:
                         try:
-                            media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
-                            candidate = Path(media_root) / "controlnet" / "keypoints" / keypoint_filename
-                            if candidate.exists() and candidate.is_file():
-                                uploaded_name = self._upload_image(str(candidate))
-                                if uploaded_name:
-                                    keypoint_to_use = uploaded_name
-                                    print(f"[ComfyUI] Uploaded keypoint '{keypoint_filename}' as '{uploaded_name}'")
-                        except Exception as up_err:
-                            print(f"[ComfyUI] Keypoint upload skipped/failed: {up_err}")
+                            # If we were given just a filename, try uploading the actual file into ComfyUI's upload store
+                            # so LoadImage nodes with load_from_upload can find it.
+                            keypoint_to_use = keypoint_filename
+                            try:
+                                media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
+                                candidate = Path(media_root) / "controlnet" / "keypoints" / keypoint_filename
+                                if candidate.exists() and candidate.is_file():
+                                    uploaded_name = self._upload_image(str(candidate))
+                                    if uploaded_name:
+                                        keypoint_to_use = uploaded_name
+                                        print(f"[ComfyUI] Uploaded keypoint '{keypoint_filename}' as '{uploaded_name}'")
+                            except Exception as up_err:
+                                print(f"[ComfyUI] Keypoint upload skipped/failed: {up_err}")
 
-                        meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                        # Prefer wiring via ApplyInstantID*'s image_kps link
-                        apply_node_id = meta.get("instantid_apply_node")
-                        if not apply_node_id:
-                            for node_id, node in workflow.items():
-                                if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
-                                    apply_node_id = node_id
-                                    break
-                        load_node_id = None
-                        if apply_node_id:
-                            apply_inputs = workflow[apply_node_id].get("inputs", {})
-                            link = apply_inputs.get("image_kps") or apply_inputs.get("image_kp")
-                            if isinstance(link, list) and len(link) >= 1 and isinstance(link[0], str):
-                                load_node_id = link[0]
-                        # Fallback to common node ids in our workflows
-                        if not load_node_id:
-                            kp_meta = meta.get("keypoint_load_node")
-                            if kp_meta:
-                                load_node_id = kp_meta
-                        if not load_node_id:
-                            for candidate in ["109", "100", "128"]:
-                                node = workflow.get(candidate)
-                                if node and node.get("class_type") == "LoadImage":
-                                    load_node_id = candidate
-                                    break
-                        # Last resort: pick any LoadImage node whose image hints keypoints/pose
-                        if not load_node_id:
-                            for node_id, node in workflow.items():
-                                if node.get("class_type") != "LoadImage":
-                                    continue
-                                img = node.get("inputs", {}).get("image")
-                                if isinstance(img, str) and any(h in img.lower() for h in ("keypoint", "pose", "instantid")):
-                                    load_node_id = node_id
-                                    break
-                        if load_node_id and "inputs" in workflow.get(load_node_id, {}):
-                            workflow[load_node_id]["inputs"]["image"] = keypoint_to_use
-                            workflow[load_node_id]["inputs"]["load_from_upload"] = True
-                            print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_to_use}")
-                        elif "100" in workflow and "inputs" in workflow["100"]:
-                            # Legacy fallback: node 100 manual set
-                            workflow["100"]["inputs"]["image"] = keypoint_to_use
-                            workflow["100"]["inputs"]["load_from_upload"] = True
-                            print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_to_use}")
-                        else:
-                            print("[ComfyUI] Warning: Could not locate a LoadImage node for keypoints to inject")
-                    except Exception as inj_err:
-                        print(f"[ComfyUI] Keypoint injection failed: {inj_err}")
+                            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+                            # Prefer wiring via ApplyInstantID*'s image_kps link
+                            apply_node_id = meta.get("instantid_apply_node")
+                            if not apply_node_id:
+                                for node_id, node in workflow.items():
+                                    if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
+                                        apply_node_id = node_id
+                                        break
+                            load_node_id = None
+                            if apply_node_id:
+                                apply_inputs = workflow[apply_node_id].get("inputs", {})
+                                link = apply_inputs.get("image_kps") or apply_inputs.get("image_kp")
+                                if isinstance(link, list) and len(link) >= 1 and isinstance(link[0], str):
+                                    load_node_id = link[0]
+                            # Fallback to common node ids in our workflows
+                            if not load_node_id:
+                                kp_meta = meta.get("keypoint_load_node")
+                                if kp_meta:
+                                    load_node_id = kp_meta
+                            if not load_node_id:
+                                for candidate in ["109", "100", "128"]:
+                                    node = workflow.get(candidate)
+                                    if node and node.get("class_type") == "LoadImage":
+                                        load_node_id = candidate
+                                        break
+                            # Last resort: pick any LoadImage node whose image hints keypoints/pose
+                            if not load_node_id:
+                                for node_id, node in workflow.items():
+                                    if node.get("class_type") != "LoadImage":
+                                        continue
+                                    img = node.get("inputs", {}).get("image")
+                                    if isinstance(img, str) and any(h in img.lower() for h in ("keypoint", "pose", "instantid")):
+                                        load_node_id = node_id
+                                        break
+                            if load_node_id and "inputs" in workflow.get(load_node_id, {}):
+                                workflow[load_node_id]["inputs"]["image"] = keypoint_to_use
+                                workflow[load_node_id]["inputs"]["load_from_upload"] = True
+                                print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_to_use}")
+                            elif "100" in workflow and "inputs" in workflow["100"]:
+                                # Legacy fallback: node 100 manual set
+                                workflow["100"]["inputs"]["image"] = keypoint_to_use
+                                workflow["100"]["inputs"]["load_from_upload"] = True
+                                print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_to_use}")
+                            else:
+                                print("[ComfyUI] Warning: Could not locate a LoadImage node for keypoints to inject")
+                        except Exception as inj_err:
+                            print(f"[ComfyUI] Keypoint injection failed: {inj_err}")
 
-                # Debug log: surface the filenames wired into each LoadImage node
-                try:
-                    load_nodes = [node_id for node_id in ["13", "94", "98", "100", "109", "128"] if node_id in workflow]
-                    resolved_inputs = {
-                        node_id: workflow[node_id]["inputs"].get("image")
-                        for node_id in load_nodes
-                        if isinstance(workflow[node_id].get("inputs"), dict)
-                    }
-                    print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
-                except Exception as debug_error:
-                    print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
+                    # Debug log: surface the filenames wired into each LoadImage node
+                    try:
+                        load_nodes = [node_id for node_id in ["13", "94", "98", "100", "109", "128"] if node_id in workflow]
+                        resolved_inputs = {
+                            node_id: workflow[node_id]["inputs"].get("image")
+                            for node_id in load_nodes
+                            if isinstance(workflow[node_id].get("inputs"), dict)
+                        }
+                        print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
+                    except Exception as debug_error:
+                        print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
 
-                # Update workflow with custom prompt if provided
-                if custom_prompt or control_prompt:
-                    workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
+                    # Update workflow with custom prompt if provided
+                    if custom_prompt or control_prompt:
+                        workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
 
                 # Log workflow snapshot before queueing
                 self._log_workflow_snapshot(workflow)
@@ -510,11 +584,14 @@ class ComfyUIClient:
                 result = self.wait_for_completion(prompt_id)
 
                 # Fallback once if face detection failed on cropped input: force raw reference image
+                # Only relevant for legacy InstantID-based flows, not Qwen image edit.
                 try:
                     err_text = str(result.get("error") or "").lower()
                 except Exception:
                     err_text = ""
-                if result.get("status") == "failed" and ("no face detected" in err_text or "reference image" in err_text):
+                if (not is_qwen) and result.get("status") == "failed" and (
+                    "no face detected" in err_text or "reference image" in err_text
+                ):
                     try:
                         wf2 = self._force_raw_reference(workflow)
                         prompt_id2 = self.queue_prompt(wf2)

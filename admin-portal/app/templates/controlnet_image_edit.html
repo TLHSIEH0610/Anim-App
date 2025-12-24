@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2 class="mdc-typography--headline5">Edit Keypoint Image</h2>
+<h2 class="mdc-typography--headline5">Edit Story Image</h2>
 
 <div class="mdc-card" style="margin-bottom:1.5rem; max-width:360px; padding:12px;">
   {% if image.image_path %}
@@ -28,7 +28,7 @@
   <div class="full">
     <label for="edit-file">Replace Image</label>
     <input id="edit-file" type="file" name="image_file" accept="image/*">
-    <p style="font-size:0.85rem; opacity:.75;">Uploading a new file replaces the current keypoint mask after you save.</p>
+    <p style="font-size:0.85rem; opacity:.75;">Uploading a new file replaces the current story image after you save.</p>
   </div>
 
   <div class="form-actions full">
@@ -36,9 +36,9 @@
   </div>
 </form>
 
-<form method="post" action="/keypoint-images/{{ image.slug }}/delete" onsubmit="return confirm('Delete keypoint image {{ image.slug }}?');" class="mt-2">
-  <button type="submit" class="mdc-button mdc-button--outlined"><span class="mdc-button__label">Delete Keypoint Image</span></button>
+<form method="post" action="/keypoint-images/{{ image.slug }}/delete" onsubmit="return confirm('Delete story image {{ image.slug }}?');" class="mt-2">
+  <button type="submit" class="mdc-button mdc-button--outlined"><span class="mdc-button__label">Delete Story Image</span></button>
 </form>
 
-<a href="/keypoint-images" class="mdc-button mt-4"><span class="mdc-button__label">Back to keypoints</span></a>
+<a href="/keypoint-images" class="mdc-button mt-4"><span class="mdc-button__label">Back to story images</span></a>
 {% endblock %}

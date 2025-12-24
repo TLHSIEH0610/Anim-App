@@ -130,8 +130,16 @@
 
     <div class="full">
       <label for="pages">Pages JSON</label>
-      <p style="margin-top:-0.25rem; font-size:0.9rem; opacity:.75">Include optional <code>"seed"</code> per page to force deterministic ComfyUI outputs.</p>
-      <textarea id="pages" name="pages" style="min-height:260px;" placeholder='[{"page_number":1,"story_text":"...","image_prompt":"...","positive_prompt":"...","image_kp":"default_pose","seed":123456789}]' required>{{ (form_defaults.pages if form_defaults else '') }}</textarea>
+      <p style="margin-top:-0.25rem; font-size:0.9rem; opacity:.75">
+        For Qwen workflows, include <code>"story_image"</code> per page to reference a Story Image slug. Optional fields:
+        <code>"positive_prompt"</code>, <code>"negative_prompt"</code>, and <code>"description"</code>.
+      </p>
+      <textarea
+        id="pages"
+        name="pages"
+        style="min-height:260px;"
+        placeholder='[{"page_number":1,"story_text":"...","story_image":"my_story_image_slug","positive_prompt":"...","description":"Short admin note"}]'
+        required>{{ (form_defaults.pages if form_defaults else '') }}</textarea>
     </div>
 
     <div class="full">

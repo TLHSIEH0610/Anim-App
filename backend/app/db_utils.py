@@ -22,6 +22,7 @@ def apply_schema_patches(engine):
         "ALTER TABLE story_templates ADD COLUMN free_trial_slug VARCHAR(120)",
         "ALTER TABLE story_template_pages ADD COLUMN IF NOT EXISTS seed BIGINT",
         "ALTER TABLE story_template_pages ADD COLUMN IF NOT EXISTS workflow_slug VARCHAR(100)",
+        "ALTER TABLE story_template_pages ADD COLUMN IF NOT EXISTS description TEXT",
         "ALTER TABLE story_templates DROP COLUMN IF EXISTS seed",
         "ALTER TABLE story_templates DROP COLUMN IF EXISTS illustration_style",
         "ALTER TABLE users ADD COLUMN free_trials_used JSON",

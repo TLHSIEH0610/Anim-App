@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2 class="mdc-typography--headline5">Keypoint Images</h2>
-<p>Upload reference keypoint masks for InstantID (node 100). Each story page can reference one of these by slug.</p>
+<h2 class="mdc-typography--headline5">Story Images</h2>
+<p>Upload reusable story/body reference images. Each story page can reference one of these by slug.</p>
 
 {% if images %}
   <div class="mdc-data-table mt-3">
@@ -45,11 +45,11 @@
     </div>
   </div>
 {% else %}
-  <p>No keypoint images yet. Upload one below to get started.</p>
+  <p>No story images yet. Upload one below to get started.</p>
 {% endif %}
 
 <section class="mt-4">
-  <h3 class="mdc-typography--headline6">Upload Keypoint Image</h3>
+  <h3 class="mdc-typography--headline6">Upload Story Image</h3>
   <form method="post" action="/keypoint-images/create" enctype="multipart/form-data" class="form-grid one-col mt-2">
     <div class="full">
       <div class="mdc-text-field mdc-text-field--filled w-100">
@@ -67,9 +67,9 @@
     </div>
 
     <div class="full">
-      <label for="create-file">Keypoint Image</label>
+      <label for="create-file">Story Image</label>
       <input id="create-file" type="file" name="image_file" accept="image/*" required class="w-100">
-      <p style="font-size:0.85rem; opacity:.75;">PNG masks with transparent background typically work best.</p>
+      <p style="font-size:0.85rem; opacity:.75;">Use PNG or JPG images that match the pose/scene you want in the story.</p>
     </div>
 
     <div class="form-actions full">
