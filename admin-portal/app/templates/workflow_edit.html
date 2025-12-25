@@ -77,50 +77,6 @@
     <textarea id="content" name="content" style="min-height:320px;">{{ workflow.content | tojson(indent=2) }}</textarea>
   </div>
 
-  <div class="full">
-    <h4 class="mdc-typography--headline6">Workflow Hints (optional)</h4>
-    {% set meta = workflow.content.get('_meta', {}) %}
-    <div class="form-grid">
-      <div>
-        <label for="meta_keypoint_load_node">Keypoint LoadImage Node ID</label>
-        <input id="meta_keypoint_load_node" name="meta_keypoint_load_node" type="text" placeholder="109" value="{{ meta.get('keypoint_load_node','') }}">
-      </div>
-      <div>
-        <label for="meta_instantid_apply_node">InstantID Apply Node ID</label>
-        <input id="meta_instantid_apply_node" name="meta_instantid_apply_node" type="text" placeholder="(e.g. node id for ApplyInstantID)" value="{{ meta.get('instantid_apply_node','') }}">
-      </div>
-      <div class="full">
-        <label for="meta_keypoint_default_image">Default keypoint image filename</label>
-        <input id="meta_keypoint_default_image" name="meta_keypoint_default_image" type="text" placeholder="my_pose.png" value="{{ meta.get('keypoint_default_image','') }}">
-      </div>
-      <div class="full">
-        <label for="meta_prompt_nodes_positive">Positive prompt node IDs (comma separated)</label>
-        <input id="meta_prompt_nodes_positive" name="meta_prompt_nodes_positive" type="text" placeholder="39" value="{{ (meta.get('prompt_nodes',{}).get('positive',[]) | join(', ')) }}">
-      </div>
-      <div class="full">
-        <label for="meta_prompt_nodes_negative">Negative prompt node IDs (comma separated)</label>
-        <input id="meta_prompt_nodes_negative" name="meta_prompt_nodes_negative" type="text" placeholder="40" value="{{ (meta.get('prompt_nodes',{}).get('negative',[]) | join(', ')) }}">
-      </div>
-      <div class="full">
-        <label for="meta_load_images">Reference LoadImage node IDs (comma separated)</label>
-        <input id="meta_load_images" name="meta_load_images" type="text" placeholder="13, 94, 98, 101" value="{{ (meta.get('load_images',[]) | join(', ')) }}">
-      </div>
-      <div class="full">
-        <label for="meta_save_nodes">SaveImage node IDs (comma separated)</label>
-        <input id="meta_save_nodes" name="meta_save_nodes" type="text" placeholder="25, 10" value="{{ (meta.get('save_nodes',[]) | join(', ')) }}">
-      </div>
-      <div class="full">
-        <label for="meta_overlay_nodes">Text Overlay node IDs (comma separated)</label>
-        <input id="meta_overlay_nodes" name="meta_overlay_nodes" type="text" placeholder="116" value="{{ (meta.get('overlay_nodes',[]) | join(', ')) }}">
-      </div>
-      <div class="full">
-        <label for="meta_preview_nodes">Preview node IDs (comma separated)</label>
-        <input id="meta_preview_nodes" name="meta_preview_nodes" type="text" placeholder="102, 83, 84, 91, 15" value="{{ (meta.get('preview_nodes',[]) | join(', ')) }}">
-      </div>
-    </div>
-    <div class="form-help muted">These hints are stored under <code>_meta</code> in the workflow JSON and help the generator find the right nodes as workflows evolve.</div>
-  </div>
-
   <div class="form-actions full">
     <button type="submit" class="mdc-button mdc-button--raised"><span class="mdc-button__label">Save</span></button>
   </div>

@@ -21,6 +21,10 @@ npm run dev
 # Open http://localhost:3000
 ```
 
+## Dependency note (Vercel)
+
+If Vercel blocks deploys due to a Next.js security advisory, bump `next` and regenerate `package-lock.json` (a fresh `npm install` will recreate it).
+
 ## What works now
 
 - Google sign‑in (GIS) → Next.js API route `/api/login` exchanges for backend JWT and sets an httpOnly cookie.

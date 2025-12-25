@@ -1503,58 +1503,6 @@ async def update_workflow(workflow_id: int, request: Request):
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
-    # Optional workflow hints (_meta)
-    meta: dict[str, any] = content_obj.get("_meta", {}) if isinstance(content_obj, dict) else {}
-    def _split_ids(text: str) -> list[str]:
-        return [x.strip() for x in text.split(',') if x and x.strip()]
-
-    kp_node = (form.get("meta_keypoint_load_node") or "").strip()
-    if kp_node:
-        meta["keypoint_load_node"] = kp_node
-
-    apply_node = (form.get("meta_instantid_apply_node") or "").strip()
-    if apply_node:
-        meta["instantid_apply_node"] = apply_node
-
-    kp_default = (form.get("meta_keypoint_default_image") or "").strip()
-    if kp_default and kp_node and isinstance(content_obj, dict) and kp_node in content_obj:
-        try:
-            inputs = content_obj[kp_node].setdefault("inputs", {})
-            inputs["image"] = kp_default
-            inputs["load_from_upload"] = True
-            meta["keypoint_default_image"] = kp_default
-        except Exception:
-            pass
-
-    pos_nodes = (form.get("meta_prompt_nodes_positive") or "").strip()
-    neg_nodes = (form.get("meta_prompt_nodes_negative") or "").strip()
-    if pos_nodes or neg_nodes:
-        pn = meta.get("prompt_nodes", {})
-        if pos_nodes:
-            pn["positive"] = _split_ids(pos_nodes)
-        if neg_nodes:
-            pn["negative"] = _split_ids(neg_nodes)
-        meta["prompt_nodes"] = pn
-
-    load_images = (form.get("meta_load_images") or "").strip()
-    if load_images:
-        meta["load_images"] = _split_ids(load_images)
-
-    save_nodes = (form.get("meta_save_nodes") or "").strip()
-    if save_nodes:
-        meta["save_nodes"] = _split_ids(save_nodes)
-
-    preview_nodes = (form.get("meta_preview_nodes") or "").strip()
-    if preview_nodes:
-        meta["preview_nodes"] = _split_ids(preview_nodes)
-
-    overlay_nodes = (form.get("meta_overlay_nodes") or "").strip()
-    if overlay_nodes:
-        meta["overlay_nodes"] = _split_ids(overlay_nodes)
-
-    if isinstance(content_obj, dict):
-        content_obj["_meta"] = meta
-
     payload["content"] = content_obj
 
     try:

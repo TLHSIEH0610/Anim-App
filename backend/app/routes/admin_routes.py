@@ -2247,6 +2247,47 @@ def admin_list_workflows(_: None = Depends(require_admin), db: Session = Depends
         )
     return {"workflows": items}
 
+@router.post("/workflows/cleanup-meta-hints")
+def admin_cleanup_workflow_meta_hints(
+    _: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Remove legacy workflow hint keys stored under top-level content._meta."""
+
+    hint_keys = {
+        "keypoint_load_node",
+        "instantid_apply_node",
+        "keypoint_default_image",
+        "prompt_nodes",
+        "load_images",
+        "save_nodes",
+        "preview_nodes",
+        "overlay_nodes",
+    }
+
+    definitions = db.query(WorkflowDefinition).all()
+    updated = 0
+    for definition in definitions:
+        content = definition.content
+        if not isinstance(content, dict):
+            continue
+        meta = content.get("_meta")
+        if not isinstance(meta, dict):
+            continue
+        cleaned = {k: v for k, v in meta.items() if k not in hint_keys}
+        new_content = dict(content)
+        if cleaned:
+            new_content["_meta"] = cleaned
+        else:
+            new_content.pop("_meta", None)
+        if new_content != content:
+            definition.content = new_content
+            updated += 1
+
+    if updated:
+        db.commit()
+    return {"message": "Workflow meta hints cleaned", "updated": updated}
+
 
 @router.get("/workflows/{workflow_id}")
 def admin_get_workflow_definition(workflow_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
@@ -2272,6 +2313,33 @@ def admin_create_workflow(
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    def _sanitize_workflow_content(content: Any) -> Any:
+        # Remove legacy "workflow hints" stored under top-level _meta.
+        if not isinstance(content, dict):
+            return content
+        meta = content.get("_meta")
+        if not isinstance(meta, dict):
+            return content
+        cleaned = dict(meta)
+        for k in (
+            "keypoint_load_node",
+            "instantid_apply_node",
+            "keypoint_default_image",
+            "prompt_nodes",
+            "load_images",
+            "save_nodes",
+            "preview_nodes",
+            "overlay_nodes",
+        ):
+            cleaned.pop(k, None)
+        if cleaned:
+            content = dict(content)
+            content["_meta"] = cleaned
+        else:
+            content = dict(content)
+            content.pop("_meta", None)
+        return content
+
     max_version = (
         db.query(func.max(WorkflowDefinition.version))
         .filter(WorkflowDefinition.slug == payload.slug)
@@ -2284,7 +2352,7 @@ def admin_create_workflow(
         name=payload.name,
         type=payload.type,
         version=version,
-        content=payload.content,
+        content=_sanitize_workflow_content(payload.content),
         is_active=payload.is_active if payload.is_active is not None else True,
     )
     db.add(definition)
@@ -2313,11 +2381,38 @@ def admin_update_workflow(
     old_slug = definition.slug
     new_slug = payload.slug
 
+    def _sanitize_workflow_content(content: Any) -> Any:
+        # Remove legacy "workflow hints" stored under top-level _meta.
+        if not isinstance(content, dict):
+            return content
+        meta = content.get("_meta")
+        if not isinstance(meta, dict):
+            return content
+        cleaned = dict(meta)
+        for k in (
+            "keypoint_load_node",
+            "instantid_apply_node",
+            "keypoint_default_image",
+            "prompt_nodes",
+            "load_images",
+            "save_nodes",
+            "preview_nodes",
+            "overlay_nodes",
+        ):
+            cleaned.pop(k, None)
+        if cleaned:
+            content = dict(content)
+            content["_meta"] = cleaned
+        else:
+            content = dict(content)
+            content.pop("_meta", None)
+        return content
+
     # Update definition
     definition.slug = new_slug
     definition.name = payload.name
     definition.type = payload.type
-    definition.content = payload.content
+    definition.content = _sanitize_workflow_content(payload.content)
     if payload.version is not None:
         definition.version = payload.version
     if payload.is_active is not None:
