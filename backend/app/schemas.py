@@ -35,7 +35,7 @@ class BookCreate(BaseModel):
     character_description: Optional[str] = None
     positive_prompt: Optional[str] = None
     negative_prompt: Optional[str] = None
-    story_source: str = "custom"
+    story_source: str = "template"
     template_key: Optional[str] = None
     template_params: Optional[Dict[str, Any]] = None
 
@@ -48,6 +48,7 @@ class BookPageResponse(BaseModel):
     image_status: str = "pending"
     created_at: datetime
     image_completed_at: Optional[datetime] = None
+    workflow_slug: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -55,7 +56,7 @@ class BookPageResponse(BaseModel):
 class BookResponse(BaseModel):
     id: int
     title: str
-    story_source: Optional[str] = "custom"
+    story_source: Optional[str] = "template"
     template_key: Optional[str] = None
     template_params: Optional[Dict[str, Any]] = None
     theme: Optional[str] = None

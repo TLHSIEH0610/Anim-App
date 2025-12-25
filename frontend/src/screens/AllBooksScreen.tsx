@@ -46,9 +46,10 @@ function TemplateItem({
   const { token } = useAuth();
   const [failed, setFailed] = useState(false);
   const [useAltCover, setUseAltCover] = useState(false);
-  const [imgWidth, setImgWidth] = useState<number>(130);
   const [imgLoading, setImgLoading] = useState<boolean>(true);
   const targetHeight = 140;
+  const coverAspect = 1152 / 1600;
+  const coverWidth = Math.round(targetHeight * coverAspect);
   // Only attempt to load when token is available to avoid 401s that set failed=true
   const canLoad = !!token && !!item.cover_path;
   const coverUrl = canLoad ? getThumbUrl({ path: item.cover_path!, token, width: 320, version: (item as any).version }) : null;
@@ -61,16 +62,6 @@ function TemplateItem({
     setFailed(false);
     setImgLoading(true);
   }, [coverUrl]);
-
-  const handleImageLoad = (e: any) => {
-    // expo-image provides intrinsic size on event
-    const natW = e?.source?.width;
-    const natH = e?.source?.height;
-    if (natW && natH) {
-      const scaled = Math.max(100, Math.min(200, Math.round((targetHeight / natH) * natW)));
-      setImgWidth(scaled + 8);
-    }
-  };
 
   React.useEffect(() => {
     if (coverUrl) {
@@ -117,15 +108,12 @@ function TemplateItem({
       {/* Content row: cover | details */}
       <View style={styles.row}>
         <View style={styles.leftCol}>
-          <View style={[styles.coverThumbWrap, { width: imgWidth }]}>
+          <View style={[styles.coverThumbWrap, { width: coverWidth, height: targetHeight }]}>
           <Image
             key={chosenUrl || "fallback"}
             source={source as any}
-            style={[
-              styles.coverThumb,
-              { width: imgWidth - 8, height: targetHeight },
-            ]}
-            contentFit="contain"
+            style={styles.coverThumb}
+            contentFit="cover"
             cachePolicy="memory-disk"
             placeholder={{ blurhash: BLURHASH }}
             transition={150}
@@ -141,10 +129,7 @@ function TemplateItem({
               }
               setImgLoading(false);
             }}
-            onLoad={(e: any) => {
-              handleImageLoad(e);
-              setImgLoading(false);
-            }}
+            onLoad={() => setImgLoading(false)}
           />
           {imgLoading && (
             <View style={styles.imageSpinner} pointerEvents="none">
@@ -329,12 +314,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     overflow: "hidden",
     alignSelf: "flex-start",
-    alignItems: "center",
-    padding: spacing(1),
   },
   coverThumb: {
-    height: 140,
-    borderRadius: radii.md,
+    width: "100%",
+    height: "100%",
   },
   imageSpinner: {
     position: 'absolute',

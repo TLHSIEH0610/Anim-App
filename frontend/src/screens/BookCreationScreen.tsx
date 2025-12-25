@@ -148,7 +148,9 @@ const injectCharacterName = (
   if (!text) {
     return "";
   }
-  const fallbackName = rawName.trim() || "your character";
+  const name = rawName.trim();
+  if (!name) return text;
+  const fallbackName = name;
   return text
     .replace(/\{\{\s*name\s*\}\}/gi, fallbackName)
     .replace(/\{name\}/gi, fallbackName)
@@ -496,7 +498,7 @@ export default function BookCreationScreen({
             storylinePages:
               storyline_pages?.map((page) => ({
                 pageNumber: page.page_number,
-                imagePrompt: page.image_prompt,
+                imagePrompt: page.description || "",
               })) ?? [],
           };
         });
@@ -507,7 +509,7 @@ export default function BookCreationScreen({
           const chosen = mapped.find((t) => t.slug === initialSlug) || first;
           const templateKey = chosen?.slug ?? null;
           const generatedTitle = buildAutoTitle(
-            first?.name,
+            chosen?.name,
             prev.templateInput.name
           );
           setAutoTitle(generatedTitle);
@@ -515,7 +517,7 @@ export default function BookCreationScreen({
           return {
             ...prev,
             templateKey,
-            pageCount: first?.page_count ?? prev.pageCount,
+            pageCount: chosen?.page_count ?? prev.pageCount,
             title: generatedTitle,
           };
         });
@@ -760,90 +762,90 @@ export default function BookCreationScreen({
   };
 
   const handleUseFreeTrial = async (): Promise<boolean> => {
-      if (
-        !pricingQuote ||
-        !pricingQuote.free_trial_slug ||
-        pricingQuote.free_trial_consumed
-      ) {
-        return;
+    if (
+      !pricingQuote ||
+      !pricingQuote.free_trial_slug ||
+      pricingQuote.free_trial_consumed
+    ) {
+      return;
+    }
+    try {
+      if (!cardPaymentsSupported) {
+        throw new Error("Card verification is unavailable in this build.");
       }
+      setIsPaymentLoading(true);
+      setPaymentError(null);
+      // 1) Ask backend for a SetupIntent to perform $0 card verification
+      let setup;
       try {
-        if (!cardPaymentsSupported) {
-          throw new Error("Card verification is unavailable in this build.");
-        }
-        setIsPaymentLoading(true);
-        setPaymentError(null);
-        // 1) Ask backend for a SetupIntent to perform $0 card verification
-        let setup;
-        try {
-          setup = await createFreeTrialSetupIntent(
-            selectedTemplate?.slug || pricingQuote?.free_trial_slug || undefined
-          );
-        } catch (e: any) {
-          captureException(e, { stage: "free_trial_setup_intent" });
-          throw new Error(
-            e?.response?.data?.detail || "Unable to start the $0 verification."
-          );
-        }
-        // 2) Initialize PaymentSheet with SetupIntent
-        try {
-          const init = await (stripe as any).initPaymentSheet?.({
-            merchantDisplayName: MERCHANT_DISPLAY_NAME,
-            setupIntentClientSecret: setup.client_secret,
-          });
-          if (init?.error) {
-            throw new Error(
-              init.error.message || "Unable to initialize verification."
-            );
-          }
-        } catch (e: any) {
-          captureException(e, { stage: "free_trial_sheet_init" });
-          throw e;
-        }
-        // 3) Present PaymentSheet to collect card for $0 verify
-        try {
-          const present = await (stripe as any).presentPaymentSheet?.();
-          if (present?.error) {
-            throw new Error(
-              present.error.message || "Verification was cancelled or failed."
-            );
-          }
-        } catch (e: any) {
-          captureException(e, { stage: "free_trial_sheet_present" });
-          throw e;
-        }
-        // 4) Notify backend to finalize (detach PM, mark verified)
-        try {
-          await completeFreeTrialVerification();
-        } catch (e: any) {
-          captureException(e, { stage: "free_trial_finalize" });
-          throw new Error(
-            e?.response?.data?.detail ||
-              "Verification completed but we could not finalize it. Please try again."
-          );
-        }
-        // 5) Mark selection as free_trial
-        setSelectedPaymentMethod("free_trial");
-        setPaymentMode("free_trial");
-        setPaymentId(null);
-        setCardDetailsComplete(false);
-        setCardFieldError(null);
-
-        // 6) Immediately create the book using the free trial
-        await createChildBook({
-          paymentModeOverride: "free_trial",
-          paymentIdOverride: null,
-        });
-        return true;
+        setup = await createFreeTrialSetupIntent(
+          selectedTemplate?.slug || pricingQuote?.free_trial_slug || undefined
+        );
       } catch (e: any) {
-        const msg = e?.message || "Unable to complete $0 verification.";
-        setPaymentError(msg);
-        setSelectedPaymentMethod(null);
-        captureException(e, { flow: "free_trial" });
-        return false;
-      } finally {
-        setIsPaymentLoading(false);
+        captureException(e, { stage: "free_trial_setup_intent" });
+        throw new Error(
+          e?.response?.data?.detail || "Unable to start the $0 verification."
+        );
       }
+      // 2) Initialize PaymentSheet with SetupIntent
+      try {
+        const init = await (stripe as any).initPaymentSheet?.({
+          merchantDisplayName: MERCHANT_DISPLAY_NAME,
+          setupIntentClientSecret: setup.client_secret,
+        });
+        if (init?.error) {
+          throw new Error(
+            init.error.message || "Unable to initialize verification."
+          );
+        }
+      } catch (e: any) {
+        captureException(e, { stage: "free_trial_sheet_init" });
+        throw e;
+      }
+      // 3) Present PaymentSheet to collect card for $0 verify
+      try {
+        const present = await (stripe as any).presentPaymentSheet?.();
+        if (present?.error) {
+          throw new Error(
+            present.error.message || "Verification was cancelled or failed."
+          );
+        }
+      } catch (e: any) {
+        captureException(e, { stage: "free_trial_sheet_present" });
+        throw e;
+      }
+      // 4) Notify backend to finalize (detach PM, mark verified)
+      try {
+        await completeFreeTrialVerification();
+      } catch (e: any) {
+        captureException(e, { stage: "free_trial_finalize" });
+        throw new Error(
+          e?.response?.data?.detail ||
+            "Verification completed but we could not finalize it. Please try again."
+        );
+      }
+      // 5) Mark selection as free_trial
+      setSelectedPaymentMethod("free_trial");
+      setPaymentMode("free_trial");
+      setPaymentId(null);
+      setCardDetailsComplete(false);
+      setCardFieldError(null);
+
+      // 6) Immediately create the book using the free trial
+      await createChildBook({
+        paymentModeOverride: "free_trial",
+        paymentIdOverride: null,
+      });
+      return true;
+    } catch (e: any) {
+      const msg = e?.message || "Unable to complete $0 verification.";
+      setPaymentError(msg);
+      setSelectedPaymentMethod(null);
+      captureException(e, { flow: "free_trial" });
+      return false;
+    } finally {
+      setIsPaymentLoading(false);
+    }
   };
 
   const handlePayWithCredits = () => {
@@ -1262,7 +1264,7 @@ export default function BookCreationScreen({
         <Text style={styles.stepTitle}>Create Your Hero</Text>
         <View style={styles.heroCard}>
           <Text style={styles.stepDescription}>
-            Select 1-3 images of your kid for better consistency throughout the
+            Select an image of your kid for better consistency throughout the
             book.
           </Text>
 
@@ -1270,7 +1272,7 @@ export default function BookCreationScreen({
 
           <View style={styles.imageCountBadge}>
             <Text style={styles.imageCountText}>
-              {form.images.length}/3 images selected
+              {form.images.length}/1 images selected
             </Text>
           </View>
 
@@ -1299,7 +1301,7 @@ export default function BookCreationScreen({
             </View>
           ) : (
             <Button
-              title="Select Images (1-3)"
+              title="Select Images"
               onPress={pickImage}
               variant="primary"
             />
@@ -1389,7 +1391,8 @@ export default function BookCreationScreen({
               onPress={() => navigation.navigate("TermsOfService")}
               style={{ color: colors.primary, textDecorationLine: "underline" }}
             >
-              {" "}Terms & Conditions
+              {" "}
+              Terms & Conditions
             </Text>
             .
           </Text>

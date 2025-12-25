@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from decimal import Decimal
 from typing import Any, Dict
@@ -11,6 +12,61 @@ def _to_decimal(value: Any) -> Decimal | None:
     if value is None or value == "":
         return None
     return Decimal(str(value))
+
+def _cover_text_to_db(value: Any) -> str | None:
+    if value is None or value == "" or value == []:
+        return None
+    defaults: Dict[str, Any] = {
+        "text": "",
+        "font_size": 60,
+        "fill_color_hex": "#FFFFFF",
+        "stroke_color_hex": "#000000",
+        "x_shift": 0,
+        "y_shift": -40,
+        "vertical_alignment": "top",
+    }
+    data: Any = value
+    if isinstance(value, str):
+        raw = value.strip()
+        if raw:
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = raw
+    if isinstance(data, list):
+        source = data
+    elif isinstance(data, dict):
+        source = [data]
+    elif isinstance(data, str):
+        source = [{"text": data}]
+    else:
+        source = [{"text": str(data)}]
+    items: list[Dict[str, Any]] = []
+    for item in source:
+        if not isinstance(item, dict):
+            item = {"text": str(item)}
+        cfg = defaults.copy()
+        try:
+            cfg.update(item)
+        except Exception:
+            pass
+        cfg["text"] = str(cfg.get("text") or "")
+        try:
+            cfg["font_size"] = int(cfg.get("font_size", defaults["font_size"]))
+        except Exception:
+            cfg["font_size"] = defaults["font_size"]
+        for key in ("fill_color_hex", "stroke_color_hex", "vertical_alignment"):
+            try:
+                cfg[key] = str(cfg.get(key) or defaults[key])
+            except Exception:
+                cfg[key] = defaults[key]
+        for key in ("x_shift", "y_shift"):
+            try:
+                cfg[key] = int(cfg.get(key, defaults[key]))
+            except Exception:
+                cfg[key] = defaults[key]
+        items.append(cfg)
+    return json.dumps(items, ensure_ascii=False)
 
 
 def ensure_default_stories(session_factory):
@@ -90,9 +146,11 @@ def ensure_default_stories(session_factory):
                     negative_prompt=page.get("negative_prompt") or "",
                     pose_prompt=page.get("pose_prompt") or "",
                     controlnet_image=page.get("controlnet_image"),
-                    keypoint_image=page.get("keypoint_image"),
+                    keypoint_image=page.get("story_image") or page.get("keypoint_image"),
+                    description=page.get("description"),
                     workflow_slug=workflow_value,
                     seed=seed_int,
+                    cover_text=_cover_text_to_db(page.get("cover_text")),
                 )
                 session.add(page_row)
 

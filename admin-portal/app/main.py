@@ -12,7 +12,7 @@ from urllib.parse import quote_plus
 
 import httpx
 from fastapi import FastAPI, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -1707,32 +1707,67 @@ async def files_proxy(request: Request, path: str, w: int | None = None, h: int 
     if not session:
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
-    try:
+    # Some PDF viewers rely on HTTP Range requests for pagination. This proxy forwards
+    # the Range header and streams the response so next/prev navigation doesn't render blank pages.
+    range_header = request.headers.get("range")
+
+    async def _proxy_stream(endpoint: str, params: dict[str, str], include_range: bool):
+        req_headers: dict[str, str] = {"X-Admin-Secret": ADMIN_API_KEY}
+        if include_range and range_header:
+            req_headers["Range"] = range_header
         async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
-            if w or h:
-                params = {"path": path}
-                if w:
-                    params["w"] = str(w)
-                if h:
-                    params["h"] = str(h)
-                resp = await client.get(
-                    "/admin/media/resize",
-                    params=params,
-                    headers={"X-Admin-Secret": ADMIN_API_KEY},
-                    follow_redirects=True,
+            async with client.stream(
+                "GET",
+                endpoint,
+                params=params,
+                headers=req_headers,
+                follow_redirects=True,
+            ) as resp:
+                # If the upstream doesn't like the Range request (some PDF viewers can send
+                # speculative/overlapping ranges), fall back to a non-range request.
+                if include_range and resp.status_code == 416:
+                    return await _proxy_stream(endpoint, params, include_range=False)
+
+                ct = resp.headers.get("content-type", "application/octet-stream")
+                out_headers: dict[str, str] = {
+                    "Cache-Control": "no-store",
+                }
+                # Preserve headers PDF viewers care about.
+                for key in (
+                    "accept-ranges",
+                    "content-range",
+                    "content-length",
+                    "content-disposition",
+                    "etag",
+                    "last-modified",
+                ):
+                    if key in resp.headers:
+                        # Use canonical header casing.
+                        out_headers["-".join([p.capitalize() for p in key.split("-")])] = resp.headers[key]
+
+                # For non-success, return the body (small) so the browser can surface errors.
+                if resp.status_code >= 400:
+                    data = await resp.aread()
+                    return Response(content=data, media_type=ct, status_code=resp.status_code, headers=out_headers)
+
+                return StreamingResponse(
+                    resp.aiter_bytes(),
+                    media_type=ct,
+                    status_code=resp.status_code,
+                    headers=out_headers,
                 )
-            else:
-                resp = await client.get(
-                    "/admin/files",
-                    params={"path": path},
-                    headers={"X-Admin-Secret": ADMIN_API_KEY},
-                    follow_redirects=True,
-                )
-        resp.raise_for_status()
+
+    try:
+        if w or h:
+            params = {"path": path}
+            if w:
+                params["w"] = str(w)
+            if h:
+                params["h"] = str(h)
+            return await _proxy_stream("/admin/media/resize", params, include_range=True)
+        return await _proxy_stream("/admin/files", {"path": path}, include_range=True)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to fetch file: {exc}")
-
-    return Response(content=resp.content, media_type=resp.headers.get("content-type", "application/octet-stream"))
 
 
 @app.post("/books/{book_id}/delete")

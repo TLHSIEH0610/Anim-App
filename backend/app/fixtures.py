@@ -49,6 +49,66 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
         json.dump(payload, handle, indent=2, sort_keys=True, ensure_ascii=False)
         handle.write("\n")
 
+def _normalize_cover_text(value: Any) -> List[Dict[str, Any]]:
+    """Export StoryTemplatePage.cover_text as a structured list (not a JSON string)."""
+    if value is None or value == "" or value == []:
+        return []
+
+    defaults: Dict[str, Any] = {
+        "text": "",
+        "font_size": 60,
+        "fill_color_hex": "#FFFFFF",
+        "stroke_color_hex": "#000000",
+        "x_shift": 0,
+        "y_shift": -40,
+        "vertical_alignment": "top",
+    }
+
+    data: Any = value
+    if isinstance(value, str):
+        raw = value.strip()
+        if raw:
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = raw
+
+    if isinstance(data, list):
+        source = data
+    elif isinstance(data, dict):
+        source = [data]
+    elif isinstance(data, str):
+        source = [{"text": data}]
+    else:
+        source = [{"text": str(data)}]
+
+    items: List[Dict[str, Any]] = []
+    for item in source:
+        if not isinstance(item, dict):
+            item = {"text": str(item)}
+        cfg = defaults.copy()
+        try:
+            cfg.update(item)
+        except Exception:
+            pass
+        try:
+            cfg["font_size"] = int(cfg.get("font_size", defaults["font_size"]))
+        except Exception:
+            cfg["font_size"] = defaults["font_size"]
+        for key in ("fill_color_hex", "stroke_color_hex", "vertical_alignment"):
+            try:
+                cfg[key] = str(cfg.get(key) or defaults[key])
+            except Exception:
+                cfg[key] = defaults[key]
+        for key in ("x_shift", "y_shift"):
+            try:
+                cfg[key] = int(cfg.get(key, defaults[key]))
+            except Exception:
+                cfg[key] = defaults[key]
+        cfg["text"] = str(cfg.get("text") or "")
+        items.append(cfg)
+    return items
+
 
 def _story_to_payload(story) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
@@ -66,6 +126,7 @@ def _story_to_payload(story) -> Dict[str, Any]:
     }
     pages = getattr(story, "pages", []) or []
     for page in sorted(pages, key=lambda p: p.page_number):
+        cover_text_items = _normalize_cover_text(getattr(page, "cover_text", None))
         payload["pages"].append(
             {
                 "page_number": page.page_number,
@@ -74,10 +135,14 @@ def _story_to_payload(story) -> Dict[str, Any]:
                 "positive_prompt": page.positive_prompt,
                 "negative_prompt": page.negative_prompt,
                 "pose_prompt": page.pose_prompt,
+                "description": getattr(page, "description", None),
+                # For Qwen workflows, this is the "story image" slug; legacy name remains keypoint_image.
+                "story_image": getattr(page, "story_image", None),
                 "keypoint_image": page.keypoint_image,
                 "controlnet_image": page.controlnet_image,
                 "workflow": getattr(page, "workflow_slug", None),
                 "seed": getattr(page, "seed", None),
+                "cover_text": cover_text_items or None,
             }
         )
     return payload

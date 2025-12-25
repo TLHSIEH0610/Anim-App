@@ -13,6 +13,7 @@ try:
 except Exception:
     pass
 import json
+import re
 import time
 import platform
 import secrets
@@ -33,9 +34,23 @@ from app.models import (
 )
 from app.comfyui_client import ComfyUIClient
 from app.runpod_client import RunPodServerlessClient, RunPodImageFallback
-from app.story_generator import OllamaStoryGenerator, enhance_childbook_prompt
+
 from reportlab.lib.pagesizes import A4, letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, Spacer, PageBreak, Table
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    Image,
+    NextPageTemplate,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+)
+from reportlab.platypus.flowables import Flowable
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus.tables import TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
@@ -54,7 +69,6 @@ BASE_INSTANT_PROMPT = (
     "hand-drawn illustration, warm lighting, child-friendly art style"
 )
 
-DEFAULT_NEGATIVE_PROMPT = "text, watermark, low quality, medium quality, blurry, censored, wrinkles, distorted"
 
 AGE_DESCRIPTORS = {
     "3-5": "preschool-aged",
@@ -75,7 +89,6 @@ _Session = sessionmaker(bind=_engine)
 
 # Configuration
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
-OLLAMA_SERVER = os.getenv("OLLAMA_SERVER", "http://localhost:11434")
 
 RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
 RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
@@ -161,8 +174,19 @@ def _build_pronouns(gender: str | None) -> Dict[str, str]:
 
 
 def _format_template_text(text: str, replacements: Dict[str, str]) -> str:
+    if not text:
+        return text
     for key, value in replacements.items():
-        text = text.replace(f"{{{key}}}", value)
+        # Support both "{Name}" and "{{ name }}" placeholder styles (case-insensitive for the latter).
+        try:
+            text = text.replace(f"{{{key}}}", value)
+        except Exception:
+            pass
+        try:
+            pattern = r"\{\{\s*" + re.escape(str(key)) + r"\s*\}\}"
+            text = re.sub(pattern, value, text)
+        except Exception:
+            pass
     return text
 
 
@@ -211,8 +235,9 @@ def _load_story_template(slug: Optional[str]) -> Optional[StoryTemplate]:
 
 def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dict[str, Any], Dict[int, Dict[str, str]]]:
     params = _normalized_template_params(book)
-    name = params.get("name") or (book.character_description or "The hero")
-    name = name.strip() or "The hero"
+    name = (params.get("name") or book.character_description or "").strip()
+    if not name:
+        raise ValueError("template_params.name is required for template-driven books")
     gender = params.get("gender", "neutral")
     pronouns = _build_pronouns(gender)
     gender_word = _gender_word(gender)
@@ -249,15 +274,79 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
     pages = []
     overrides: Dict[int, Dict[str, Any]] = {}
 
-    # Optional cover page (page_number == 0 or workflow 'cover')
-    cover_candidates = [p for p in template_pages if getattr(p, 'page_number', None) == 0 or (getattr(p, 'workflow_slug', None) or '').strip().lower() == 'cover']
+    def _normalize_extra_text(raw: Optional[str]) -> list[dict]:
+        if not raw:
+            return []
+        defaults = {
+            "text": "",
+            "font_size": 60,
+            "fill_color_hex": "#FFFFFF",
+            "stroke_color_hex": "#000000",
+            "x_shift": 0,
+            "y_shift": -40,
+            "vertical_alignment": "top",
+        }
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = None
+        if isinstance(data, list):
+            source = data
+        elif isinstance(data, dict):
+            source = [data]
+        elif isinstance(data, str):
+            source = [{"text": data}]
+        else:
+            source = [{"text": str(data)}]
+
+        items: list[dict] = []
+        for item in source:
+            if not isinstance(item, dict):
+                item = {"text": str(item)}
+            cfg = defaults.copy()
+            text_raw = str(item.get("text", "") or "")
+            cfg["text"] = _format_template_text(text_raw, replacements) if text_raw else ""
+            try:
+                cfg["font_size"] = int(item.get("font_size", cfg["font_size"]))
+            except Exception:
+                pass
+            try:
+                cfg["fill_color_hex"] = str(item.get("fill_color_hex", cfg["fill_color_hex"]) or cfg["fill_color_hex"])
+            except Exception:
+                pass
+            try:
+                cfg["stroke_color_hex"] = str(item.get("stroke_color_hex", cfg["stroke_color_hex"]) or cfg["stroke_color_hex"])
+            except Exception:
+                pass
+            try:
+                cfg["x_shift"] = int(item.get("x_shift", cfg["x_shift"]))
+            except Exception:
+                pass
+            try:
+                cfg["y_shift"] = int(item.get("y_shift", cfg["y_shift"]))
+            except Exception:
+                pass
+            try:
+                va = item.get("vertical_alignment", defaults["vertical_alignment"])
+                cfg["vertical_alignment"] = str(va or defaults["vertical_alignment"])
+            except Exception:
+                cfg["vertical_alignment"] = defaults["vertical_alignment"]
+            items.append(cfg)
+        return items
+
+    # Optional cover page: now detected by workflow slug, not page_number.
+    # Any template page whose workflow_slug is 'qwen_cover' is treated as the cover.
+    cover_candidates = [
+        p
+        for p in template_pages
+        if ((getattr(p, "workflow_slug", None) or "").strip().lower() == "qwen_cover")
+    ]
     body_templates = [p for p in template_pages if p not in cover_candidates]
 
     if cover_candidates:
         cover_t = cover_candidates[0]
         cover_story = _format_template_text(cover_t.story_text, replacements)
-        cover_img_prompt_raw = getattr(cover_t, "image_prompt", None) or ""
-        cover_img_prompt = _format_template_text(cover_img_prompt_raw, replacements) if cover_img_prompt_raw else ""
+        # Use description for Qwen-era workflows; legacy image_prompt is ignored.
         cover_pos_raw = getattr(cover_t, "positive_prompt", None) or ""
         cover_pos = _format_template_text(cover_pos_raw, replacements) if cover_pos_raw else ""
         cover_neg_raw = getattr(cover_t, "negative_prompt", None) or ""
@@ -273,24 +362,17 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         if isinstance(raw_cover_wf, str):
             raw_cover_wf = raw_cover_wf.strip() or None
         cover_workflow = raw_cover_wf
-        cover_text_value = None
-        try:
-            cover_text_value = getattr(cover_t, 'cover_text', None)
-            if isinstance(cover_text_value, str) and cover_text_value.strip():
-                cover_text_value = _format_template_text(cover_text_value, replacements)
-            else:
-                cover_text_value = None
-        except Exception:
-            cover_text_value = None
+        cover_extra_text = _normalize_extra_text(getattr(cover_t, "cover_text", None))
 
         pages.append({
             "page": 0,
             "text": cover_story,
-            "image_description": cover_img_prompt,
+            "image_description": "",
             "image_kp": cover_story_image_slug,
             "story_image": cover_story_image_slug,
             "workflow": cover_workflow,
             "seed": getattr(cover_t, 'seed', None) if getattr(cover_t, 'seed', None) not in ("", None) else None,
+            "extra_text": cover_extra_text,
         })
 
         cov_override: Dict[str, Any] = {}
@@ -314,8 +396,8 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             cov_seed = None
         if cov_seed is not None:
             cov_override["seed"] = cov_seed
-        if cover_text_value:
-            cov_override["cover_text"] = cover_text_value
+        if cover_extra_text:
+            cov_override["extra_text"] = cover_extra_text
         overrides[0] = cov_override
 
     if not body_templates:
@@ -326,8 +408,6 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         page_template = body_templates[index % len(body_templates)]
 
         story_text = _format_template_text(page_template.story_text, replacements)
-        image_prompt_raw = getattr(page_template, "image_prompt", None) or ""
-        image_prompt = _format_template_text(image_prompt_raw, replacements) if image_prompt_raw else ""
         positive_raw = getattr(page_template, "positive_prompt", None) or ""
         positive_prompt = _format_template_text(positive_raw, replacements) if positive_raw else ""
         negative_raw = getattr(page_template, "negative_prompt", None) or ""
@@ -335,6 +415,7 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
         pose_raw = getattr(page_template, "pose_prompt", None) or ""
         pose_prompt = _format_template_text(pose_raw, replacements) if pose_raw else ""
         story_image_slug = getattr(page_template, "story_image", None) or page_template.keypoint_image
+        page_extra_text = _normalize_extra_text(getattr(page_template, "cover_text", None))
 
         workflow_override_slug = getattr(page_template, "workflow_slug", None)
         if isinstance(workflow_override_slug, str):
@@ -352,11 +433,12 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             {
                 "page": page_number,
                 "text": story_text,
-                "image_description": image_prompt,
+                "image_description": "",
                 "image_kp": story_image_slug,
                 "story_image": story_image_slug,
                 "workflow": workflow_override_slug,
                 "seed": seed_value,
+                "extra_text": page_extra_text,
             }
         )
 
@@ -376,6 +458,8 @@ def _build_story_from_template(book: Book, template: StoryTemplate) -> tuple[Dic
             override["workflow"] = workflow_override_slug
         if seed_value is not None:
             override["seed"] = seed_value
+        if page_extra_text:
+            override["extra_text"] = page_extra_text
         overrides[page_number] = override
 
     story_data = {
@@ -472,16 +556,7 @@ class BookComposer:
         try:
             # Ensure output directory exists
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            doc = SimpleDocTemplate(
-                output_path,
-                pagesize=A4,
-                rightMargin=self.margin,
-                leftMargin=self.margin,
-                topMargin=self.margin,
-                bottomMargin=self.margin
-            )
-            
+
             story = []
             styles = getSampleStyleSheet()
             
@@ -522,27 +597,147 @@ class BookComposer:
             
             # Cover is handled inside the unified loop below
             
-            # Story pages (including cover if present). Render cover (page 0) as image-only.
+            # Story pages (including cover if present).
+            # Treat special Qwen workflows ('qwen_cover', 'qwen_end') as full-image pages.
+            special_full_image = {"qwen_cover", "qwen_end"}
             pages_for_body = sorted(pages_data, key=lambda p: (p.get('page_number') is None, p.get('page_number')))
-            has_cover = any(isinstance(p.get('page_number'), int) and p.get('page_number') == 0 for p in pages_for_body)
-            total_body_pages = sum(1 for p in pages_for_body if not (isinstance(p.get('page_number'), int) and p.get('page_number') == 0))
+            has_cover = any(
+                isinstance(p.get("workflow"), str)
+                and p.get("workflow", "").strip().lower() == "qwen_cover"
+                for p in pages_for_body
+            )
+            # Count only non-cover pages as "body" for page numbering.
+            total_body_pages = sum(
+                1
+                for p in pages_for_body
+                if not (
+                    isinstance(p.get("workflow"), str)
+                    and p.get("workflow", "").strip().lower() == "qwen_cover"
+                )
+            )
+
+            class _FullBleedImage(Flowable):
+                """Draw an image to fully cover the page (no padding), cropping as needed."""
+
+                def __init__(self, image_path: str, page_w: float, page_h: float):
+                    super().__init__()
+                    self.image_path = image_path
+                    self.page_w = page_w
+                    self.page_h = page_h
+
+                def wrap(self, availWidth, availHeight):
+                    return (self.page_w, self.page_h)
+
+                def drawOn(self, canv, x, y, _sW=0):  # type: ignore[override]
+                    canv.saveState()
+                    try:
+                        reader = ImageReader(self.image_path)
+                        iw, ih = reader.getSize()
+                        iw = float(iw or 1)
+                        ih = float(ih or 1)
+                        scale = max(self.page_w / iw, self.page_h / ih)
+                        dw = iw * scale
+                        dh = ih * scale
+                        dx = (self.page_w - dw) / 2.0
+                        dy = (self.page_h - dh) / 2.0
+                        canv.drawImage(
+                            reader,
+                            dx,
+                            dy,
+                            width=dw,
+                            height=dh,
+                            preserveAspectRatio=False,
+                            mask="auto",
+                        )
+                    except Exception:
+                        pass
+                    canv.restoreState()
+
+            # PDF layout:
+            # - Full-bleed template for special full-image pages (cover/end), no margins/padding.
+            # - Body template for regular pages, with a content margin frame.
+            first_wf = ((pages_for_body[0].get("workflow") or "") if pages_for_body else "").strip().lower()
+            default_template_id = "FullBleed" if first_wf in special_full_image else "Body"
+
+            doc = BaseDocTemplate(output_path, pagesize=A4)
+            full_frame = Frame(
+                0,
+                0,
+                self.page_width,
+                self.page_height,
+                leftPadding=0,
+                rightPadding=0,
+                topPadding=0,
+                bottomPadding=0,
+                id="full",
+            )
+            body_frame = Frame(
+                self.margin,
+                self.margin,
+                self.page_width - (2 * self.margin),
+                self.page_height - (2 * self.margin),
+                leftPadding=0,
+                rightPadding=0,
+                topPadding=0,
+                bottomPadding=0,
+                id="body",
+            )
+
+            def _on_page(canvas, doc_obj):
+                canvas.saveState()
+                try:
+                    canvas.setFillColor(colors.HexColor('#FFF8E1'))
+                except Exception:
+                    canvas.setFillColor(colors.whitesmoke)
+                canvas.rect(0, 0, self.page_width, self.page_height, stroke=0, fill=1)
+
+                # Draw a subtle page number at bottom-right for BODY pages only.
+                try:
+                    tpl_id = getattr(getattr(doc_obj, "pageTemplate", None), "id", None)
+                    if tpl_id in {"Body", "BodyBleedImage"}:
+                        pg = canvas.getPageNumber()
+                        if not (has_cover and pg == 1):
+                            display_num = pg - (1 if has_cover else 0)
+                            canvas.setFillColor(colors.grey)
+                            canvas.setFont('Helvetica', 10)
+                            x = self.page_width - self.margin
+                            y = self.margin * 0.55
+                            canvas.drawRightString(x, y, f"{display_num}")
+                except Exception:
+                    pass
+                canvas.restoreState()
+
+            full_tpl = PageTemplate(id="FullBleed", frames=[full_frame], onPage=_on_page)
+            body_tpl = PageTemplate(id="Body", frames=[body_frame], onPage=_on_page)
+            # Body pages: full-bleed frame so images can be edge-to-edge, while text is inset via padding.
+            body_bleed_tpl = PageTemplate(id="BodyBleedImage", frames=[full_frame], onPage=_on_page)
+            doc.addPageTemplates(
+                [full_tpl, body_tpl, body_bleed_tpl]
+                if default_template_id == "FullBleed"
+                else [body_tpl, body_bleed_tpl, full_tpl]
+            )
+
             visible_page_index = 0
             for pidx, page_data in enumerate(pages_for_body):
+                wf_slug = (page_data.get("workflow") or "").strip().lower()
                 pgnum = page_data.get('page_number')
-                if isinstance(pgnum, int) and pgnum == 0:
-                    # Render cover page as an image-only page
+
+                target_template_id = (
+                    "FullBleed" if wf_slug in special_full_image else "BodyBleedImage"
+                )
+                if pidx > 0:
+                    story.append(NextPageTemplate(target_template_id))
+                    story.append(PageBreak())
+
+                # Full-image pages for special workflows (cover + end).
+                if wf_slug in special_full_image:
                     img_path = page_data.get('image_path')
                     if (not img_path or not os.path.exists(img_path)) and (book_data.get('preview_image_path')):
                         img_path = book_data.get('preview_image_path')
                     if img_path and os.path.exists(img_path):
                         try:
-                            # Leave a small safety margin to avoid ReportLab rounding issues
-                            cover_img = self.resize_image_for_page(
-                                img_path,
-                                max_width=self.page_width - (2 * self.margin),
-                                max_height=(self.page_height - (2 * self.margin) - 12),
-                            )
-                            story.append(cover_img)
+                            # Full-bleed: fill the page (crop if needed), no padding.
+                            story.append(_FullBleedImage(img_path, self.page_width, self.page_height))
                         except Exception:
                             pass
                     else:
@@ -550,15 +745,13 @@ class BookComposer:
                         story.append(Spacer(1, 36))
                         story.append(Paragraph(book_data['title'], title_style))
                         story.append(Paragraph(f"A {book_data.get('theme', 'wonderful')} story for ages {book_data.get('target_age', '6-8')}", subtitle_style))
-                    # Only add a page break after the cover if there are body pages
-                    if total_body_pages > 0:
-                        story.append(PageBreak())
                     continue
 
                 visible_page_index += 1
                 i = visible_page_index
-                content_width = self.page_width - (2 * self.margin)
-                content_height = self.page_height - (2 * self.margin)
+                # Full page frame for image, but keep text inset margins as before.
+                content_width = self.page_width
+                content_height = self.page_height
 
                 # Reserve footer area only when there is a following body page
                 page_num_block = 18 if i < total_body_pages else 0
@@ -579,7 +772,7 @@ class BookComposer:
                             orig_w, orig_h = pil_img.size
                         aspect = orig_w / float(orig_h or 1)
                         # Aim for full width; height will be adjusted if needed by KeepInFrame shrink
-                        img_w = content_width
+                        img_w = self.page_width
                         img_h = img_w / aspect
                         block_items.append(Image(img_path, width=img_w, height=img_h, hAlign='CENTER'))
                         block_items.append(Spacer(1, 12))
@@ -589,48 +782,39 @@ class BookComposer:
                 else:
                     block_items.append(Spacer(1, 8))
 
-                # Text
-                block_items.append(paragraph)
+                # Text: keep the same paragraph styling, but inset the block to match body margins.
+                text_block = Table([[paragraph]], colWidths=[self.page_width])
+                text_block.setStyle(
+                    TableStyle(
+                        [
+                            ("LEFTPADDING", (0, 0), (0, 0), self.margin),
+                            ("RIGHTPADDING", (0, 0), (0, 0), self.margin),
+                            ("TOPPADDING", (0, 0), (0, 0), 0),
+                            ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+                        ]
+                    )
+                )
+                block_items.append(text_block)
                 block_items.append(Spacer(1, 10))
 
                 try:
                     from reportlab.platypus import KeepInFrame
-                    story.append(KeepInFrame(content_width, available_h, block_items, mode='shrink', hAlign='CENTER'))
+                    # Keep content pinned to the top of the body frame so pages don't look like they
+                    # have extra "padding" above the illustration.
+                    story.append(
+                        KeepInFrame(
+                            content_width,
+                            available_h,
+                            block_items,
+                            mode="shrink",
+                            hAlign="CENTER",
+                            vAlign="TOP",
+                        )
+                    )
                 except Exception:
                     story.extend(block_items)
-
-                # Page break between pages (except after the last visible page)
-                if i < total_body_pages:
-                    story.append(PageBreak())
             
-            # Build the PDF with a warm page background
-            def _bg(canvas, doc_obj):
-                canvas.saveState()
-                try:
-                    canvas.setFillColor(colors.HexColor('#FFF8E1'))
-                except Exception:
-                    canvas.setFillColor(colors.whitesmoke)
-                canvas.rect(0, 0, self.page_width, self.page_height, stroke=0, fill=1)
-                # Draw a subtle page number at bottom-right (skip cover page)
-                try:
-                    pg = canvas.getPageNumber()
-                    # If there's a cover, visible body pages start at 2 (cover is page 1)
-                    if has_cover and pg == 1:
-                        pass
-                    else:
-                        display_num = pg - (1 if has_cover else 0)
-                        canvas.setFillColor(colors.grey)
-                        canvas.setFont('Helvetica', 10)
-                        text = f"{display_num}"
-                        x = self.page_width - self.margin
-                        y = self.margin * 0.55
-                        canvas.drawRightString(x, y, text)
-                except Exception:
-                    pass
-                canvas.restoreState()
-
-            # Build with background on all pages; cover page renders as content
-            doc.build(story, onFirstPage=_bg, onLaterPages=_bg)
+            doc.build(story)
             
             return output_path
             
@@ -713,19 +897,35 @@ def create_childbook(book_id: int):
         template_prompt_overrides: Dict[int, Dict[str, Any]] = {}
         template_obj: Optional[StoryTemplate] = None
         workflow_slug = "base"
-        story_generator: Optional[OllamaStoryGenerator] = None
-        is_template = (book.story_source or "custom") == "template"
-        if is_template:
-            template_obj = _load_story_template(book.template_key)
-            if not template_obj:
-                raise Exception("Story template not found or inactive")
-            if not book.target_age:
-                book.target_age = template_obj.age
-            story_data, template_prompt_overrides = _build_story_from_template(book, template_obj)
-            workflow_slug = template_obj.workflow_slug or "base"
-        else:
-            story_generator = OllamaStoryGenerator(OLLAMA_SERVER)
-            workflow_slug = "base"
+        is_template = (book.story_source or "").strip().lower() == "template"
+        if not is_template:
+            raise Exception("Only template-driven books are supported")
+        template_obj = _load_story_template(book.template_key)
+        if not template_obj:
+            raise Exception("Story template not found or inactive")
+        if not book.target_age:
+            book.target_age = template_obj.age
+        # Keep template-based books in sync with the current template page count.
+        # Exclude qwen_cover from body count; end pages (qwen_end) count toward total.
+        try:
+            tpl_pages = list(template_obj.pages or [])
+            body_count = len(
+                [
+                    p
+                    for p in tpl_pages
+                    if str(getattr(p, "workflow_slug", "") or "").strip().lower()
+                    not in {"qwen_cover"}
+                ]
+            )
+            if body_count <= 0:
+                body_count = len(tpl_pages)
+            if body_count > 0 and book.page_count != body_count:
+                book.page_count = body_count
+                session.commit()
+        except Exception:
+            pass
+        story_data, template_prompt_overrides = _build_story_from_template(book, template_obj)
+        workflow_slug = template_obj.workflow_slug or "base"
 
         # Stage 1: Generate story text
         my_run_token = _get_run_token(book_id)
@@ -737,25 +937,7 @@ def create_childbook(book_id: int):
             print(f"[Abort] Cancelled before story generation for book {book_id}")
             return
 
-        if not is_template:
-            assert story_generator is not None
-            if not story_generator.check_model_availability():
-                print("Warning: Ollama not available, using fallback story generation")
-                story_data = story_generator.generate_fallback_story(
-                    book.title,
-                    book.character_description,
-                    book.page_count
-                )
-            else:
-                story_data = story_generator.generate_story(
-                    title=book.title,
-                    theme=book.theme,
-                    age_group=book.target_age,
-                    page_count=book.page_count,
-                    character_description=book.character_description,
-                    positive_prompt=book.positive_prompt,
-                    negative_prompt=book.negative_prompt
-                )
+        # Template-only: story_data is derived from the DB-backed template.
 
         # Save story data
         book.story_data = json.dumps(story_data)
@@ -805,18 +987,16 @@ def create_childbook(book_id: int):
                 prompt_override = template_prompt_overrides.get(page.page_number, {})
                 keypoint_slug = prompt_override.get("keypoint")
 
-                enhanced_prompts = enhance_childbook_prompt(
-                    page.image_description,
-                    book.theme or "custom",
-                    book.target_age or "6-8",
-                    f"Page {page.page_number} of children's book",
-                    character_description=book.character_description,
-                )
-                positive_override = prompt_override.get("positive")
-                page.enhanced_prompt = positive_override or enhanced_prompts.get("positive") or page.image_description
+                positive_raw = prompt_override.get("positive")
+                positive_override = (
+                    str(positive_raw).strip() if positive_raw is not None else ""
+                ) or None
+                page.enhanced_prompt = positive_override or ""
 
-                negative_override = prompt_override.get("negative")
-                negative_prompt = negative_override or enhanced_prompts.get("negative") or DEFAULT_NEGATIVE_PROMPT
+                negative_raw = prompt_override.get("negative")
+                negative_override = (
+                    str(negative_raw).strip() if negative_raw is not None else ""
+                ) or None
                 session.commit()
 
                 # Try to generate image with ComfyUI
@@ -886,32 +1066,66 @@ def create_childbook(book_id: int):
 
                     # Generate image with ComfyUI
                     print(f"Starting ComfyUI processing for page {page.page_number}...")
-                    print(f"Using enhanced prompt: {page.enhanced_prompt}")
+                    print(
+                        f"Using prompt override: {bool(positive_override)} (page {page.page_number})"
+                    )
 
                     seed_override = prompt_override.get("seed")
                     _randomize_k_sampler_seeds(workflow, seed_override)
 
-                    # If this is a cover page and cover_text is provided, update overlay text
-                    if page.page_number == 0:
-                        cover_text_value = prompt_override.get("cover_text")
-                        if cover_text_value:
-                            try:
-                                # Try meta override first
-                                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                                overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
-                                if overlay_nodes:
-                                    for nid in overlay_nodes:
-                                        node = workflow.get(nid)
-                                        if node and isinstance(node.get("inputs"), dict):
-                                            node["inputs"]["text"] = cover_text_value
-                                else:
-                                    # Scan for any Text Overlay nodes
-                                    for nid, node in workflow.items():
-                                        if node.get("class_type") == "Text Overlay" and isinstance(node.get("inputs"), dict):
-                                            node["inputs"]["text"] = cover_text_value
-                                print(f"Applied cover text to overlay nodes for page 0")
-                            except Exception as ov_err:
-                                print(f"Warning: failed to apply cover overlay text: {ov_err}")
+                    # Apply per-page extra text overlays to Text Overlay nodes when configured.
+                    extra_text_cfgs = prompt_override.get("extra_text") or []
+                    if extra_text_cfgs:
+                        try:
+                            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
+                            overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
+                            if not overlay_nodes:
+                                overlay_nodes = [
+                                    nid
+                                    for nid, node in workflow.items()
+                                    if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
+                                ]
+                            defaults = {
+                                "text": "",
+                                "font_size": 60,
+                                "fill_color_hex": "#FFFFFF",
+                                "stroke_color_hex": "#000000",
+                                "x_shift": 0,
+                                "y_shift": -40,
+                                "vertical_alignment": "top",
+                            }
+                            for idx, item in enumerate(extra_text_cfgs):
+                                if idx >= len(overlay_nodes):
+                                    break
+                                nid = overlay_nodes[idx]
+                                node = workflow.get(nid)
+                                if not (node and isinstance(node.get("inputs"), dict)):
+                                    continue
+                                cfg = defaults.copy()
+                                if isinstance(item, dict):
+                                    try:
+                                        cfg.update(item)
+                                    except Exception:
+                                        pass
+                                inputs = node["inputs"]
+                                inputs["text"] = str(cfg.get("text", "") or "")
+                                try:
+                                    inputs["font_size"] = int(cfg.get("font_size", defaults["font_size"]))
+                                except Exception:
+                                    inputs["font_size"] = defaults["font_size"]
+                                inputs["fill_color_hex"] = cfg.get("fill_color_hex", defaults["fill_color_hex"]) or defaults["fill_color_hex"]
+                                inputs["stroke_color_hex"] = cfg.get("stroke_color_hex", defaults["stroke_color_hex"]) or defaults["stroke_color_hex"]
+                                try:
+                                    inputs["x_shift"] = int(cfg.get("x_shift", defaults["x_shift"]))
+                                    inputs["y_shift"] = int(cfg.get("y_shift", defaults["y_shift"]))
+                                except Exception:
+                                    inputs["x_shift"] = defaults["x_shift"]
+                                    inputs["y_shift"] = defaults["y_shift"]
+                                va = cfg.get("vertical_alignment", defaults["vertical_alignment"])
+                                inputs["vertical_alignment"] = str(va or defaults["vertical_alignment"])
+                            print(f"Applied extra text overlays (count={len(extra_text_cfgs)}) for page {page.page_number}")
+                        except Exception as ov_err:
+                            print(f"Warning: failed to apply extra text overlays: {ov_err}")
 
                     result = None
                     primary_error: Optional[Exception] = None
@@ -922,15 +1136,8 @@ def create_childbook(book_id: int):
                         is_qwen_workflow = False
                     if 'comfy_reachable' in locals() and comfy_reachable:
                         try:
-                            # For Qwen image-edit workflows, treat template positive_prompt
-                            # as an optional override only. When no override is provided,
-                            # let the workflow's built-in prompt (e.g. node 348) stand.
-                            if is_qwen_workflow:
-                                custom_prompt = positive_override or None
-                                control_prompt_arg = None
-                            else:
-                                custom_prompt = page.enhanced_prompt
-                                control_prompt_arg = negative_prompt
+                            custom_prompt = positive_override
+                            control_prompt_arg = negative_override
 
                             result = comfyui_client.process_image_to_animation(
                                 image_paths,
@@ -945,31 +1152,31 @@ def create_childbook(book_id: int):
                     else:
                         print(f"Skipping local ComfyUI for page {page.page_number} (not reachable); using RunPod fallback.")
 
-                    # Fallback to RunPod Serverless when local ComfyUI fails
-                    if not (result and result.get("status") == "success" and result.get("output_path")):
-                        runpod = _get_runpod_fallback()
-                        # RunPod fallback is only supported for legacy SDXL/InstantID flows today.
-                        if runpod and not is_qwen_workflow:
-                            try:
-                                result = runpod.process_image_to_animation(
-                                    workflow,
-                                    image_paths,
-                                    custom_prompt=page.enhanced_prompt,
-                                    control_prompt=negative_prompt,
-                                    fixed_basename=f"{book.id}_page_{page.page_number}",
-                                    keypoint_image_path=keypoint_image_path,
-                                )
-                            except Exception as rp_err:
-                                if primary_error:
-                                    raise Exception(
-                                        f"ComfyUI and RunPod both failed; ComfyUI error={primary_error}, RunPod error={rp_err}"
+                        # Fallback to RunPod Serverless when local ComfyUI fails
+                        if not (result and result.get("status") == "success" and result.get("output_path")):
+                            runpod = _get_runpod_fallback()
+                            # RunPod fallback is only supported for legacy SDXL/InstantID flows today.
+                            if runpod and not is_qwen_workflow:
+                                try:
+                                    result = runpod.process_image_to_animation(
+                                        workflow,
+                                        image_paths,
+                                        custom_prompt=positive_override,
+                                        control_prompt=negative_override,
+                                        fixed_basename=f"{book.id}_page_{page.page_number}",
+                                        keypoint_image_path=keypoint_image_path,
                                     )
-                                raise rp_err
-                        else:
-                            if primary_error:
-                                raise primary_error
+                                except Exception as rp_err:
+                                    if primary_error:
+                                        raise Exception(
+                                            f"ComfyUI and RunPod both failed; ComfyUI error={primary_error}, RunPod error={rp_err}"
+                                        )
+                                    raise rp_err
                             else:
-                                raise Exception(
+                                if primary_error:
+                                    raise primary_error
+                                else:
+                                    raise Exception(
                                     f"ComfyUI processing failed: {result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'}"
                                 )
 
@@ -984,8 +1191,11 @@ def create_childbook(book_id: int):
                         new_output_path = move_to(str(final_output_path), str(target_dir), new_name)
                         result["output_path"] = new_output_path
                         page.image_path = new_output_path
-                        # Use cover as preview image
-                        if page.page_number == 0:
+                        # Use special cover workflow as preview image when available
+                        if (
+                            isinstance(template_prompt_overrides.get(page.page_number), dict)
+                            and (template_prompt_overrides[page.page_number].get("workflow") or "").strip().lower() == "qwen_cover"
+                        ):
                             book.preview_image_path = new_output_path
                             session.commit()
 
@@ -1071,14 +1281,34 @@ def create_childbook(book_id: int):
         
         # Get all pages with their data
         pages = session.query(BookPage).filter_by(book_id=book.id).order_by(BookPage.page_number).all()
-        
+
+        # Best-effort: enrich pages with workflow slug from story_data so the
+        # PDF composer can treat special Qwen cover/end pages as full-image.
+        page_meta_by_number: Dict[int, Dict[str, Any]] = {}
+        try:
+            if book.story_data:
+                sd = json.loads(book.story_data)
+                if isinstance(sd, dict):
+                    for pg in sd.get("pages", []):
+                        try:
+                            num = int(pg.get("page"))
+                        except Exception:
+                            continue
+                        page_meta_by_number[num] = pg if isinstance(pg, dict) else {}
+        except Exception:
+            page_meta_by_number = {}
+
         pages_data = []
         for page in pages:
-            pages_data.append({
-                'text_content': page.text_content,
-                'image_path': page.image_path,
-                'page_number': page.page_number
-            })
+            meta = page_meta_by_number.get(page.page_number) or {}
+            pages_data.append(
+                {
+                    "text_content": page.text_content,
+                    "image_path": page.image_path,
+                    "page_number": page.page_number,
+                    "workflow": (meta.get("workflow") if isinstance(meta, dict) else None),
+                }
+            )
         
         # Create PDF
         pdf_path_str = book_composer.create_book_pdf(
@@ -1141,6 +1371,7 @@ def _reset_book_state(book: Book):
     book.pdf_generated_at = None
     book.completed_at = None
     book.pdf_path = None
+    book.preview_image_path = None
 
 
 def admin_regenerate_book(book_id: int, new_prompt: Optional[str] = None):
@@ -1259,40 +1490,4 @@ def create_placeholder_image(page_number: int, book_title: str) -> str:
         print(f"Failed to create placeholder image: {e}")
         return None
 
-# Test function
-def test_book_creation():
-    """Test book creation with sample data"""
-    from app.models import User, Book
-    
-    session = _Session()
-    
-    # Create a test book
-    test_book = Book(
-        user_id=1,  # Assuming user 1 exists
-        title="The Magic Garden Adventure",
-        theme="adventure",
-        target_age="6-8",
-        page_count=4,
-        character_description="a curious young girl with brown hair",
-        positive_prompt="colorful flowers, friendly animals, magical sparkles",
-        negative_prompt="scary, dark, violence",
-        original_image_path="/tmp/test_image.jpg",  # You'd need a real image here
-        status="creating"
-    )
-    
-    session.add(test_book)
-    session.commit()
-    
-    print(f"Created test book with ID: {test_book.id}")
-    
-    # Run the creation process
-    try:
-        create_childbook(test_book.id)
-        print("✅ Test book creation completed!")
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-    finally:
-        session.close()
-
-if __name__ == "__main__":
-    test_book_creation()
+# Note: keep this module import-safe; do not execute local test code here.

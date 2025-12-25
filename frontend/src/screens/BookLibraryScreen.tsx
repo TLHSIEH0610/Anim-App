@@ -83,6 +83,8 @@ function BookListCard({
   onRegenerate: (book: Book) => void;
 }) {
   const targetHeight = 140;
+  const coverAspect = 1152 / 1600;
+  const coverWidth = Math.round(targetHeight * coverAspect);
   const [imgLoading, setImgLoading] = useState<boolean>(true);
   const [downloading, setDownloading] = useState<boolean>(false);
   const genderRaw = book.template_params?.gender as
@@ -204,13 +206,15 @@ function BookListCard({
       {/* Content row: image column + details column */}
       <View style={styles.cardBody}>
         {book.status === "completed" ? (
-          <View style={styles.coverThumbWrap}>
+          <View
+            style={[
+              styles.coverThumbWrap,
+              { width: coverWidth, height: targetHeight },
+            ]}
+          >
             <Image
               source={{ uri: coverUri }}
-              style={[
-                styles.coverThumb,
-                { width: "100%", height: targetHeight },
-              ]}
+              style={styles.coverThumb}
               contentFit="cover"
               cachePolicy="memory-disk"
               placeholder={{ blurhash: BLURHASH }}
@@ -702,18 +706,15 @@ const styles = StyleSheet.create({
     ...shadow.subtle,
   },
   coverThumbWrap: {
-    width: 110,
     backgroundColor: colors.neutral100,
     borderRadius: radii.md,
     overflow: "hidden",
     alignSelf: "flex-start",
-    alignItems: "center",
-    padding: spacing(1),
     flexShrink: 0,
   },
   coverThumb: {
-    height: 140,
-    borderRadius: radii.md,
+    width: "100%",
+    height: "100%",
   },
   imageSpinner: {
     position: "absolute",

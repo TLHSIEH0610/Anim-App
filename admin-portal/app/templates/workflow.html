@@ -5,7 +5,7 @@
 
 <div class="mdc-card" style="padding: 16px; margin-bottom: 16px;">
     <h3 class="mdc-typography--headline6">Workflow Metadata</h3>
-    <p><strong>Story Source:</strong> {{ metadata.story_source or 'custom' }}</p>
+    <p><strong>Story Source:</strong> {{ metadata.story_source or 'template' }}</p>
     {% if metadata.get('template_key') %}
     <p><strong>Template:</strong> {{ metadata.template_key }}</p>
     {% endif %}

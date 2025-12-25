@@ -1,7 +1,7 @@
 # ?? Children's Book Creator - AnimApp
 - **Expo configuration** - set `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `frontend/.env` so the mobile Stripe client can initialize.
 
-A full-stack mobile application that transforms user images into AI-generated children's books with custom stories and illustrations.
+A full-stack mobile application that transforms user images into AI-generated children's books using database-backed story templates and ComfyUI illustrations.
 
 ## ?? Table of Contents
 
@@ -100,18 +100,17 @@ AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_d
      +--------------+---------------+
                                   
      ?              ?               ?
-+---------+  +----------+   +------------+
- Story templates     ComfyUI      ReportLab  
-  LLM        Image          PDF     
- Server       Gen         Builder   
-+---------+  +----------+   +------------+
++----------------+  +----------+   +------------+
+ Story Templates       ComfyUI      ReportLab
+ (DB-backed)       Image Gen      PDF Builder
++----------------+  +----------+   +------------+
 ```
 
 **Processing Flow:**
 1. User uploads image ? Frontend sends to Backend API
 2. Backend creates Book record ? Queues job in Redis
 3. RQ Worker picks up job:
-   - Generates narrative from Story templates
+   - Fills narrative from Story templates
    - Sends prompts to ComfyUI for illustrations
    - Assembles PDF with ReportLab
 4. User receives real-time progress updates
@@ -170,11 +169,10 @@ anim-app/
       +-- models.py          # Database models (User, Job, Book, BookPage)
       +-- schemas.py         # Pydantic validation schemas
       +-- storage.py         # File upload/deletion utilities
-      +-- queue.py           # RQ job queue management
-      +-- comfyui_client.py  # ComfyUI API client
-      +-- story_generator.py # Resolves story templates into narrative text
-      +-- default_workflows.py # Seeds the base ComfyUI workflow into the database
-      +-- default_stories.py   # Seeds built-in Story templates into the database
+	      +-- queue.py           # RQ job queue management
+	      +-- comfyui_client.py  # ComfyUI API client
+	      +-- default_workflows.py # Seeds the base ComfyUI workflow into the database
+	      +-- default_stories.py   # Seeds built-in Story templates into the database
       +-- utility.py         # Helper functions
       +-- routes/
          +-- auth_routes.py # Login, register, Google OAuth

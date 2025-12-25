@@ -57,7 +57,8 @@
                           <a href="/books/{{ book.id }}/workflow" class="mdc-button btn-sm"><span class="mdc-button__label">Workflow</span></a>
                           <a href="/books/{{ book.id }}/images" class="mdc-button btn-sm"><span class="mdc-button__label">Images</span></a>
                           {% if book.pdf_path %}
-                          <a href="/files-proxy?path={{ book.pdf_path | urlencode }}" target="_blank" rel="noopener" class="mdc-button btn-sm"><span class="mdc-button__label">View PDF</span></a>
+                          {% set pdf_v = book.pdf_generated_at or book.completed_at or book.updated_at or book.created_at or '' %}
+                          <a href="/files-proxy?path={{ book.pdf_path | urlencode }}&v={{ pdf_v | urlencode }}" target="_blank" rel="noopener" class="mdc-button btn-sm"><span class="mdc-button__label">View PDF</span></a>
                           {% endif %}
                           <form method="post" action="/books/{{ book.id }}/rebuild-pdf" data-loading="Rebuilding...">
                             <button class="mdc-button btn-sm" type="submit"><span class="mdc-button__label">Rebuild PDF</span></button>

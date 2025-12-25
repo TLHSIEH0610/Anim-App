@@ -1,14 +1,26 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator as RNActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Platform,
+  ActivityIndicator as RNActivityIndicator,
+} from "react-native";
 import { Image } from "expo-image";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import {
+  RouteProp,
+  useRoute,
+  useNavigation,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { AppStackParamList } from "../navigation/types";
-import { StoryTemplateSummary, getThumbUrl } from "../api/books";
+import { StoryTemplateSummary, getStoryTemplates, getThumbUrl } from "../api/books";
 import ScreenWrapper from "../components/ScreenWrapper";
 import Header from "../components/Header";
 import Button from "../components/Button";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
-const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
+const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 import { useAuth } from "../context/AuthContext";
 
 type TemplateDemoRoute = RouteProp<AppStackParamList, "TemplateDemo">;
@@ -17,18 +29,54 @@ export default function TemplateDemoScreen() {
   const { params } = useRoute<TemplateDemoRoute>();
   const navigation = useNavigation();
   const { token } = useAuth();
-  const template: StoryTemplateSummary = params.template;
+  const initialTemplate: StoryTemplateSummary = params.template;
+  const [template, setTemplate] = useState<StoryTemplateSummary>(initialTemplate);
+
+  const refreshTemplate = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await getStoryTemplates();
+      const fresh = (res.stories || []).find(
+        (t) => t.slug === initialTemplate.slug
+      );
+      if (fresh) setTemplate(fresh);
+    } catch {
+      // Ignore and fall back to the navigation payload
+    }
+  }, [token, initialTemplate.slug]);
+
+  // Keep the latest route payload (in case the screen stays mounted and params update).
+  useEffect(() => {
+    setTemplate(initialTemplate);
+  }, [initialTemplate]);
+
+  // Re-fetch on focus so demo updates show immediately after admin edits/uploads.
+  useFocusEffect(
+    useCallback(() => {
+      refreshTemplate();
+    }, [refreshTemplate])
+  );
 
   const demoImageUrls = useMemo(() => {
     const list = template.demo_images || [];
     return list
       .filter(Boolean)
-      .map((p) => getThumbUrl({ path: p!, token, width: 360, version: template.version }))
+      .map((p) =>
+        getThumbUrl({
+          path: p!,
+          token,
+          width: 360,
+          height: 360,
+          version: template.version,
+        })
+      )
       .filter(Boolean) as string[];
   }, [template.demo_images, token, template.version]);
 
   const storylinePages = useMemo(() => {
-    return (template.storyline_pages || []).filter((p) => p.page_number !== 0);
+    return (template.storyline_pages || []).filter(
+      (p) => !["qwen_cover", "qwen_end"].includes(p.workflow || "")
+    );
   }, [template.storyline_pages]);
 
   const goCreate = () => {
@@ -37,7 +85,9 @@ export default function TemplateDemoScreen() {
     navigation.navigate("BookCreation", { templateSlug: template.slug });
   };
 
-  const [loadingByIndex, setLoadingByIndex] = useState<Record<number, boolean>>({});
+  const [loadingByIndex, setLoadingByIndex] = useState<Record<number, boolean>>(
+    {}
+  );
 
   return (
     <ScreenWrapper>
@@ -65,9 +115,15 @@ export default function TemplateDemoScreen() {
                   cachePolicy="memory-disk"
                   placeholder={{ blurhash: BLURHASH }}
                   transition={150}
-                  onLoadStart={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: true }))}
-                  onLoad={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))}
-                  onError={() => setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))}
+                  onLoadStart={() =>
+                    setLoadingByIndex((prev) => ({ ...prev, [idx]: true }))
+                  }
+                  onLoad={() =>
+                    setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))
+                  }
+                  onError={() =>
+                    setLoadingByIndex((prev) => ({ ...prev, [idx]: false }))
+                  }
                 />
                 {loadingByIndex[idx] && (
                   <View style={styles.imageSpinner} pointerEvents="none">
@@ -92,7 +148,7 @@ export default function TemplateDemoScreen() {
           {storylinePages.map((p) => (
             <View key={p.page_number} style={styles.promptItem}>
               <Text style={styles.promptTitle}>Page {p.page_number}</Text>
-              <Text style={styles.promptText}>{p.image_prompt}</Text>
+              <Text style={styles.promptText}>{p.description}</Text>
             </View>
           ))}
           {storylinePages.length === 0 && (
@@ -132,7 +188,7 @@ const styles = StyleSheet.create({
   },
   thumb: {
     width: "100%",
-    aspectRatio: 4 / 3,
+    aspectRatio: 1,
     borderRadius: radii.md,
     overflow: "hidden",
     backgroundColor: colors.neutral100,

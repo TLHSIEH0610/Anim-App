@@ -5,6 +5,7 @@ import json
 import time
 import base64
 import copy
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -200,10 +201,100 @@ def _to_decimal(value: Optional[float]) -> Optional[Decimal]:
         return None
     return Decimal(str(value))
 
+def _normalize_cover_text(value: Any) -> list[dict]:
+    """Normalize legacy StoryTemplatePage.cover_text into a structured overlay list.
+
+    Stored in DB as TEXT (often JSON). Returned to clients as a list of dicts with defaults.
+    """
+    if value is None:
+        return []
+    defaults = {
+        "text": "",
+        "font_size": 60,
+        "fill_color_hex": "#FFFFFF",
+        "stroke_color_hex": "#000000",
+        "x_shift": 0,
+        "y_shift": -40,
+        "vertical_alignment": "top",
+    }
+    raw = value
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return []
+        try:
+            raw = json.loads(s)
+        except Exception:
+            raw = [{"text": s}]
+
+    if isinstance(raw, dict):
+        source = [raw]
+    elif isinstance(raw, list):
+        source = raw
+    else:
+        source = [{"text": str(raw)}]
+
+    items: list[dict] = []
+    for item in source:
+        if not isinstance(item, dict):
+            item = {"text": str(item)}
+        cfg = defaults.copy()
+        try:
+            cfg["text"] = str(item.get("text", "") or "")
+        except Exception:
+            cfg["text"] = ""
+        try:
+            cfg["font_size"] = int(item.get("font_size", cfg["font_size"]))
+        except Exception:
+            pass
+        try:
+            cfg["fill_color_hex"] = str(
+                item.get("fill_color_hex", cfg["fill_color_hex"]) or cfg["fill_color_hex"]
+            )
+        except Exception:
+            pass
+        try:
+            cfg["stroke_color_hex"] = str(
+                item.get("stroke_color_hex", cfg["stroke_color_hex"]) or cfg["stroke_color_hex"]
+            )
+        except Exception:
+            pass
+        try:
+            cfg["x_shift"] = int(item.get("x_shift", cfg["x_shift"]))
+        except Exception:
+            pass
+        try:
+            cfg["y_shift"] = int(item.get("y_shift", cfg["y_shift"]))
+        except Exception:
+            pass
+        try:
+            va = item.get("vertical_alignment", cfg["vertical_alignment"])
+            cfg["vertical_alignment"] = str(va or cfg["vertical_alignment"])
+        except Exception:
+            pass
+        items.append(cfg)
+    return items
+
+
+def _cover_text_to_db(value: Any) -> Optional[str]:
+    """Convert a cover_text payload (string/dict/list) into the DB TEXT format."""
+    items = _normalize_cover_text(value)
+    if not items:
+        return None
+    try:
+        return json.dumps(items, ensure_ascii=False)
+    except Exception:
+        # Last-resort: store as a plain string
+        try:
+            return str(value)
+        except Exception:
+            return None
+
 
 def _story_template_to_dict(template: StoryTemplate) -> dict:
     pages = []
     for page in sorted(template.pages, key=lambda p: p.page_number):
+        cover_text_items = _normalize_cover_text(getattr(page, "cover_text", None))
         pages.append(
             {
                 "page_number": page.page_number,
@@ -213,7 +304,8 @@ def _story_template_to_dict(template: StoryTemplate) -> dict:
                 # Optional overrides; when omitted, the workflow defaults are used.
                 "positive_prompt": page.positive_prompt or "",
                 "negative_prompt": page.negative_prompt or "",
-                "cover_text": getattr(page, "cover_text", None),
+                # Structured overlay config (legacy column name is cover_text).
+                "cover_text": cover_text_items or None,
                 "description": getattr(page, "description", None),
                 "workflow": page.workflow_slug,
             }
@@ -288,12 +380,13 @@ def _covers_base_dir() -> Path:
     target.mkdir(parents=True, exist_ok=True)
     return target
 
-def _demo_image_path(slug: str, index: int, orig_filename: Optional[str]) -> Path:
+def _demo_image_path(slug: str, index: int, orig_filename: Optional[str], version: int) -> Path:
     base = _covers_base_dir()
     ext = ".png"
     if orig_filename and "." in orig_filename:
         ext = "." + orig_filename.split(".")[-1]
-    return base / f"{slug}_demo_{index}{ext}"
+    # Include a version token so each upload produces a new path and busts client/server caches.
+    return base / f"{slug}_demo_{index}_v{version}{ext}"
 
 
 def _controlnet_image_to_dict(image: ControlNetImage) -> dict:
@@ -337,8 +430,15 @@ def admin_upload_demo_image(
     if not template:
         raise HTTPException(status_code=404, detail="Story template not found")
 
-    # Persist under covers with deterministic name per slot
-    path = _demo_image_path(slug, index, demo_file.filename)
+    # Bump template version so mobile demo/cover URLs (which include `v=`) cache-bust immediately.
+    try:
+        new_version = int(getattr(template, "version", None) or 1) + 1
+    except Exception:
+        new_version = 1
+    template.version = new_version
+
+    # Persist under covers with a versioned name (new path each upload).
+    path = _demo_image_path(slug, index, demo_file.filename, new_version)
     demo_file.file.seek(0)
     temp_path = save_upload(demo_file.file, subdir="covers", filename=path.name)
 
@@ -354,7 +454,12 @@ def admin_upload_demo_image(
     db.add(template)
     db.commit()
     db.refresh(template)
-    return {"message": "Demo image uploaded", "index": index, "path": temp_path}
+    return {
+        "message": "Demo image uploaded",
+        "index": index,
+        "path": temp_path,
+        "version": template.version,
+    }
 
 
 @router.post("/story-templates/{slug}/cover")
@@ -368,10 +473,17 @@ def admin_upload_template_cover(
     if not template:
         raise HTTPException(status_code=404, detail="Story template not found")
 
+    # Bump template version so mobile URLs (which include `v=`) cache-bust immediately.
+    try:
+        new_version = int(getattr(template, "version", None) or 1) + 1
+    except Exception:
+        new_version = 1
+    template.version = new_version
+
     # Use original extension if present
     orig_name = cover_file.filename or f"{slug}.png"
     ext = "." + orig_name.split(".")[-1] if "." in orig_name else ".png"
-    filename = f"{slug}{ext}"
+    filename = f"{slug}_v{new_version}{ext}"
 
     cover_file.file.seek(0)
     temp_path = save_upload(cover_file.file, subdir="covers", filename=filename)
@@ -381,7 +493,11 @@ def admin_upload_template_cover(
     db.commit()
     db.refresh(template)
 
-    return {"message": "Cover uploaded", "cover_image_url": template.cover_image_url}
+    return {
+        "message": "Cover uploaded",
+        "cover_image_url": template.cover_image_url,
+        "version": template.version,
+    }
 
 
 def _rename_keypoint(path: str, slug: str) -> str:
@@ -1252,7 +1368,7 @@ def admin_create_story_template(
             keypoint_image=story_image_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
-            cover_text=page.cover_text or None,
+            cover_text=_cover_text_to_db(page.cover_text),
             description=page.description or None,
         )
         db.add(page_row)
@@ -1351,7 +1467,7 @@ def admin_update_story_template(
             keypoint_image=story_image_slug,
             workflow_slug=workflow_value,
             seed=seed_value,
-            cover_text=page.cover_text or None,
+            cover_text=_cover_text_to_db(page.cover_text),
             description=page.description or None,
         )
         db.add(page_row)
@@ -1630,7 +1746,10 @@ class StoryTemplatePagePayload(BaseModel):
     story_image: Optional[str] = None
     workflow: Optional[str] = None
     seed: Optional[int] = None
-    cover_text: Optional[str] = None
+    # Legacy column name in DB is cover_text, but the preferred shape is a list of overlay objects:
+    # [{ "text": "...", "font_size": 60, "fill_color_hex": "#FFF", "stroke_color_hex": "#000",
+    #    "x_shift": 0, "y_shift": -40, "vertical_alignment": "top" }, ...]
+    cover_text: Optional[Any] = None
     description: Optional[str] = None
 
 
@@ -1689,13 +1808,82 @@ def admin_rebuild_pdf(
     if not pages:
         raise HTTPException(status_code=409, detail="No pages found for this book")
 
+    # Best-effort: enrich pages with workflow slug so the PDF composer can
+    # treat special pages (qwen_cover/qwen_end) as full-bleed.
+    page_meta_by_number: Dict[int, Dict[str, Any]] = {}
+    try:
+        if getattr(book, "story_data", None):
+            sd = json.loads(book.story_data)
+            if isinstance(sd, dict):
+                for pg in sd.get("pages", []) or []:
+                    if not isinstance(pg, dict):
+                        continue
+                    try:
+                        num = int(pg.get("page"))
+                    except Exception:
+                        continue
+                    page_meta_by_number[num] = pg
+    except Exception:
+        page_meta_by_number = {}
+
+    snapshot_workflow_by_page: Dict[int, Optional[str]] = {}
+    try:
+        snaps = (
+            db.query(
+                BookWorkflowSnapshot.page_number,
+                BookWorkflowSnapshot.workflow_slug,
+                BookWorkflowSnapshot.created_at,
+            )
+            .filter(BookWorkflowSnapshot.book_id == book.id)
+            .order_by(
+                BookWorkflowSnapshot.page_number.asc(),
+                BookWorkflowSnapshot.created_at.desc(),
+            )
+            .all()
+        )
+        for pn, wf, _created_at in snaps:
+            try:
+                ipn = int(pn)
+            except Exception:
+                continue
+            if ipn not in snapshot_workflow_by_page:
+                snapshot_workflow_by_page[ipn] = wf
+    except Exception:
+        pass
+
+    template_workflow_by_page: Dict[int, Optional[str]] = {}
+    try:
+        if getattr(book, "template_key", None):
+            tpages = (
+                db.query(StoryTemplatePage.page_number, StoryTemplatePage.workflow_slug)
+                .join(StoryTemplate, StoryTemplate.id == StoryTemplatePage.story_template_id)
+                .filter(StoryTemplate.slug == book.template_key)
+                .all()
+            )
+            for pn, wf in tpages:
+                try:
+                    template_workflow_by_page[int(pn)] = wf
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     pages_data = []
     for p in pages:
+        wf: Optional[str] = None
+        meta = page_meta_by_number.get(p.page_number)
+        if isinstance(meta, dict):
+            wf = meta.get("workflow")  # story_data key
+        if wf is None:
+            wf = snapshot_workflow_by_page.get(p.page_number)
+        if wf is None:
+            wf = template_workflow_by_page.get(p.page_number)
         pages_data.append(
             {
                 "text_content": p.text_content,
                 "image_path": p.image_path,
                 "page_number": p.page_number,
+                "workflow": wf,
             }
         )
 
@@ -1816,29 +2004,58 @@ def admin_regenerate_page(
         workflow_version = wf_version
         workflow_slug = wf_slug_active
         workflow_json = copy.deepcopy(base_wf)
-        # Inject cover_text into overlay nodes for cover page (page 0)
-        # Mirrors worker behavior so admin "Regenerate from template" matches pipeline output
+        # Inject extra text overlays into Text Overlay nodes when configured (e.g. cover page).
+        # Mirrors worker behavior so admin "Regenerate from template" matches pipeline output.
         try:
-            if page == 0 and overrides:
-                cov = overrides.get(0) if isinstance(overrides, dict) else None
-                cover_text_value = cov.get("cover_text") if isinstance(cov, dict) else None
-                if isinstance(cover_text_value, str) and cover_text_value.strip():
+            if overrides and isinstance(overrides, dict):
+                ovr = overrides.get(page)
+                extra_text_cfgs = ovr.get("extra_text") if isinstance(ovr, dict) else None
+                if isinstance(extra_text_cfgs, list) and extra_text_cfgs:
                     meta = workflow_json.get("_meta", {}) if isinstance(workflow_json, dict) else {}
                     overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
-                    if overlay_nodes:
-                        for nid in overlay_nodes:
-                            node = workflow_json.get(nid)
-                            if node and isinstance(node.get("inputs"), dict):
-                                node["inputs"]["text"] = cover_text_value
-                    else:
-                        # Fallback: scan for any Text Overlay nodes and update their text
-                        for nid, node in list(workflow_json.items()):
-                            try:
-                                if node.get("class_type") == "Text Overlay" and isinstance(node.get("inputs"), dict):
-                                    node["inputs"]["text"] = cover_text_value
-                            except Exception:
-                                # Ignore malformed nodes; continue attempting other nodes
-                                pass
+                    if not overlay_nodes:
+                        overlay_nodes = [
+                            nid
+                            for nid, node in workflow_json.items()
+                            if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
+                        ]
+                    defaults = {
+                        "text": "",
+                        "font_size": 60,
+                        "fill_color_hex": "#FFFFFF",
+                        "stroke_color_hex": "#000000",
+                        "x_shift": 0,
+                        "y_shift": -40,
+                        "vertical_alignment": "top",
+                    }
+                    for idx, item in enumerate(extra_text_cfgs):
+                        if idx >= len(overlay_nodes):
+                            break
+                        nid = overlay_nodes[idx]
+                        node = workflow_json.get(nid)
+                        if not (node and isinstance(node.get("inputs"), dict)):
+                            continue
+                        cfg = defaults.copy()
+                        if isinstance(item, dict):
+                            cfg.update(item)
+                        else:
+                            cfg["text"] = str(item)
+                        inputs = node["inputs"]
+                        inputs["text"] = str(cfg.get("text", defaults["text"]) or "")
+                        try:
+                            inputs["font_size"] = int(cfg.get("font_size", defaults["font_size"]))
+                        except Exception:
+                            inputs["font_size"] = defaults["font_size"]
+                        inputs["fill_color_hex"] = str(cfg.get("fill_color_hex", defaults["fill_color_hex"]) or defaults["fill_color_hex"])
+                        inputs["stroke_color_hex"] = str(cfg.get("stroke_color_hex", defaults["stroke_color_hex"]) or defaults["stroke_color_hex"])
+                        try:
+                            inputs["x_shift"] = int(cfg.get("x_shift", defaults["x_shift"]))
+                            inputs["y_shift"] = int(cfg.get("y_shift", defaults["y_shift"]))
+                        except Exception:
+                            inputs["x_shift"] = defaults["x_shift"]
+                            inputs["y_shift"] = defaults["y_shift"]
+                        va = cfg.get("vertical_alignment", defaults["vertical_alignment"])
+                        inputs["vertical_alignment"] = str(va or defaults["vertical_alignment"])
         except Exception:
             # Do not block regeneration if overlay injection fails
             pass
@@ -2284,8 +2501,13 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
     ext = file_path.suffix.lower() or ".jpg"
     target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
     try:
-        if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
-            return target
+        if target.exists():
+            t_stat = target.stat()
+            f_stat = file_path.stat()
+            t_m = int(getattr(t_stat, "st_mtime_ns", int(t_stat.st_mtime * 1_000_000_000)))
+            f_m = int(getattr(f_stat, "st_mtime_ns", int(f_stat.st_mtime * 1_000_000_000)))
+            if t_m > f_m:
+                return target
     except Exception:
         pass
     with PILImage.open(str(file_path)) as img:
@@ -2314,7 +2536,7 @@ def admin_get_file(path: str, _: None = Depends(require_admin)):
     if not path:
         raise HTTPException(status_code=400, detail="Missing path")
     file_path = _resolve_media_path(path)
-    return FileResponse(file_path)
+    return FileResponse(str(file_path), headers={"Cache-Control": "no-store"})
 
 @router.get("/media/resize")
 def admin_media_resize(

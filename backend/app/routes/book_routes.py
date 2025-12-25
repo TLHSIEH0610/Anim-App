@@ -14,7 +14,7 @@ from app.security import enforce_android_integrity_or_warn, record_user_attestat
 from jose import jwt
 from app.auth import SECRET_KEY, ALGO
 from app.db import get_db
-from app.models import Book, BookPage, StoryTemplate, Payment, FreeTrialUsage
+from app.models import Book, BookPage, StoryTemplate, StoryTemplatePage, Payment, FreeTrialUsage, BookWorkflowSnapshot
 from app.schemas import BookCreate, BookResponse, BookWithPagesResponse, BookListResponse, BookPageResponse
 from app.storage import save_upload
 from app.pricing import resolve_story_price
@@ -67,7 +67,7 @@ async def create_book(
     request: Request,
     files: List[UploadFile] = File(...),
     title: str = Form(...),
-    story_source: str = Form("custom"),
+    story_source: str = Form("template"),
     template_key: Optional[str] = Form(None),
     template_params: Optional[str] = Form(None),
     target_age: Optional[str] = Form(None),
@@ -97,8 +97,8 @@ async def create_book(
         raise HTTPException(400, "Title is required")
 
     story_source = story_source.strip().lower()
-    if story_source not in {"custom", "template"}:
-        raise HTTPException(400, "story_source must be 'custom' or 'template'")
+    if story_source != "template":
+        raise HTTPException(400, "Only template-driven books are supported")
 
     template_params_dict = {}
     if template_params:
@@ -106,8 +106,17 @@ async def create_book(
             template_params_dict = json.loads(template_params)
         except json.JSONDecodeError:
             raise HTTPException(400, "template_params must be valid JSON")
-
-    allowed_pages = [1, 4, 6, 8, 10, 12, 16]
+    if template_params_dict and not isinstance(template_params_dict, dict):
+        raise HTTPException(400, "template_params must be a JSON object")
+    if not template_params_dict:
+        template_params_dict = {}
+    try:
+        name_value = str(template_params_dict.get("name") or "").strip()
+    except Exception:
+        name_value = ""
+    if not name_value:
+        raise HTTPException(400, "template_params.name is required")
+    template_params_dict["name"] = name_value
 
     pricing_quote = None
     payment_record = None
@@ -115,79 +124,71 @@ async def create_book(
     theme_value = "custom"
     apply_free_trial_flag = _parse_bool(apply_free_trial)
 
-    if story_source == "template":
-        if not template_key:
-            raise HTTPException(400, "Template selection required")
-        story_template = (
-            db.query(StoryTemplate)
-            .options(joinedload(StoryTemplate.pages))
-            .filter(StoryTemplate.slug == template_key, StoryTemplate.is_active.is_(True))
+    if not template_key:
+        raise HTTPException(400, "Template selection required")
+    story_template = (
+        db.query(StoryTemplate)
+        .options(joinedload(StoryTemplate.pages))
+        .filter(StoryTemplate.slug == template_key, StoryTemplate.is_active.is_(True))
+        .first()
+    )
+    if not story_template:
+        raise HTTPException(400, "Unknown template key")
+    if not target_age:
+        target_age = story_template.age
+    theme_value = story_template.slug
+
+    pricing_quote = resolve_story_price(user, story_template)
+
+    # For templates, auto-derive page_count from the template's defined pages.
+    # Exclude only special cover pages whose workflow_slug is 'qwen_cover'.
+    # End pages (e.g. 'qwen_end') count toward the total page_count.
+    try:
+        body_count = len([
+            p for p in (story_template.pages or [])
+            if str(getattr(p, 'workflow_slug', '') or '').strip().lower() not in {'qwen_cover'}
+        ])
+    except Exception:
+        body_count = 0
+    if body_count <= 0:
+        body_count = len(story_template.pages or [])
+    page_count = body_count or 1
+
+    if pricing_quote.final_price <= Decimal("0"):
+        if pricing_quote.free_trial_slug:
+            if pricing_quote.free_trial_consumed:
+                raise HTTPException(400, "Free trial already consumed")
+            if not apply_free_trial_flag:
+                raise HTTPException(400, "apply_free_trial flag must be true to consume free trial")
+            # Enforce that the user has completed $0 card verification
+            if getattr(user, "card_verified_at", None) is None:
+                raise HTTPException(400, "Card verification required before using a free trial")
+    else:
+        if not payment_id:
+            raise HTTPException(402, "Payment required before book creation")
+        payment_record = (
+            db.query(Payment)
+            .filter(Payment.id == payment_id, Payment.user_id == user.id)
+            .with_for_update()
             .first()
         )
-        if not story_template:
-            raise HTTPException(400, "Unknown template key")
-        if not target_age:
-            target_age = story_template.age
-        theme_value = story_template.slug
+        if not payment_record:
+            raise HTTPException(404, "Payment not found")
+        if payment_record.status != "completed":
+            raise HTTPException(400, "Payment not completed")
+        if payment_record.book_id is not None:
+            raise HTTPException(400, "Payment already consumed")
+        if payment_record.story_template_slug and payment_record.story_template_slug != story_template.slug:
+            raise HTTPException(400, "Payment template mismatch")
 
-        pricing_quote = resolve_story_price(user, story_template)
-
-        # For templates, auto-derive page_count from the template's defined pages (excluding cover page 0 / 'cover' workflow)
-        try:
-            body_count = len([
-                p for p in (story_template.pages or [])
-                if not (
-                    getattr(p, 'page_number', None) == 0
-                    or str(getattr(p, 'workflow_slug', '') or '').strip().lower() == 'cover'
-                )
-            ])
-        except Exception:
-            body_count = 0
-        if body_count <= 0:
-            body_count = len(story_template.pages or [])
-        page_count = body_count or 1
-
-        if pricing_quote.final_price <= Decimal("0"):
-            if pricing_quote.free_trial_slug:
-                if pricing_quote.free_trial_consumed:
-                    raise HTTPException(400, "Free trial already consumed")
-                if not apply_free_trial_flag:
-                    raise HTTPException(400, "apply_free_trial flag must be true to consume free trial")
-                # Enforce that the user has completed $0 card verification
-                if getattr(user, "card_verified_at", None) is None:
-                    raise HTTPException(400, "Card verification required before using a free trial")
-        else:
-            if not payment_id:
-                raise HTTPException(402, "Payment required before book creation")
-            payment_record = (
-                db.query(Payment)
-                .filter(Payment.id == payment_id, Payment.user_id == user.id)
-                .with_for_update()
-                .first()
-            )
-            if not payment_record:
-                raise HTTPException(404, "Payment not found")
-            if payment_record.status != "completed":
-                raise HTTPException(400, "Payment not completed")
-            if payment_record.book_id is not None:
-                raise HTTPException(400, "Payment already consumed")
-            if payment_record.story_template_slug and payment_record.story_template_slug != story_template.slug:
-                raise HTTPException(400, "Payment template mismatch")
-
-            expected_amount = pricing_quote.final_price.quantize(Decimal("0.01"))
-            paid_amount = Decimal(payment_record.amount_dollars or 0).quantize(Decimal("0.01"))
-            if paid_amount != expected_amount:
-                raise HTTPException(400, "Payment amount mismatch")
-    else:
-        if target_age not in ["3-5", "6-8", "9-12"]:
-            raise HTTPException(400, "Invalid age group. Choose from: 3-5, 6-8, 9-12")
-        # Enforce allowed page counts only for custom stories
-        if page_count not in allowed_pages:
-            raise HTTPException(400, "Invalid page count. Choose from: 1, 4, 6, 8, 10, 12, 16")
+        expected_amount = pricing_quote.final_price.quantize(Decimal("0.01"))
+        paid_amount = Decimal(payment_record.amount_dollars or 0).quantize(Decimal("0.01"))
+        if paid_amount != expected_amount:
+            raise HTTPException(400, "Payment amount mismatch")
 
     try:
         character_desc_value = character_description.strip()
-        if story_source == "template" and not character_desc_value:
+        if not character_desc_value:
             if template_params_dict and template_params_dict.get("name"):
                 character_desc_value = template_params_dict["name"].strip()
 
@@ -198,11 +199,12 @@ async def create_book(
             target_age=target_age,
             page_count=page_count,
             character_description=character_desc_value,
-            positive_prompt=positive_prompt.strip() if story_source == "custom" else "",
-            negative_prompt=negative_prompt.strip() if story_source == "custom" else "",
+            # Prompts are controlled by workflow + story templates; ignore any client-provided prompts.
+            positive_prompt="",
+            negative_prompt="",
             original_image_paths=json.dumps([]),
             story_source=story_source,
-            template_key=template_key if story_source == "template" else None,
+            template_key=template_key,
             template_params=template_params_dict,
             status="creating"
         )
@@ -221,7 +223,7 @@ async def create_book(
         book.original_image_paths = json.dumps(saved_paths)
         # Snapshot template description if available
         try:
-            if story_source == "template" and story_template and getattr(story_template, 'description', None):
+            if story_template and getattr(story_template, 'description', None):
                 book.template_description = story_template.description
         except Exception:
             pass
@@ -316,6 +318,49 @@ def get_book_details(book_id: int, user = Depends(current_user), db: Session = D
     
     # Load pages
     pages = db.query(BookPage).filter(BookPage.book_id == book_id).order_by(BookPage.page_number).all()
+
+    # Best-effort: enrich pages with workflow slug so clients can treat special
+    # pages (e.g. qwen_cover / qwen_end) as full-image pages.
+    template_workflow_by_page: dict[int, Optional[str]] = {}
+    snapshot_workflow_by_page: dict[int, Optional[str]] = {}
+    try:
+        if getattr(book, "template_key", None):
+            tpages = (
+                db.query(StoryTemplatePage.page_number, StoryTemplatePage.workflow_slug)
+                .join(StoryTemplate, StoryTemplate.id == StoryTemplatePage.story_template_id)
+                .filter(StoryTemplate.slug == book.template_key)
+                .all()
+            )
+            for pn, wf in tpages:
+                try:
+                    template_workflow_by_page[int(pn)] = wf
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    try:
+        snaps = (
+            db.query(
+                BookWorkflowSnapshot.page_number,
+                BookWorkflowSnapshot.workflow_slug,
+                BookWorkflowSnapshot.created_at,
+            )
+            .filter(BookWorkflowSnapshot.book_id == book_id)
+            .order_by(
+                BookWorkflowSnapshot.page_number.asc(),
+                BookWorkflowSnapshot.created_at.desc(),
+            )
+            .all()
+        )
+        for pn, wf, _created_at in snaps:
+            try:
+                ipn = int(pn)
+            except Exception:
+                continue
+            if ipn not in snapshot_workflow_by_page:
+                snapshot_workflow_by_page[ipn] = wf
+    except Exception:
+        pass
     
     book_response = BookWithPagesResponse.from_orm(book)
     try:
@@ -331,7 +376,18 @@ def get_book_details(book_id: int, user = Depends(current_user), db: Session = D
             setattr(book_response, 'template_description', getattr(book.story_template, 'description', None))
     except Exception:
         pass
-    book_response.pages = [BookPageResponse.from_orm(page) for page in pages]
+    enriched_pages: List[BookPageResponse] = []
+    for page in pages:
+        resp = BookPageResponse.from_orm(page)
+        try:
+            wf = snapshot_workflow_by_page.get(page.page_number)
+            if wf is None:
+                wf = template_workflow_by_page.get(page.page_number)
+            setattr(resp, "workflow_slug", wf)
+        except Exception:
+            pass
+        enriched_pages.append(resp)
+    book_response.pages = enriched_pages
     
     return book_response
 
@@ -360,7 +416,8 @@ def download_book_pdf(book_id: int, user = Depends(current_user), db: Session = 
     return FileResponse(
         book.pdf_path,
         media_type="application/pdf",
-        filename=f"{book.title.replace(' ', '_')}_book.pdf"
+        filename=f"{book.title.replace(' ', '_')}_book.pdf",
+        headers={"Cache-Control": "no-store"},
     )
 
 @router.get("/stories/cover-public")
@@ -541,24 +598,29 @@ def get_book_page_image_public(book_id: int, page_number: int, token: str = Quer
                 pass
             _sentry_warn(msg)
             file_to_send = Path(path)
-    # Add ETag for validation
+    # Add ETag for validation, but always return the bytes (some clients mis-handle 304 for images).
     try:
-        etag = f'W/"{int(os.path.getmtime(file_to_send))}-{os.path.getsize(file_to_send)}"'
+        st = file_to_send.stat()
+        mtime_ns = int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000)))
+        etag = f'W/"{mtime_ns}-{int(st.st_size)}"'
     except Exception:
         etag = None
-    # Use caching for completed books; no-store for in-progress
+
+    # Viewer reliability: allow caching on completed books, but do not emit 304 responses.
     try:
-        book_status = db.query(Book.status).filter(Book.id == book_id, Book.user_id == uid).scalar()
+        book_status = (
+            db.query(Book.status)
+            .filter(Book.id == book_id, Book.user_id == uid)
+            .scalar()
+        )
     except Exception:
         book_status = None
-    cache_control = "private, max-age=3600" if (book_status == "completed") else "private, no-store"
+    cache_control = (
+        "private, max-age=3600" if (book_status == "completed") else "private, no-store"
+    )
     headers = {"Cache-Control": cache_control}
     if etag:
         headers["ETag"] = etag
-        if request is not None:
-            inm = request.headers.get("if-none-match")
-            if inm and inm.strip() == etag:
-                return Response(status_code=304, headers=headers)
     return FileResponse(str(file_to_send), headers=headers)
 
 @router.get("/{book_id}/preview")
@@ -682,45 +744,16 @@ def admin_regenerate_book(book_id: int, user = Depends(current_user), db: Sessio
     book = db.query(Book).filter(Book.id == book_id, Book.user_id == user.id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    
-    try:
-        # Delete page images
-        pages = db.query(BookPage).filter(BookPage.book_id == book_id).all()
-        for page in pages:
-            if page.image_path and os.path.exists(page.image_path):
-                os.remove(page.image_path)
-        
-        # Delete PDF if it exists
-        if book.pdf_path and os.path.exists(book.pdf_path):
-            os.remove(book.pdf_path)
-        
-        # Clear all pages
-        db.query(BookPage).filter(BookPage.book_id == book_id).delete()
-        
-        # Reset book status and timestamps
-        book.status = "creating"
-        book.progress_percentage = 0.0
-        book.error_message = None
-        book.story_generated_at = None
-        book.images_completed_at = None
-        book.pdf_generated_at = None
-        book.completed_at = None
-        book.pdf_path = None
-        
-        db.commit()
-        
-        # Re-enqueue job
-        job = q.enqueue(
-            "app.worker.book_processor.create_childbook",
-            book.id,
-            job_timeout=1800  # 30 minutes timeout
-        )
-        
-        return {"message": "Book completely regenerated", "job_id": job.id}
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(500, f"Failed to regenerate book: {str(e)}")
+
+    # Delegate to the worker's admin_regenerate_book so we fully reset state
+    # (including story_data + run token) and avoid concurrent runs fighting.
+    job = q.enqueue(
+        "app.worker.book_processor.admin_regenerate_book",
+        book.id,
+        new_prompt=None,
+        job_timeout=1800,  # 30 minutes timeout
+    )
+    return {"message": "Book regeneration queued", "job_id": job.id}
 
 
 @router.get("/stories/templates")
@@ -736,13 +769,17 @@ def list_story_templates(user = Depends(current_user), db: Session = Depends(get
     for template in templates:
         quote = resolve_story_price(user, template)
         storyline_pages = []
-        for page in template.pages:
-            if not page.image_prompt:
-                continue
+        # Build a lightweight storyline view for the template.
+        # Qwen-based templates use description as the primary storyline text; we no
+        # longer rely on the legacy image_prompt column.
+        for page in sorted(template.pages or [], key=lambda p: p.page_number):
+            description = getattr(page, "description", None)
+            workflow = getattr(page, "workflow_slug", None)
             storyline_pages.append(
                 {
                     "page_number": page.page_number,
-                    "image_prompt": page.image_prompt,
+                    "description": description,
+                    "workflow":workflow
                 }
             )
 
@@ -814,12 +851,23 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
     stem = file_path.stem
     ext = file_path.suffix.lower() or ".jpg"
     target = _thumbs_dir() / f"{stem}_w{w}_h{h}{ext}"
+    def _mtime_ns(stat_result) -> int:
+        try:
+            return int(getattr(stat_result, "st_mtime_ns"))
+        except Exception:
+            try:
+                return int(float(getattr(stat_result, "st_mtime", 0.0)) * 1_000_000_000)
+            except Exception:
+                return 0
+
     try:
         # If cached newer than source and non-empty, reuse; if empty, delete and rebuild
         if target.exists():
             t_stat = target.stat()
             f_stat = file_path.stat()
-            if t_stat.st_size > 0 and t_stat.st_mtime >= f_stat.st_mtime:
+            # Use a strict comparison to avoid false cache hits on filesystems with
+            # coarse mtime resolution (e.g. updates within the same second).
+            if t_stat.st_size > 0 and _mtime_ns(t_stat) > _mtime_ns(f_stat):
                 return target
             if t_stat.st_size <= 0:
                 try:
@@ -851,8 +899,11 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
             time.sleep(0.05)
             # After wait, check again for a fresh cached file
             try:
-                if target.exists() and target.stat().st_mtime >= file_path.stat().st_mtime:
-                    return target
+                if target.exists():
+                    t_stat = target.stat()
+                    f_stat = file_path.stat()
+                    if _mtime_ns(t_stat) > _mtime_ns(f_stat):
+                        return target
             except Exception:
                 pass
     # Build thumbnail using atomic write (tmp file then replace) to avoid readers
@@ -904,7 +955,9 @@ def _build_thumb(file_path: Path, width: int, height: Optional[int] = None) -> P
 
 def _make_etag(path: Path) -> Optional[str]:
     try:
-        return f'W/"{int(os.path.getmtime(path))}-{os.path.getsize(path)}"'
+        st = path.stat()
+        mtime_ns = int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000)))
+        return f'W/"{mtime_ns}-{int(st.st_size)}"'
     except Exception:
         return None
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -54,8 +54,10 @@ export default function BookViewerScreen({
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
+  const [imageFailed, setImageFailed] = useState<Record<number, boolean>>({});
   const [pageAspect, setPageAspect] = useState<Record<number, number>>({});
   const [isDownloading, setIsDownloading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
   const [snackbar, setSnackbar] = useState<{
     visible: boolean;
     message: string;
@@ -110,6 +112,7 @@ export default function BookViewerScreen({
           text: p.text_content,
           image_status: p.image_status,
           image_completed_at: p.image_completed_at,
+          workflow_slug: p.workflow_slug ?? null,
         })),
         total_pages: (details.pages || []).length,
       };
@@ -328,6 +331,14 @@ export default function BookViewerScreen({
     }
   };
 
+  // Keep the viewer stable: when changing pages, always reset scroll so you don't
+  // land on an "empty" scrolled region and think the page disappeared.
+  useEffect(() => {
+    try {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    } catch {}
+  }, [currentPage]);
+
   useEffect(() => {
     loadBookData();
   }, [bookId, token]);
@@ -376,12 +387,29 @@ export default function BookViewerScreen({
     );
   }
 
-  const isCoverPage = currentPageData?.page_number === 0 || currentPage === 0;
+  const workflowSlugRaw = (currentPageData as any)?.workflow_slug;
+  const workflowSlug =
+    typeof workflowSlugRaw === "string"
+      ? workflowSlugRaw.trim().toLowerCase().replace(/-/g, "_")
+      : null;
+  const isCoverPage =
+    workflowSlug === "qwen_cover" ||
+    currentPageData?.page_number === 0 ||
+    currentPage === 0;
+  const isLastPage =
+    currentPage === Math.max(0, (bookData?.pages?.length ?? 1) - 1);
+  const hasText =
+    typeof currentPageData?.text === "string" &&
+    currentPageData.text.trim().length > 0;
+  const isSpecialFullImage =
+    workflowSlug === "qwen_cover" || workflowSlug === "qwen_end";
+  const isFullImagePage = isSpecialFullImage || (isLastPage && !hasText);
   const defaultCoverAspect = 1152 / 1600;
   const defaultPageAspect = 4 / 3;
   const currentAspect =
-    pageAspect[currentPage] ||
-    (isCoverPage ? defaultCoverAspect : defaultPageAspect);
+    isFullImagePage || isCoverPage
+      ? defaultCoverAspect
+      : pageAspect[currentPage] || defaultPageAspect;
 
   // debug overlay removed
 
@@ -392,6 +420,7 @@ export default function BookViewerScreen({
 
         {/* Book Content */}
         <ScrollView
+          ref={scrollRef}
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
         >
@@ -400,23 +429,32 @@ export default function BookViewerScreen({
             <View
               style={[
                 styles.imageSection,
-                isCoverPage && styles.imageSectionCover,
+                (isFullImagePage || isCoverPage) && styles.imageSectionCover,
               ]}
             >
               {(() => {
-                if (currentPageData?.image_status === "completed") {
+                const isCompleted = currentPageData?.image_status === "completed";
+                const failed = !!imageFailed[currentPage];
+                const url = currentImageUrl;
+
+                if (isCompleted && url && !failed) {
                   const url = currentImageUrl;
                   return (
                     <Image
+                      key={url}
                       source={{ uri: url || undefined }}
                       style={{ width: "100%", aspectRatio: currentAspect }}
-                      contentFit={isCoverPage ? "cover" : "contain"}
+                      contentFit={isFullImagePage || isCoverPage ? "cover" : "contain"}
                       cachePolicy={
                         bookData.status === "completed" ? "memory-disk" : "none"
                       }
                       placeholder={{ blurhash: BLURHASH }}
                       transition={150}
                       onLoadStart={() => {
+                        setImageFailed((prev) => ({
+                          ...prev,
+                          [currentPage]: false,
+                        }));
                         setImageLoading((prev) => ({
                           ...prev,
                           [currentPage]: true,
@@ -425,7 +463,7 @@ export default function BookViewerScreen({
                       onLoad={(e: any) => {
                         const w = e?.source?.width;
                         const h = e?.source?.height;
-                        if (w && h) {
+                        if (!(isFullImagePage || isCoverPage) && w && h) {
                           setPageAspect((prev) => ({
                             ...prev,
                             [currentPage]: w / h,
@@ -451,6 +489,10 @@ export default function BookViewerScreen({
                             );
                           } catch {}
                         }
+                        setImageFailed((prev) => ({
+                          ...prev,
+                          [currentPage]: true,
+                        }));
                         setImageLoading((prev) => ({
                           ...prev,
                           [currentPage]: false,
@@ -460,7 +502,13 @@ export default function BookViewerScreen({
                   );
                 } else if (currentPageData?.image_status === "processing") {
                   return (
-                    <View style={styles.placeholderImage}>
+                    <View
+                      style={[
+                        styles.placeholderImage,
+                        (isFullImagePage || isCoverPage) &&
+                          styles.placeholderImageCover,
+                      ]}
+                    >
                       <PaperActivityIndicator size="large" />
                       <Text style={styles.placeholderText}>
                         Creating illustration...
@@ -469,10 +517,18 @@ export default function BookViewerScreen({
                   );
                 } else {
                   return (
-                    <View style={styles.placeholderImage}>
+                    <View
+                      style={[
+                        styles.placeholderImage,
+                        (isFullImagePage || isCoverPage) &&
+                          styles.placeholderImageCover,
+                      ]}
+                    >
                       <Text style={styles.placeholderIcon}>🎨</Text>
                       <Text style={styles.placeholderText}>
-                        Illustration not ready
+                        {isCompleted && failed
+                          ? "Illustration failed to load"
+                          : "Illustration not ready"}
                       </Text>
                     </View>
                   );
@@ -488,11 +544,11 @@ export default function BookViewerScreen({
               )}
             </View>
 
-            {/* Text Section (hidden for cover) */}
-            {!isCoverPage && (
+            {/* Text Section (hidden for full-image pages) */}
+            {!(isFullImagePage || isCoverPage) && (
               <View style={styles.textSection}>
                 <Text style={styles.pageText}>
-                  {currentPageData?.text || "Loading page content..."}
+                  {currentPageData?.text ?? ""}
                 </Text>
               </View>
             )}
@@ -676,6 +732,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.neutral200,
     borderStyle: "dashed",
+  },
+  placeholderImageCover: {
+    aspectRatio: 1152 / 1600,
+    borderRadius: 0,
   },
   placeholderIcon: {
     fontSize: 48,

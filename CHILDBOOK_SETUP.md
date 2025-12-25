@@ -1,6 +1,6 @@
 # 📚 Children's Book Creator Setup Guide
 
-This guide walks through the modern AnimApp stack where stories come from database-backed templates (no external LLM service required) and illustrations are produced by ComfyUI.
+This guide walks through the modern AnimApp stack where books are 100% template-driven (no external LLM or custom-story mode) and illustrations are produced by ComfyUI.
 
 ## 🏗️ Architecture Overview
 

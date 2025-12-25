@@ -9,19 +9,17 @@ export interface BookCreationData {
   files: string[];
   title: string;
   page_count: number;
-  character_description?: string;
-  positive_prompt?: string;
-  negative_prompt?: string;
-  story_source: "custom" | "template";
-  template_key?: string;
-  template_params?: TemplateParams;
+  story_source: "template";
+  template_key: string;
+  template_params: TemplateParams;
   paymentId?: number;
   applyFreeTrial?: boolean;
 }
 
 export interface StorylinePageSummary {
   page_number: number;
-  image_prompt: string;
+  description?: string | null;
+  workflow: string | null;
 }
 
 export interface StoryTemplateSummary {
@@ -77,8 +75,13 @@ export function getStoryThumbUrl(
   if (!coverPath) return null;
   const baseUrl = API_BASE_ORIGIN;
   if (token) {
-    const v = version != null ? `&v=${encodeURIComponent(String(version))}` : '';
-    return `${baseUrl}/books/media/resize-public?path=${encodeURIComponent(coverPath)}&w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(token)}${v}`;
+    const v =
+      version != null ? `&v=${encodeURIComponent(String(version))}` : "";
+    return `${baseUrl}/books/media/resize-public?path=${encodeURIComponent(
+      coverPath
+    )}&w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(
+      token
+    )}${v}`;
   }
   // Fallback to original (non-token) cover if token absent
   return getStoryCoverUrl(coverPath, token);
@@ -102,8 +105,11 @@ export function getBookCoverThumbUrl(
 ): string {
   const baseUrl = API_BASE_ORIGIN;
   if (token) {
-    const v = version != null ? `&v=${encodeURIComponent(String(version))}` : '';
-    return `${baseUrl}/books/${bookId}/cover-thumb-public?w=${encodeURIComponent(String(width))}&token=${encodeURIComponent(token)}${v}`;
+    const v =
+      version != null ? `&v=${encodeURIComponent(String(version))}` : "";
+    return `${baseUrl}/books/${bookId}/cover-thumb-public?w=${encodeURIComponent(
+      String(width)
+    )}&token=${encodeURIComponent(token)}${v}`;
   }
   // Without token we can't access thumb; fall back to base cover
   return getBookCoverUrl(bookId, undefined);
@@ -144,7 +150,7 @@ export type ThumbUrlOptions = {
 export function getThumbUrl(opts: ThumbUrlOptions): string | null {
   const { token, width = 320, height, version } = opts;
   const v = version != null ? String(version) : undefined;
-  if (typeof opts.bookId === 'number') {
+  if (typeof opts.bookId === "number") {
     return getBookCoverThumbUrl(opts.bookId, token ?? null, width, v);
   }
   if (opts.path) {
@@ -156,8 +162,8 @@ export function getThumbUrl(opts: ThumbUrlOptions): string | null {
         w: String(width),
         token,
       });
-      if (height && height > 0) params.set('h', String(height));
-      if (v) params.set('v', v);
+      if (height && height > 0) params.set("h", String(height));
+      if (v) params.set("v", v);
       return `${baseUrl}/books/media/resize-public?${params.toString()}`;
     }
     return getMediaFileUrl(opts.path);
@@ -176,10 +182,10 @@ export function getBookPageImageUrl(
 ): string {
   const baseUrl = API_BASE_ORIGIN;
   const params = new URLSearchParams();
-  if (width && width > 0) params.set('w', String(width));
-  if (height && height > 0) params.set('h', String(height));
-  if (token) params.set('token', token);
-  if (version != null) params.set('v', String(version));
+  if (width && width > 0) params.set("w", String(width));
+  if (height && height > 0) params.set("h", String(height));
+  if (token) params.set("token", token);
+  if (version != null) params.set("v", String(version));
   return `${baseUrl}/books/${bookId}/pages/${pageNumber}/image-public?${params.toString()}`;
 }
 
@@ -211,6 +217,7 @@ export interface BookPage {
   image_status: string;
   created_at: string;
   image_completed_at?: string;
+  workflow_slug?: string | null;
 }
 
 export interface BookWithPages extends Book {
@@ -227,6 +234,7 @@ export interface BookPreview {
     text: string;
     image_status: string;
     image_data?: string;
+    workflow_slug?: string | null;
   }>;
   total_pages: number;
 }
@@ -254,23 +262,9 @@ export async function createBook(
     // Add form fields
     formData.append("title", data.title);
     formData.append("page_count", data.page_count.toString());
-    if (data.character_description) {
-      formData.append("character_description", data.character_description);
-    }
-    if (data.positive_prompt) {
-      formData.append("positive_prompt", data.positive_prompt);
-    }
-    if (data.negative_prompt) {
-      formData.append("negative_prompt", data.negative_prompt);
-    }
-
     formData.append("story_source", data.story_source);
-    if (data.template_key) {
-      formData.append("template_key", data.template_key);
-    }
-    if (data.template_params) {
-      formData.append("template_params", JSON.stringify(data.template_params));
-    }
+    formData.append("template_key", data.template_key);
+    formData.append("template_params", JSON.stringify(data.template_params));
 
     if (typeof data.paymentId === "number") {
       formData.append("payment_id", String(data.paymentId));
