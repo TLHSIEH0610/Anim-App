@@ -208,6 +208,8 @@ def delete_account(user = Depends(current_user), db: Session = Depends(get_db)):
         # Disassociate user payments from books and anonymize PII while keeping summaries
         # Find or create a tombstone account to retain payment rows without PII linkage
         tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
+        if (user.email or "").strip().lower() == tombstone_email.strip().lower() or getattr(user, "role", None) == "system":
+            raise HTTPException(status_code=400, detail="System user cannot be deleted")
         tombstone = db.query(UserModel).filter(UserModel.email == tombstone_email).first()
         if not tombstone:
             tombstone = create_user(db, tombstone_email, secrets.token_urlsafe(32))

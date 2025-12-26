@@ -269,7 +269,7 @@ function BookListCard({
               )}
               <Text style={styles.bookSubDetails}>
                 Age: {book.target_age || "n/a"} • Gender: {genderLabel} •{" "}
-                {book.page_count} pages
+                {Math.max(0, (book.page_count || 0) - 1)} pages
               </Text>
             </View>
           </View>

@@ -93,7 +93,7 @@ export default function TemplateDemoScreen() {
     <ScreenWrapper>
       <Header
         title={template.name}
-        subtitle={`${template.page_count} pages • ${
+        subtitle={`${storylinePages.length} pages • ${
           template.age || "All"
         } ages`}
         showBack

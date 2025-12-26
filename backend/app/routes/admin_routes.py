@@ -508,7 +508,12 @@ def _rename_keypoint(path: str, slug: str) -> str:
 
 @router.get("/books")
 def admin_list_books(_: None = Depends(require_admin), db: Session = Depends(get_db)):
-    books = db.query(Book).order_by(Book.created_at.desc().nullslast()).all()
+    books = (
+        db.query(Book)
+        .options(joinedload(Book.user))
+        .order_by(Book.created_at.desc().nullslast())
+        .all()
+    )
     items = []
     for book in books:
         pages = (
@@ -537,6 +542,8 @@ def admin_list_books(_: None = Depends(require_admin), db: Session = Depends(get
         items.append(
             {
                 "id": book.id,
+                "user_id": book.user_id,
+                "user_email": getattr(book.user, "email", None),
                 "title": book.title,
                 "story_source": book.story_source,
                 "template_key": book.template_key,
@@ -1250,6 +1257,10 @@ def admin_update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
+    if (user.email or "").strip().lower() == tombstone_email.strip().lower() or getattr(user, "role", None) == "system":
+        raise HTTPException(status_code=400, detail="System tombstone user cannot be modified")
+
     if payload.email is not None:
         email = payload.email.strip()
         if not email:
@@ -1611,6 +1622,16 @@ def admin_delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
+    if (user.email or "").strip().lower() == tombstone_email.strip().lower() or getattr(user, "role", None) == "system":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This is the system tombstone user used to retain anonymized payment/support records; "
+                "it cannot be deleted."
+            ),
+        )
+
     try:
         deleted = {
             "books": 0,
@@ -1620,7 +1641,6 @@ def admin_delete_user(
             "user": 1,
         }
 
-        tombstone_email = os.getenv("DELETED_USER_EMAIL", "deleted@system.invalid")
         tombstone = db.query(User).filter(User.email == tombstone_email).first()
         if not tombstone:
             tombstone = create_user(db, tombstone_email, secrets.token_urlsafe(32))

@@ -144,7 +144,8 @@ function TemplateItem({
               <Text style={styles.desc}>{item.description}</Text>
             ) : null}
             <Text style={styles.meta}>
-              Suggested Age: {item.age || "n/a"} • {item.page_count} pages
+              Suggested Age: {item.age || "n/a"} •{" "}
+              {Math.max(0, (item.page_count || 0) - 2)} pages
             </Text>
             <View style={styles.priceRow}>
               {(() => {

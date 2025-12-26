@@ -214,7 +214,9 @@ export default function BookStatusScreen({
             <Text style={styles.detailItem}>
               Age Group: {book.target_age || "n/a"} years
             </Text>
-            <Text style={styles.detailItem}>Pages: {book.page_count}</Text>
+            <Text style={styles.detailItem}>
+              Pages: {Math.max(0, (book.page_count || 0) - 1)}
+            </Text>
             <Text style={styles.detailItem}>
               Created: {new Date(book.created_at).toLocaleDateString()}
             </Text>

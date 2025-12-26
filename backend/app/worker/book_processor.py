@@ -906,10 +906,10 @@ def create_childbook(book_id: int):
         if not book.target_age:
             book.target_age = template_obj.age
         # Keep template-based books in sync with the current template page count.
-        # Exclude qwen_cover from body count; end pages (qwen_end) count toward total.
+        # Note: `book.page_count` is the number of non-cover pages (body + end).
         try:
             tpl_pages = list(template_obj.pages or [])
-            body_count = len(
+            non_cover_count = len(
                 [
                     p
                     for p in tpl_pages
@@ -917,10 +917,10 @@ def create_childbook(book_id: int):
                     not in {"qwen_cover"}
                 ]
             )
-            if body_count <= 0:
-                body_count = len(tpl_pages)
-            if body_count > 0 and book.page_count != body_count:
-                book.page_count = body_count
+            if non_cover_count <= 0:
+                non_cover_count = len(tpl_pages)
+            if non_cover_count > 0 and book.page_count != non_cover_count:
+                book.page_count = non_cover_count
                 session.commit()
         except Exception:
             pass

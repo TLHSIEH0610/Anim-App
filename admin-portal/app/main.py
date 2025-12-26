@@ -1660,27 +1660,40 @@ async def files_proxy(request: Request, path: str, w: int | None = None, h: int 
     range_header = request.headers.get("range")
 
     async def _proxy_stream(endpoint: str, params: dict[str, str], include_range: bool):
+        # Important: we must keep the upstream httpx stream open for the entire duration of the
+        # downstream StreamingResponse. Returning resp.aiter_bytes() from inside an `async with`
+        # closes the upstream response before Starlette begins iterating, leading to StreamClosed.
+        client = httpx.AsyncClient(base_url=BACKEND_URL, timeout=60)
+        include_range_local = include_range
         req_headers: dict[str, str] = {"X-Admin-Secret": ADMIN_API_KEY}
-        if include_range and range_header:
+        if include_range_local and range_header:
             req_headers["Range"] = range_header
-        async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
-            async with client.stream(
-                "GET",
-                endpoint,
-                params=params,
-                headers=req_headers,
-                follow_redirects=True,
-            ) as resp:
-                # If the upstream doesn't like the Range request (some PDF viewers can send
-                # speculative/overlapping ranges), fall back to a non-range request.
-                if include_range and resp.status_code == 416:
-                    return await _proxy_stream(endpoint, params, include_range=False)
 
-                ct = resp.headers.get("content-type", "application/octet-stream")
-                out_headers: dict[str, str] = {
-                    "Cache-Control": "no-store",
-                }
-                # Preserve headers PDF viewers care about.
+        stream_cm = None
+        resp = None
+        try:
+            while True:
+                stream_cm = client.stream(
+                    "GET",
+                    endpoint,
+                    params=params,
+                    headers=req_headers,
+                    follow_redirects=True,
+                )
+                resp = await stream_cm.__aenter__()
+                if include_range_local and resp.status_code == 416:
+                    # Retry once without Range.
+                    await stream_cm.__aexit__(None, None, None)
+                    stream_cm = None
+                    resp = None
+                    include_range_local = False
+                    req_headers.pop("Range", None)
+                    continue
+                break
+
+            ct = resp.headers.get("content-type", "application/octet-stream") if resp else "application/octet-stream"
+            out_headers: dict[str, str] = {"Cache-Control": "no-store"}
+            if resp:
                 for key in (
                     "accept-ranges",
                     "content-range",
@@ -1690,20 +1703,44 @@ async def files_proxy(request: Request, path: str, w: int | None = None, h: int 
                     "last-modified",
                 ):
                     if key in resp.headers:
-                        # Use canonical header casing.
                         out_headers["-".join([p.capitalize() for p in key.split("-")])] = resp.headers[key]
 
                 # For non-success, return the body (small) so the browser can surface errors.
                 if resp.status_code >= 400:
                     data = await resp.aread()
+                    try:
+                        if stream_cm is not None:
+                            await stream_cm.__aexit__(None, None, None)
+                    finally:
+                        await client.aclose()
                     return Response(content=data, media_type=ct, status_code=resp.status_code, headers=out_headers)
 
-                return StreamingResponse(
-                    resp.aiter_bytes(),
-                    media_type=ct,
-                    status_code=resp.status_code,
-                    headers=out_headers,
-                )
+            async def _iter() -> Any:
+                try:
+                    if resp:
+                        async for chunk in resp.aiter_bytes():
+                            yield chunk
+                finally:
+                    try:
+                        if stream_cm is not None:
+                            await stream_cm.__aexit__(None, None, None)
+                    finally:
+                        await client.aclose()
+
+            return StreamingResponse(
+                _iter(),
+                media_type=ct,
+                status_code=(resp.status_code if resp else 502),
+                headers=out_headers,
+            )
+        except Exception:
+            # Ensure we don't leak connections on errors before the StreamingResponse is created.
+            try:
+                if stream_cm is not None:
+                    await stream_cm.__aexit__(None, None, None)
+            finally:
+                await client.aclose()
+            raise
 
     try:
         if w or h:
@@ -1712,7 +1749,14 @@ async def files_proxy(request: Request, path: str, w: int | None = None, h: int 
                 params["w"] = str(w)
             if h:
                 params["h"] = str(h)
-            return await _proxy_stream("/admin/media/resize", params, include_range=True)
+            try:
+                resized = await _proxy_stream("/admin/media/resize", params, include_range=True)
+                if getattr(resized, "status_code", 200) < 400:
+                    return resized
+            except httpx.HTTPError:
+                pass
+            # Fallback: if resize fails (older backend, Pillow errors, etc.), return original.
+            return await _proxy_stream("/admin/files", {"path": path}, include_range=True)
         return await _proxy_stream("/admin/files", {"path": path}, include_range=True)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to fetch file: {exc}")

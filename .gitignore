@@ -45,6 +45,7 @@ yarn-error.log*
 
 # OS
 .DS_Store
+backend/infra/observability/*.ndjson
 .DS_Store?
 ._*
 .Spotlight-V100

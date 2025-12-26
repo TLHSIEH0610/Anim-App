@@ -7,9 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 
-# Log ComfyUI metrics to newline-delimited JSON for easy ingestion
+# Log ComfyUI metrics to newline-delimited JSON for easy ingestion.
+#
+# Default goes under MEDIA_ROOT so runtime logs don't dirty the source tree.
+_default_root = Path(os.getenv("MEDIA_ROOT", "/data/media")).expanduser()
 DEFAULT_LOG_PATH = Path(
-    os.getenv("COMFYUI_METRICS_LOG", Path("infra/observability/comfyui_metrics.ndjson"))
+    os.getenv(
+        "COMFYUI_METRICS_LOG",
+        str(_default_root / "observability" / "comfyui_metrics.ndjson"),
+    )
 )
 # Rotation/retention controls (all optional)
 MAX_BYTES = int(os.getenv("COMFYUI_METRICS_MAX_BYTES", "0"))  # e.g., 20_000_000 (20MB). 0 = disabled

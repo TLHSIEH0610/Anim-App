@@ -253,7 +253,7 @@ export default function BookCreationScreen({
   }, [currentStep, selectedPaymentMethod]);
 
   // Upload constraints
-  const MAX_FILES = 3;
+  const MAX_FILES = 1;
   const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   const MAX_LONGEST_EDGE = 2048; // px
   // Removed minimum shortest-edge restriction to allow small images
@@ -669,83 +669,43 @@ export default function BookCreationScreen({
       // Clear any previous image-specific error when user starts a new selection
       setImageError(null);
 
-      const availableSlots = Math.max(0, MAX_FILES - form.images.length);
-      if (availableSlots <= 0) {
-        setSnackbar({
-          visible: true,
-          message: `You can select up to ${MAX_FILES} images maximum`,
-        });
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
         allowsEditing: false,
         quality: 0.9,
-        allowsMultipleSelection: true,
-        selectionLimit: availableSlots,
+        allowsMultipleSelection: false,
+        selectionLimit: 1,
       });
 
       if (!result.canceled) {
-        let selectedAssets = result.assets;
-        if (selectedAssets.length > availableSlots) {
-          setSnackbar({
-            visible: true,
-            message: `You can add up to ${availableSlots} more image${
-              availableSlots > 1 ? "s" : ""
-            }`,
-          });
-          selectedAssets = selectedAssets.slice(0, availableSlots);
-        }
-
-        // Enforce pixel/size limits with auto downscale when possible, then face-check (if available)
-        const accepted: string[] = [];
-        let droppedNoFace = 0;
-        for (const asset of selectedAssets) {
-          try {
-            const finalUri = await processAssetWithinLimits(asset);
-            const faces = await detectFacesOnUri(finalUri);
-            if (faces === 0) {
-              droppedNoFace += 1;
-              continue; // skip this image
-            }
-            accepted.push(finalUri);
-          } catch (e: any) {
-            setImageError(
-              e?.message || "Selected image did not meet requirements."
-            );
-            setSnackbar({
-              visible: true,
-              message:
-                e?.message || "Selected image did not meet requirements.",
-            });
-            return; // abort all on first error for clarity
-          }
-        }
-
-        if (accepted.length === 0) {
-          const msg = faceCheckAvailable
-            ? "No face detected in the selected image(s). Please choose a clear, front-facing photo."
-            : "Selected image(s) did not meet requirements. Please choose a clear, front-facing photo.";
-          setImageError(msg);
-          setSnackbar({ visible: true, message: msg });
+        const selectedAsset = result.assets?.[0];
+        if (!selectedAsset) {
+          setSnackbar({ visible: true, message: "No image selected" });
           return;
         }
-
-        if (droppedNoFace > 0 && faceCheckAvailable) {
+        // Enforce pixel/size limits with auto downscale when possible, then face-check (if available)
+        try {
+          const finalUri = await processAssetWithinLimits(selectedAsset);
+          const faces = await detectFacesOnUri(finalUri);
+          if (faces === 0 && faceCheckAvailable) {
+            const msg =
+              "No face detected in the selected image. Please choose a clear, front-facing photo.";
+            setImageError(msg);
+            setSnackbar({ visible: true, message: msg });
+            return;
+          }
+          updateImages([finalUri]);
+        } catch (e: any) {
+          setImageError(e?.message || "Selected image did not meet requirements.");
           setSnackbar({
             visible: true,
-            message: `Skipped ${droppedNoFace} image${
-              droppedNoFace > 1 ? "s" : ""
-            } with no visible face.`,
+            message: e?.message || "Selected image did not meet requirements.",
           });
+          return;
         }
-
-        const merged = [...form.images, ...accepted];
-        updateImages(merged);
       }
     } catch (error) {
-      setSnackbar({ visible: true, message: "Failed to pick images" });
+      setSnackbar({ visible: true, message: "Failed to pick image" });
     }
   };
 
@@ -1071,8 +1031,8 @@ export default function BookCreationScreen({
             </Text>
           ) : null}
           <Text style={styles.templateMeta}>
-            Suggested Age: {template.age || "n/a"} - {template.page_count || 0}{" "}
-            pages
+            Suggested Age: {template.age || "n/a"} -{" "}
+            {Math.max(0, (template.page_count || 0) - 2)} pages
           </Text>
           {quote ? (
             <View style={styles.pricingRow}>
@@ -1272,36 +1232,28 @@ export default function BookCreationScreen({
 
           <View style={styles.imageCountBadge}>
             <Text style={styles.imageCountText}>
-              {form.images.length}/1 images selected
+              {form.images.length}/1 image selected
             </Text>
           </View>
 
           {form.images.length ? (
             <View>
               <View style={styles.imageGallery}>
-                {form.images.map((uri, index) => (
-                  <View key={index} style={styles.imageWrapper}>
-                    <Image source={{ uri }} style={styles.galleryImage} />
-                    <IconButton
-                      icon="close"
-                      size={18}
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(index)}
-                    />
-                  </View>
-                ))}
+                <View style={styles.imageWrapper}>
+                  <Image source={{ uri: form.images[0] }} style={styles.galleryImage} />
+                  <IconButton
+                    icon="close"
+                    size={18}
+                    style={styles.removeImageButton}
+                    onPress={() => removeImage(0)}
+                  />
+                </View>
               </View>
-              {form.images.length < 3 && (
-                <Button
-                  title="+ Add More Images"
-                  onPress={pickImage}
-                  variant="secondary"
-                />
-              )}
+              <Button title="Replace Image" onPress={pickImage} variant="secondary" />
             </View>
           ) : (
             <Button
-              title="Select Images"
+              title="Select Image"
               onPress={pickImage}
               variant="primary"
             />
@@ -1312,8 +1264,7 @@ export default function BookCreationScreen({
           ) : null}
 
           <Text style={styles.helpText}>
-            Tip: Multiple images help us understand your hero better! Choose
-            clear photos with good lighting.{" "}
+            Tip: Choose a clear, front-facing photo with good lighting.{" "}
             <Text style={{ color: colors.primary }}>
               Please use single-person photos only.
             </Text>
@@ -1406,17 +1357,17 @@ export default function BookCreationScreen({
 
       {form.images.length > 0 && (
         <View style={styles.reviewImageGallery}>
-          {form.images.map((uri, index) => (
-            <Image key={index} source={{ uri }} style={styles.reviewImage} />
-          ))}
+          <Image source={{ uri: form.images[0] }} style={styles.reviewImage} />
         </View>
       )}
 
       <View style={styles.reviewDetails}>
         <Text style={styles.reviewTitle}>"{form.title}"</Text>
-        <Text style={styles.reviewDetail}>Page Number: {form.pageCount}</Text>
         <Text style={styles.reviewDetail}>
-          Images: {form.images.length} reference image(s)
+          Pages: {Math.max(0, (form.pageCount || 0) - 2)}
+        </Text>
+        <Text style={styles.reviewDetail}>
+          Image: {form.images.length} reference photo
         </Text>
         {form.templateInput.name.trim() ? (
           <Text style={styles.reviewDetail}>

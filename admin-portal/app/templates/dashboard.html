@@ -10,6 +10,7 @@
             <thead>
                 <tr class="mdc-data-table__header-row">
                     <th class="mdc-data-table__header-cell">ID</th>
+                    <th class="mdc-data-table__header-cell">User Email</th>
                     <th class="mdc-data-table__header-cell">Title</th>
                     <th class="mdc-data-table__header-cell">Status</th>
                     <th class="mdc-data-table__header-cell">Story</th>
@@ -21,6 +22,7 @@
                 {% for book in books %}
                 <tr class="mdc-data-table__row">
                     <td class="mdc-data-table__cell">{{ book.id }}</td>
+                    <td class="mdc-data-table__cell aa-wrap">{{ book.user_email or '—' }}</td>
                     <td class="mdc-data-table__cell">{{ book.title }}</td>
                     <td class="mdc-data-table__cell">
                         {% set s = (book.status or '').lower() %}
