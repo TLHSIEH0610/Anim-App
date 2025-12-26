@@ -353,12 +353,12 @@ export default function BookCreationScreen({
     };
   }, [stripe, cardPaymentsSupported]);
 
-  // Best-effort face detection using expo-face-detector (if present in this build)
+  // Best-effort face detection using react-native-vision-camera-face-detector (if present)
   useEffect(() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const FD = require("expo-face-detector");
-      if (FD && typeof FD.detectFacesAsync === "function") {
+      const FD = require("react-native-vision-camera-face-detector");
+      if (FD && typeof FD.detectFaces === "function") {
         setFaceCheckAvailable(true);
       }
     } catch (_) {
@@ -369,25 +369,19 @@ export default function BookCreationScreen({
   const detectFacesOnUri = async (uri: string): Promise<number | null> => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const FaceDetector: any = require("expo-face-detector");
-      if (
-        !FaceDetector ||
-        typeof FaceDetector.detectFacesAsync !== "function"
-      ) {
+      const FaceDetector: any = require("react-native-vision-camera-face-detector");
+      if (!FaceDetector || typeof FaceDetector.detectFaces !== "function") {
         return null; // Module not available
       }
       const options = {
-        mode: FaceDetector.FaceDetectorMode?.fast ?? 1,
-        detectLandmarks: FaceDetector.FaceDetectorLandmarks?.none ?? 0,
-        runClassifications: FaceDetector.FaceDetectorClassifications?.none ?? 0,
+        performanceMode: "fast",
+        landmarkMode: "none",
+        contourMode: "none",
+        classificationMode: "none",
+        trackingEnabled: false,
       };
-      const result = await FaceDetector.detectFacesAsync(uri, options);
-      const faces = Array.isArray(result?.faces)
-        ? result.faces.length
-        : Array.isArray(result)
-        ? result.length
-        : 0;
-      return faces;
+      const faces = await FaceDetector.detectFaces({ image: uri, options });
+      return Array.isArray(faces) ? faces.length : 0;
     } catch (_) {
       return null; // On any error, don't block flow
     }

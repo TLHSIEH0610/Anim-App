@@ -291,6 +291,8 @@ anim-app/
 - ComfyUI
 - (Story templates are seeded automatically; no extra service required)
 - Expo CLI
+- Android 8+ (SDK 26) for builds using `react-native-vision-camera-face-detector`
+- iOS 15.5+ for builds using `react-native-vision-camera-face-detector`
 
 ### Hardware Requirements
 
