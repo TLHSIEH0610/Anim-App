@@ -26,6 +26,7 @@ import DeleteReceiptScreen from "./src/screens/DeleteReceiptScreen";
 import { UpdateRequiredProvider } from "./src/context/UpdateRequiredContext";
 import { Platform } from "react-native";
 import { initAppIntegrity } from "./src/lib/attestation";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -116,15 +117,17 @@ export default function App() {
   const cardPaymentsEnabled = Boolean(publishableKey && publishableKey.length > 0 && isStripeAvailable);
 
   const appTree = (
-    <PaperProvider theme={materialTheme}>
-      <AuthProvider>
-        <ServerStatusProvider>
-          <ServerStatusGate>
-            <AppContent />
-          </ServerStatusGate>
-        </ServerStatusProvider>
-      </AuthProvider>
-    </PaperProvider>
+    <SafeAreaProvider>
+      <PaperProvider theme={materialTheme}>
+        <AuthProvider>
+          <ServerStatusProvider>
+            <ServerStatusGate>
+              <AppContent />
+            </ServerStatusGate>
+          </ServerStatusProvider>
+        </AuthProvider>
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 
   React.useEffect(() => {

@@ -24,7 +24,6 @@ import {
 } from "../api/books";
 import { useAuth } from "../context/AuthContext";
 import * as FileSystem from "expo-file-system";
-import * as MediaLibrary from "expo-media-library";
 import { colors, radii, shadow, spacing, typography } from "../styles/theme";
 const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -206,24 +205,7 @@ export default function BookViewerScreen({
             return;
           }
         } catch (e) {
-          if (__DEV__) console.warn("[Viewer][SAF] failed, fallback to MediaLibrary", e);
-        }
-
-        // Fallback: Downloads via MediaLibrary
-        try {
-          const perm = await MediaLibrary.requestPermissionsAsync();
-          if (perm.status !== "granted") throw new Error("MediaLibrary permission not granted");
-          const asset = await MediaLibrary.createAssetAsync(localPath);
-          let album = await MediaLibrary.getAlbumAsync("Download");
-          if (!album) {
-            album = await MediaLibrary.createAlbumAsync("Download", asset, false);
-          } else {
-            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-          }
-          setSnackbar({ visible: true, message: "PDF saved to Downloads folder" });
-          return;
-        } catch (e) {
-          if (__DEV__) console.warn("[Viewer][MediaLibrary] fallback failed, sharing instead", e);
+          if (__DEV__) console.warn("[Viewer][SAF] failed, sharing instead", e);
           try {
             await Share.share({ url: localPath, title: bookData.title, message: `Your book "${bookData.title}" is ready as a PDF.` });
             return;

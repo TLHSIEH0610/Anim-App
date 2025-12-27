@@ -1,12 +1,14 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, typography } from "../styles/theme";
 
 const TermsOfServiceScreen = () => {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Kid to Story Terms of Service</Text>
-      <Text style={styles.meta}>Effective date: November 10, 2025</Text>
+    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>Kid to Story Terms of Service</Text>
+        <Text style={styles.meta}>Effective date: November 10, 2025</Text>
 
       {/* 1 */}
       <View style={styles.section}>
@@ -272,11 +274,13 @@ const TermsOfServiceScreen = () => {
           <Text style={styles.link}>arnie@back2.dev</Text>.
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.surface },
   container: {
     flex: 1,
     backgroundColor: colors.surface,

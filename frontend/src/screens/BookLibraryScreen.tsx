@@ -45,7 +45,6 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Header from "../components/Header";
 import * as FileSystem from "expo-file-system";
-import * as MediaLibrary from "expo-media-library";
 const BLURHASH = "L5H2EC=PM+yV0g-mq.wG9c010J}I";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -330,26 +329,11 @@ function BookListCard({
                               return;
                             }
                           } catch (e) {
-                            console.warn("[Download][SAF] failed, will fallback:", e);
+                            console.warn("[Download][SAF] failed, sharing instead:", e);
                           }
 
-                          // Fallback: save to Downloads via MediaLibrary (older Androids)
+                          // Fallback: share (no extra permissions)
                           try {
-                            const perm = await MediaLibrary.requestPermissionsAsync();
-                            if (perm.status !== "granted") {
-                              throw new Error("MediaLibrary permission not granted");
-                            }
-                            const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
-                            let album = await MediaLibrary.getAlbumAsync("Download");
-                            if (!album) {
-                              album = await MediaLibrary.createAlbumAsync("Download", asset, false);
-                            } else {
-                              await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-                            }
-                            Alert.alert("Saved", "PDF saved to Downloads folder");
-                            return;
-                          } catch (e) {
-                            console.warn("[Download][MediaLibrary] fallback failed:", e);
                             try {
                               await Share.share({
                                 url: downloadResult.uri,
@@ -360,6 +344,10 @@ function BookListCard({
                               console.warn("[Download][Share] fallback failed:", shareErr);
                               Alert.alert("Save failed", "Could not save the PDF.");
                             }
+                            return;
+                          } catch (e) {
+                            console.warn("[Download][Share] failed:", e);
+                            Alert.alert("Save failed", "Could not save the PDF.");
                             return;
                           }
                         } else {
