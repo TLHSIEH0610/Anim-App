@@ -7,7 +7,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import Job, WorkflowDefinition
 from app.comfyui_client import ComfyUIClient
-from app.runpod_client import RunPodServerlessClient, RunPodImageFallback
 # from app.db import DATABASE_URL  # placeholder - will use environment variable instead
 
 # Use database URL from environment
@@ -33,15 +32,7 @@ def get_default_workflow_path():
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
 WORKFLOW_PATH = os.getenv("COMFYUI_WORKFLOW", get_default_workflow_path())
 
-RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
-RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-
-
-def _get_runpod_fallback() -> Optional[RunPodImageFallback]:
-    if RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID:
-        client = RunPodServerlessClient(RUNPOD_ENDPOINT_ID, RUNPOD_API_KEY)
-        return RunPodImageFallback(client)
-    return None
+ # RunPod fallback removed.
 
 def load_workflow() -> dict:
     """Load the ComfyUI workflow JSON"""
@@ -116,31 +107,14 @@ def comfyui_process_image(input_path: str) -> str:
             result = client.process_image_to_animation(
                 [input_path],
                 workflow,
-                keypoint_filename=None,
             )
         except Exception as e:
             primary_error = e
     else:
-        print("ComfyUI not reachable in job_process; using RunPod fallback.")
+        print("ComfyUI not reachable in job_process.")
 
     if result and result.get("status") == "success" and result.get("output_path"):
         return result["output_path"]
-
-    # Try RunPod Serverless fallback when configured, using the same workflow
-    runpod = _get_runpod_fallback()
-    if runpod:
-        try:
-            rp_result = runpod.process_image_to_animation(
-                workflow,
-                [input_path],
-                custom_prompt=None,
-                control_prompt=None,
-                fixed_basename=f"job_{int(time.time())}",
-            )
-            if rp_result.get("status") == "success" and rp_result.get("output_path"):
-                return rp_result["output_path"]
-        except Exception as rp_err:
-            print(f"RunPod fallback failed: {rp_err}")
 
     # Last resort: simple mock processing
     if primary_error:

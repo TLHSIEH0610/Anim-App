@@ -94,10 +94,11 @@ def get_admin_session(request: Request) -> Dict[str, Any] | None:
 
 async def backend_request(method: str, path: str, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
+    timeout = kwargs.pop("timeout", 60)
     headers["X-Admin-Secret"] = ADMIN_API_KEY
     # identify admin caller; backend uses this to enforce superadmin-only actions
     headers["X-Admin-Email"] = ADMIN_EMAIL
-    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=60) as client:
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=timeout) as client:
         response = await client.request(method, path, headers=headers, **kwargs)
     response.raise_for_status()
     return response
@@ -806,7 +807,7 @@ async def run_backup(request: Request):
     if not session:
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
     try:
-        resp = await backend_request("POST", "/admin/backups/run")
+        resp = await backend_request("POST", "/admin/backups/run", timeout=600)
         data = resp.json()
         message = quote_plus(f"Backup created ({data.get('backup', {}).get('timestamp', 'unknown')})")
         return RedirectResponse(f"/backups?message={message}", status_code=status.HTTP_303_SEE_OTHER)
@@ -825,7 +826,7 @@ async def restore_backup(request: Request, timestamp: str = Form(...)):
         return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
     payload = {"timestamp": timestamp.strip()}
     try:
-        await backend_request("POST", "/admin/backups/restore", json=payload)
+        await backend_request("POST", "/admin/backups/restore", json=payload, timeout=600)
         message = quote_plus(f"Restore from {timestamp} started")
         return RedirectResponse(f"/backups?message={message}", status_code=status.HTTP_303_SEE_OTHER)
     except httpx.HTTPError as exc:

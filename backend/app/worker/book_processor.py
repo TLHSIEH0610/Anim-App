@@ -33,7 +33,6 @@ from app.models import (
     ControlNetImage,
 )
 from app.comfyui_client import ComfyUIClient
-from app.runpod_client import RunPodServerlessClient, RunPodImageFallback
 
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.platypus import (
@@ -63,11 +62,7 @@ from typing import Dict, Optional, Any
 
 from app.storage import move_to
 
-BASE_INSTANT_PROMPT = (
-    "Genrih Valk illustration, children's book illustration, watercolor style, "
-    "soft pastel colors, whimsical art, storybook character, friendly cartoon style, "
-    "hand-drawn illustration, warm lighting, child-friendly art style"
-)
+# This pipeline is template-driven and Qwen-only.
 
 
 AGE_DESCRIPTORS = {
@@ -90,15 +85,7 @@ _Session = sessionmaker(bind=_engine)
 # Configuration
 COMFYUI_SERVER = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
 
-RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
-RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-
-
-def _get_runpod_fallback() -> Optional[RunPodImageFallback]:
-    if RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID:
-        client = RunPodServerlessClient(RUNPOD_ENDPOINT_ID, RUNPOD_API_KEY)
-        return RunPodImageFallback(client)
-    return None
+# RunPod fallback removed.
 
 # RQ Redis for cooperative cancellation
 try:
@@ -971,7 +958,6 @@ def create_childbook(book_id: int):
         session.commit()
 
         pages = session.query(BookPage).filter_by(book_id=book.id).order_by(BookPage.page_number).all()
-        keypoint_cache: Dict[str, str] = {}
         total_pages = len(pages)
         
         for i, page in enumerate(pages):
@@ -1023,8 +1009,7 @@ def create_childbook(book_id: int):
 
                     print(f"Using {len(image_paths)} reference image(s) for character consistency")
 
-                    # In Qwen workflows, this slug now represents the story/body image;
-                    # in legacy SDXL/InstantID flows it continues to be used as a keypoint.
+                    # In Qwen workflows, this slug represents the story/body image.
                     story_image_slug = prompt_override.get("story_image") or keypoint_slug
                     story_image_path: Optional[str] = None
                     if story_image_slug:
@@ -1037,32 +1022,6 @@ def create_childbook(book_id: int):
                             story_image_path = si_record.image_path
                         else:
                             print(f"Story image '{story_image_slug}' not found or missing path")
-
-                    keypoint_filename: Optional[str] = None
-                    keypoint_image_path: Optional[str] = None
-                    if keypoint_slug:
-                        cached_filename = keypoint_cache.get(keypoint_slug)
-                        if cached_filename:
-                            keypoint_filename = cached_filename
-                        else:
-                            kp_record = (
-                                session.query(ControlNetImage)
-                                .filter(ControlNetImage.slug == keypoint_slug)
-                                .first()
-                            )
-                            if kp_record and kp_record.image_path and os.path.exists(kp_record.image_path):
-                                # Always retain the on-disk keypoint path so RunPod fallback can use it,
-                                # even if local ComfyUI upload fails.
-                                keypoint_image_path = kp_record.image_path
-                                if 'comfy_reachable' in locals() and comfy_reachable:
-                                    try:
-                                        keypoint_filename = comfyui_client._upload_image(kp_record.image_path)
-                                        print(f"Uploaded keypoint '{keypoint_slug}' as {keypoint_filename}")
-                                        keypoint_cache[keypoint_slug] = keypoint_filename
-                                    except Exception as upload_error:
-                                        print(f"Failed to upload keypoint image '{keypoint_slug}': {upload_error}")
-                            else:
-                                print(f"Keypoint image '{keypoint_slug}' not found or missing path")
 
                     # Generate image with ComfyUI
                     print(f"Starting ComfyUI processing for page {page.page_number}...")
@@ -1077,14 +1036,11 @@ def create_childbook(book_id: int):
                     extra_text_cfgs = prompt_override.get("extra_text") or []
                     if extra_text_cfgs:
                         try:
-                            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                            overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
-                            if not overlay_nodes:
-                                overlay_nodes = [
-                                    nid
-                                    for nid, node in workflow.items()
-                                    if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
-                                ]
+                            overlay_nodes = [
+                                nid
+                                for nid, node in workflow.items()
+                                if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
+                            ]
                             defaults = {
                                 "text": "",
                                 "font_size": 60,
@@ -1129,11 +1085,6 @@ def create_childbook(book_id: int):
 
                     result = None
                     primary_error: Optional[Exception] = None
-                    is_qwen_workflow = False
-                    try:
-                        is_qwen_workflow = comfyui_client._is_qwen_image_edit_workflow(workflow)  # type: ignore[attr-defined]
-                    except Exception:
-                        is_qwen_workflow = False
                     if 'comfy_reachable' in locals() and comfy_reachable:
                         try:
                             custom_prompt = positive_override
@@ -1144,41 +1095,15 @@ def create_childbook(book_id: int):
                                 copy.deepcopy(workflow),
                                 custom_prompt,
                                 control_prompt_arg,
-                                keypoint_filename=keypoint_filename if not is_qwen_workflow else None,
-                                story_image_path=story_image_path if is_qwen_workflow else None,
+                                story_image_path=story_image_path,
                             )
                         except Exception as e:
                             primary_error = e
                     else:
-                        print(f"Skipping local ComfyUI for page {page.page_number} (not reachable); using RunPod fallback.")
-
-                        # Fallback to RunPod Serverless when local ComfyUI fails
-                        if not (result and result.get("status") == "success" and result.get("output_path")):
-                            runpod = _get_runpod_fallback()
-                            # RunPod fallback is only supported for legacy SDXL/InstantID flows today.
-                            if runpod and not is_qwen_workflow:
-                                try:
-                                    result = runpod.process_image_to_animation(
-                                        workflow,
-                                        image_paths,
-                                        custom_prompt=positive_override,
-                                        control_prompt=negative_override,
-                                        fixed_basename=f"{book.id}_page_{page.page_number}",
-                                        keypoint_image_path=keypoint_image_path,
-                                    )
-                                except Exception as rp_err:
-                                    if primary_error:
-                                        raise Exception(
-                                            f"ComfyUI and RunPod both failed; ComfyUI error={primary_error}, RunPod error={rp_err}"
-                                        )
-                                    raise rp_err
-                            else:
-                                if primary_error:
-                                    raise primary_error
-                                else:
-                                    raise Exception(
-                                    f"ComfyUI processing failed: {result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'}"
-                                )
+                        print(f"Skipping local ComfyUI for page {page.page_number} (not reachable).")
+                        if primary_error:
+                            raise primary_error
+                        raise Exception("ComfyUI not reachable; cannot generate images.")
 
                     workflow_payload = result.get("workflow")
                     vae_preview_path = result.get("vae_preview_path")

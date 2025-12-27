@@ -73,7 +73,7 @@ npm start
 
 ## 📱 User Experience
 
-1. **Upload reference photos** (InstantID) and basic book settings.
+1. **Upload a reference photo** (used as the face reference) and basic book settings.
 2. **Choose a Story Template** (Space Explorer, Forest Friends, etc.).
 3. **Personalise** with optional name/pronouns used to fill `{Name}`, `{they}`, `{gender}` placeholders.
 4. **Submit** to queue the book job and follow live progress.
@@ -89,7 +89,7 @@ npm start
 
 ### ComfyUI Workflow
 - `backend/app/default_workflows.py` seeds the `base` workflow on startup.
-- Each page injects template prompts into node 39 (InstantID positive prompt) and node 80 (ControlNet pose prompt).
+- Workflows are stored in the `workflow_definitions` table and selected via `story_templates.workflow_slug` and optional per-page overrides.
 - Update the workflow by exporting JSON from ComfyUI (Save → API Format) and pasting it into the admin portal (**Workflows** page).
 
 ### Environment Variables
@@ -125,9 +125,8 @@ POST   /books/{id}/retry
 ## 🎨 ComfyUI Integration
 
 - Template placeholders are filled before sending jobs to ComfyUI.
-- Positive prompts steer InstantID, pose prompts lock ControlNet composition.
 - Age-themed modifiers ensure the art style matches the target audience.
-- If ComfyUI is unavailable, the backend falls back to placeholder imagery but still finishes the story/PDF.
+- ComfyUI must be reachable for image generation.
 
 ## 🔄 Job Processing Lifecycle
 

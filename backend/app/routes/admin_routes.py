@@ -129,7 +129,7 @@ def _inject_keypoint_into_workflow(workflow: Dict[str, Any], filename: str) -> N
             continue
         inputs = node.get("inputs", {})
         img = inputs.get("image")
-        if isinstance(img, str) and any(hint in img.lower() for hint in ("keypoint", "pose", "instantid")):
+        if isinstance(img, str) and any(hint in img.lower() for hint in ("keypoint", "pose")):
             inputs["image"] = filename
             inputs["load_from_upload"] = True
             return
@@ -743,15 +743,6 @@ def _legacy_admin_get_workflow(
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
     workflow = copy.deepcopy(base_workflow)
-    # For legacy SDXL/InstantID workflows, wire original images dynamically.
-    # Qwen image-edit graphs do not use ApplyInstantID and will fail the legacy
-    # dynamic wiring step, so skip it when we detect a Qwen workflow.
-    try:
-        is_qwen = comfy_client._is_qwen_image_edit_workflow(workflow)  # type: ignore[attr-defined]
-    except Exception:
-        is_qwen = False
-    if filenames and not is_qwen:
-        workflow = comfy_client.prepare_dynamic_workflow(workflow, filenames)
 
     prompt = None
     target_page = (
@@ -2031,14 +2022,11 @@ def admin_regenerate_page(
                 ovr = overrides.get(page)
                 extra_text_cfgs = ovr.get("extra_text") if isinstance(ovr, dict) else None
                 if isinstance(extra_text_cfgs, list) and extra_text_cfgs:
-                    meta = workflow_json.get("_meta", {}) if isinstance(workflow_json, dict) else {}
-                    overlay_nodes = meta.get("overlay_nodes", []) if isinstance(meta, dict) else []
-                    if not overlay_nodes:
-                        overlay_nodes = [
-                            nid
-                            for nid, node in workflow_json.items()
-                            if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
-                        ]
+                    overlay_nodes = [
+                        nid
+                        for nid, node in workflow_json.items()
+                        if isinstance(node, dict) and node.get("class_type") == "Text Overlay"
+                    ]
                     defaults = {
                         "text": "",
                         "font_size": 60,
@@ -2082,37 +2070,6 @@ def admin_regenerate_page(
     else:
         raise HTTPException(status_code=400, detail="Invalid mode; use 'edited' or 'template'")
 
-    # Upload keypoint image if provided in overrides (legacy SDXL/InstantID path)
-    kp_uploaded: Optional[str] = None
-    if keypoint_slug:
-        kp_record = db.query(ControlNetImage).filter(ControlNetImage.slug == keypoint_slug).first()
-        if kp_record and kp_record.image_path and os.path.exists(kp_record.image_path):
-            try:
-                kp_uploaded = comfy_client._upload_image(kp_record.image_path)
-            except Exception as exc:
-                # Surface keypoint upload failures explicitly
-                try:
-                    if sentry_sdk is not None:  # type: ignore[name-defined]
-                        from sentry_sdk import push_scope  # type: ignore
-                        with push_scope() as scope:  # type: ignore
-                            scope.set_tag("feature", "admin_regenerate_page")
-                            scope.set_tag("stage", "upload_keypoint")
-                            scope.set_tag("book_id", str(book.id))
-                            scope.set_tag("page", str(page))
-                            scope.set_extra("keypoint_slug", keypoint_slug)
-                            scope.set_extra("error", str(exc))
-                            sentry_sdk.capture_message(
-                                f"Keypoint upload failed (book={book.id}, page={page}, slug={keypoint_slug})",
-                                level="error",
-                            )
-                    # Console log for quick verification
-                    print(
-                        f"[Sentry] keypoint upload failure captured: book={book.id} page={page} slug={keypoint_slug} err={exc}"
-                    )
-                except Exception:
-                    pass
-                raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
-
     # Resolve story/body image path for Qwen workflows
     story_image_path: Optional[str] = None
     if story_image_slug:
@@ -2135,19 +2092,13 @@ def admin_regenerate_page(
             fixed_basename=f"book{book.id}_p{page}",
         )
     else:
-        is_qwen = False
-        try:
-            is_qwen = comfy_client._is_qwen_image_edit_workflow(workflow_json)  # type: ignore[attr-defined]
-        except Exception:
-            is_qwen = False
         result = comfy_client.process_image_to_animation(
             input_image_paths=input_paths,
             workflow_json=workflow_json,
             custom_prompt=positive_prompt,
             control_prompt=negative_prompt,
-            keypoint_filename=kp_uploaded if not is_qwen else None,
             fixed_basename=f"book{book.id}_p{page}",
-            story_image_path=story_image_path if is_qwen else None,
+            story_image_path=story_image_path,
         )
 
     if result.get("status") != "success" or not result.get("output_path"):
@@ -2267,48 +2218,6 @@ def admin_list_workflows(_: None = Depends(require_admin), db: Session = Depends
         )
     return {"workflows": items}
 
-@router.post("/workflows/cleanup-meta-hints")
-def admin_cleanup_workflow_meta_hints(
-    _: None = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Remove legacy workflow hint keys stored under top-level content._meta."""
-
-    hint_keys = {
-        "keypoint_load_node",
-        "instantid_apply_node",
-        "keypoint_default_image",
-        "prompt_nodes",
-        "load_images",
-        "save_nodes",
-        "preview_nodes",
-        "overlay_nodes",
-    }
-
-    definitions = db.query(WorkflowDefinition).all()
-    updated = 0
-    for definition in definitions:
-        content = definition.content
-        if not isinstance(content, dict):
-            continue
-        meta = content.get("_meta")
-        if not isinstance(meta, dict):
-            continue
-        cleaned = {k: v for k, v in meta.items() if k not in hint_keys}
-        new_content = dict(content)
-        if cleaned:
-            new_content["_meta"] = cleaned
-        else:
-            new_content.pop("_meta", None)
-        if new_content != content:
-            definition.content = new_content
-            updated += 1
-
-    if updated:
-        db.commit()
-    return {"message": "Workflow meta hints cleaned", "updated": updated}
-
-
 @router.get("/workflows/{workflow_id}")
 def admin_get_workflow_definition(workflow_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
     definition = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
@@ -2333,33 +2242,6 @@ def admin_create_workflow(
     _: None = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    def _sanitize_workflow_content(content: Any) -> Any:
-        # Remove legacy "workflow hints" stored under top-level _meta.
-        if not isinstance(content, dict):
-            return content
-        meta = content.get("_meta")
-        if not isinstance(meta, dict):
-            return content
-        cleaned = dict(meta)
-        for k in (
-            "keypoint_load_node",
-            "instantid_apply_node",
-            "keypoint_default_image",
-            "prompt_nodes",
-            "load_images",
-            "save_nodes",
-            "preview_nodes",
-            "overlay_nodes",
-        ):
-            cleaned.pop(k, None)
-        if cleaned:
-            content = dict(content)
-            content["_meta"] = cleaned
-        else:
-            content = dict(content)
-            content.pop("_meta", None)
-        return content
-
     max_version = (
         db.query(func.max(WorkflowDefinition.version))
         .filter(WorkflowDefinition.slug == payload.slug)
@@ -2372,7 +2254,7 @@ def admin_create_workflow(
         name=payload.name,
         type=payload.type,
         version=version,
-        content=_sanitize_workflow_content(payload.content),
+        content=payload.content,
         is_active=payload.is_active if payload.is_active is not None else True,
     )
     db.add(definition)
@@ -2401,38 +2283,11 @@ def admin_update_workflow(
     old_slug = definition.slug
     new_slug = payload.slug
 
-    def _sanitize_workflow_content(content: Any) -> Any:
-        # Remove legacy "workflow hints" stored under top-level _meta.
-        if not isinstance(content, dict):
-            return content
-        meta = content.get("_meta")
-        if not isinstance(meta, dict):
-            return content
-        cleaned = dict(meta)
-        for k in (
-            "keypoint_load_node",
-            "instantid_apply_node",
-            "keypoint_default_image",
-            "prompt_nodes",
-            "load_images",
-            "save_nodes",
-            "preview_nodes",
-            "overlay_nodes",
-        ):
-            cleaned.pop(k, None)
-        if cleaned:
-            content = dict(content)
-            content["_meta"] = cleaned
-        else:
-            content = dict(content)
-            content.pop("_meta", None)
-        return content
-
     # Update definition
     definition.slug = new_slug
     definition.name = payload.name
     definition.type = payload.type
-    definition.content = _sanitize_workflow_content(payload.content)
+    definition.content = payload.content
     if payload.version is not None:
         definition.version = payload.version
     if payload.is_active is not None:
@@ -2703,8 +2558,9 @@ def admin_test_comfy_run(
 ):
     """Run a lightweight ComfyUI test with a selected workflow and inputs.
 
-    Accepts a single reference image (e.g., for InstantID), optional positive/negative prompts,
-    and a workflow slug. Returns the output image path and the exact workflow payload queued.
+    Accepts reference image(s) plus an optional story/body image (for Qwen image-edit workflows),
+    optional positive/negative prompts, and a workflow slug. Returns the output image path and the
+    exact workflow payload queued.
     """
     # Resolve workflow definition by slug (latest active)
     definition = (
@@ -2738,26 +2594,21 @@ def admin_test_comfy_run(
 
     comfy_client = ComfyUIClient(COMFYUI_SERVER)
     # Process via ComfyUI
-    # Upload keypoint image to ComfyUI if provided
-    kp_uploaded: Optional[str] = None
+    story_image_path: Optional[str] = None
     if image_kp is not None and getattr(image_kp, "filename", ""):
         try:
             image_kp.file.seek(0)
         except Exception:
             pass
-        kp_local = save_upload(image_kp.file, subdir="uploads", filename=image_kp.filename)
-        try:
-            kp_uploaded = comfy_client._upload_image(kp_local)
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to upload keypoint image: {exc}")
+        story_image_path = save_upload(image_kp.file, subdir="uploads", filename=image_kp.filename)
 
     result = comfy_client.process_image_to_animation(
         input_image_paths=input_paths,
         workflow_json=base_workflow,
         custom_prompt=(positive_prompt or None),
         control_prompt=(negative_prompt or None),
-        keypoint_filename=kp_uploaded,
         fixed_basename="test_result",
+        story_image_path=story_image_path,
     )
 
     status_text = result.get("status")

@@ -57,10 +57,10 @@ AnimApp now includes in-app pricing logic and payment tooling so promotions and 
 
 ## ?? Story Templates
 
-AnimApp ships with a single **base ComfyUI workflow** (stored in the `workflow_definitions` table) that every book uses. Variety comes from database-backed Story templates that drive both the narrative and prompt engineering.
+AnimApp uses DB-backed **ComfyUI workflows** (stored in the `workflow_definitions` table). Story templates select a default workflow slug, and pages may override it.
 
 - Users pick a template such as Space Explorer, Forest Friends, Magic School Day, Pirate Adventure, or Bedtime Lullaby directly in the mobile app.
-- Each template page defines `story_text`, `image_prompt`, `positive_prompt` (InstantID ? node?39) and `pose_prompt` (ControlNet ? node?80). Placeholders like `{Name}`, `{gender}`, `{they}` are filled using the name and pronouns collected in the UI.
+- Each template page defines `story_text` plus workflow-specific prompt fields. Placeholders like `{Name}`, `{gender}`, `{they}` are filled using the name and pronouns collected in the UI.
 - Admins manage templates, versions, and the base workflow at `http://localhost:8090`, so content updates no longer require code changes.
 - Additional templates or workflow revisions can be introduced entirely through the admin portal, making experimentation easy without redeploying the backend.
 
@@ -503,10 +503,6 @@ REDIS_URL=redis://redis:6379/0
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=https://your-domain.com  # For remote/Cloudflare setup, or host.docker.internal:8188 for local
 
-# Optional: RunPod Serverless fallback (used when local ComfyUI is unavailable)
-# RUNPOD_API_KEY=your-runpod-api-key
-# RUNPOD_ENDPOINT_ID=your-endpoint-id  # e.g. jh1jrmc32ar9ma
-
 # Google OAuth (comma-separated client IDs accepted by the backend)
 GOOGLE_OAUTH_CLIENT_IDS=android-client-id.apps.googleusercontent.com,web-client-id.apps.googleusercontent.com
 
@@ -544,10 +540,6 @@ REDIS_URL=redis://localhost:6379/0
 
 # ComfyUI (local or remote via domain/proxy)
 COMFYUI_SERVER=127.0.0.1:8188  # For local, or https://your-domain.com for remote/Cloudflare setup
-
-# Optional: RunPod Serverless fallback (used when local ComfyUI is unavailable)
-# RUNPOD_API_KEY=your-runpod-api-key
-# RUNPOD_ENDPOINT_ID=your-endpoint-id  # e.g. jh1jrmc32ar9ma
 
 # Google OAuth (comma-separated client IDs accepted by the backend)
 GOOGLE_OAUTH_CLIENT_IDS=android-client-id.apps.googleusercontent.com,web-client-id.apps.googleusercontent.com
@@ -1159,18 +1151,18 @@ ORDER BY page_number;
 
 ### ComfyUI Workflows
 
-- The backend seeds a single `base` workflow into the `workflow_definitions` table during startup (`backend/app/default_workflows.py`).
-- RQ workers fetch the latest active record for the slug referenced by each Story template (currently `base`). No JSON files need to live in the repository.
+- The backend seeds default workflows into the `workflow_definitions` table during startup (`backend/app/default_workflows.py` + `backend/fixtures/workflows`).
+- RQ workers fetch the latest active record for the slug referenced by each Story template (and optional per-page overrides). No JSON files need to live in the repository.
 - To publish an update:
   1. Export your ComfyUI graph via **Save ? API Format**.
-  2. Open the admin portal ? **Workflows** ? Edit the `base` record (or add a new slug) and paste the JSON.
+  2. Open the admin portal ? **Workflows** and paste the JSON into the target workflow record (or create a new slug/version).
   3. The next job will automatically use the new version.
 - The optional `COMFYUI_WORKFLOW` environment variable remains as a fallback path should the database lookup fail.
 
 ### Story Templates
 
 - Templates are stored in `story_templates` and `story_template_pages` (seeded by `backend/app/default_stories.py`).
-- Each page captures `story_text`, `image_prompt`, `positive_prompt` (InstantID / node?39) and `pose_prompt` (ControlNet / node?80).
+- Each page captures `story_text` plus workflow-specific prompt fields.
 - Supported placeholders inside those fields: `{Name}`, `{name}`, `{gender}`, `{Gender}`, `{they}`, `{them}`, `{their}`, `{theirs}` (plus capitalised variants). Values come from the mobile creation form.
 - Manage templates from the admin portal ? **Stories**. Paste updated JSON into the Pages textarea to tweak narratives and prompts without redeploying.
 

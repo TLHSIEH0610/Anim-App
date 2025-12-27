@@ -251,157 +251,7 @@ class ComfyUIClient:
             log_comfy_poll(prompt_id, "timeout", attempts)
             return result
     
-    def prepare_dynamic_workflow(self, workflow: Dict[str, Any], image_filenames: list) -> Dict[str, Any]:
-        """
-        Dynamically adjust workflow based on number of images (1-3 supported via UI)
-
-        Args:
-            workflow: Base workflow JSON
-            image_filenames: List of uploaded image filenames (1-3 images)
-
-        Returns:
-            Modified workflow optimized for the number of images
-        """
-        num_images = len(image_filenames)
-
-        # Update LoadImage nodes with actual filenames (ensure we load from uploaded store)
-        image_nodes = ["13", "94", "98", "101"]
-        for i, filename in enumerate(image_filenames):
-            if i < len(image_nodes) and image_nodes[i] in workflow:
-                inputs = workflow[image_nodes[i]].setdefault("inputs", {})
-                inputs["image"] = filename
-                # Many ComfyUI builds require this to fetch from /upload instead of /input
-                inputs["load_from_upload"] = True
-
-        # Resolve ApplyInstantID node dynamically (node id may shift between workflow versions)
-        apply_node_id = None
-        for node_id, node in workflow.items():
-            if node.get("class_type") == "ApplyInstantID" or (
-                node.get("class_type") == "ApplyInstantIDAdvanced"
-                or "apply instantid" in node.get("_meta", {}).get("title", "").lower()
-            ):
-                apply_node_id = node_id
-                break
-
-        if not apply_node_id:
-            raise KeyError("ApplyInstantID node not found in workflow; cannot configure reference images")
-
-        # Track AutoCropFaces nodes that wrap LoadImage outputs
-        auto_nodes_by_load: Dict[str, str] = {}
-        for node_id, node in list(workflow.items()):
-            if node.get("class_type") != "AutoCropFaces":
-                continue
-            link = node.get("inputs", {}).get("image")
-            if isinstance(link, list) and link and isinstance(link[0], str):
-                auto_nodes_by_load[str(link[0])] = node_id
-
-        load_nodes_present = [nid for nid in image_nodes if nid in workflow]
-        if not load_nodes_present:
-            return workflow
-
-        # Always retain at least one load node, even if num_images is 0
-        used_load_nodes = load_nodes_present[: max(1, num_images)]
-        unused_load_nodes = [nid for nid in load_nodes_present if nid not in used_load_nodes]
-
-        def remove_node(node_id: str) -> None:
-            if node_id in workflow:
-                workflow.pop(node_id, None)
-
-        # Remove unused LoadImage/AutoCrop nodes
-        for load_id in unused_load_nodes:
-            remove_node(load_id)
-            auto_id = auto_nodes_by_load.get(load_id)
-            if auto_id:
-                remove_node(auto_id)
-
-        # Sources that will feed InstantID (AutoCrop output if available, otherwise the LoadImage)
-        used_sources: List[str] = []
-        for load_id in used_load_nodes:
-            source = auto_nodes_by_load.get(load_id, load_id)
-            used_sources.append(source if source in workflow else load_id)
-
-        apply_inputs = workflow.setdefault(apply_node_id, {}).setdefault("inputs", {})
-
-        if len(used_sources) <= 1:
-            target_source = used_sources[0]
-            for node_id in ["75", "95", "98", "101"]:
-                remove_node(node_id)
-            apply_inputs["image"] = [target_source, 0]
-
-        elif len(used_sources) == 2:
-            for node_id in ["95", "98", "101"]:
-                remove_node(node_id)
-
-            if "75" not in workflow:
-                workflow["75"] = {
-                    "class_type": "ImageBatch",
-                    "inputs": {},
-                    "_meta": {"title": "Batch Images"},
-                }
-
-            workflow["75"]["inputs"] = {
-                "image1": [used_sources[0], 0],
-                "image2": [used_sources[1], 0],
-            }
-            apply_inputs["image"] = ["75", 0]
-
-        else:
-            # Three images (current maximum)
-            if "75" not in workflow:
-                workflow["75"] = {
-                    "class_type": "ImageBatch",
-                    "inputs": {},
-                    "_meta": {"title": "Batch Images"},
-                }
-            if "95" not in workflow:
-                workflow["95"] = {
-                    "class_type": "ImageBatch",
-                    "inputs": {},
-                    "_meta": {"title": "Batch Images"},
-                }
-
-            workflow["75"]["inputs"]["image1"] = [used_sources[0], 0]
-            workflow["75"]["inputs"]["image2"] = [used_sources[2], 0]
-            workflow["95"]["inputs"]["image1"] = [used_sources[1], 0]
-            workflow["95"]["inputs"]["image2"] = ["75", 0]
-            apply_inputs["image"] = ["95", 0]
-
-            # Remove any additional LoadImage nodes beyond our supported three (e.g. node 101)
-            remove_node("101")
-
-        return workflow
-
-    def _force_raw_reference(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
-        """Force ApplyInstantID image input to use a raw LoadImage node (not AutoCrop).
-
-        Useful as a fallback when face detection on cropped images fails.
-        """
-        try:
-            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-            # Find ApplyInstantID(Advanced)
-            apply_node_id = None
-            if isinstance(meta, dict):
-                apply_node_id = meta.get("instantid_apply_node")
-            if not apply_node_id:
-                for node_id, node in workflow.items():
-                    if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
-                        apply_node_id = node_id
-                        break
-            if not apply_node_id:
-                return workflow
-
-            # Choose first available raw LoadImage node from our known set
-            for candidate in ["13", "94", "98", "101"]:
-                node = workflow.get(candidate)
-                if node and node.get("class_type") == "LoadImage":
-                    # Make sure it points at upload store if we injected files
-                    inputs = node.setdefault("inputs", {})
-                    inputs.setdefault("load_from_upload", True)
-                    workflow[apply_node_id].setdefault("inputs", {})["image"] = [candidate, 0]
-                    return workflow
-        except Exception:
-            pass
-        return workflow
+    # Legacy workflow helpers removed.
 
     def process_image_to_animation(
         self,
@@ -409,7 +259,6 @@ class ComfyUIClient:
         workflow_json: Dict[str, Any],
         custom_prompt: str | None = None,
         control_prompt: str | None = None,
-        keypoint_filename: str | None = None,
         fixed_basename: Optional[str] = None,
         story_image_path: Optional[str] = None,
     ) -> Dict:
@@ -487,91 +336,12 @@ class ComfyUIClient:
                         control_prompt=control_prompt,
                     )
                 else:
-                    # Legacy SDXL / InstantID pipeline: dynamic multi-image wiring +
-                    # optional keypoint injection and CLIP text overrides.
-                    if image_filenames:
-                        workflow = self.prepare_dynamic_workflow(workflow, image_filenames)
-
-                    # Inject keypoint into the workflow if provided
-                    if keypoint_filename:
-                        try:
-                            # If we were given just a filename, try uploading the actual file into ComfyUI's upload store
-                            # so LoadImage nodes with load_from_upload can find it.
-                            keypoint_to_use = keypoint_filename
-                            try:
-                                media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
-                                candidate = Path(media_root) / "controlnet" / "keypoints" / keypoint_filename
-                                if candidate.exists() and candidate.is_file():
-                                    uploaded_name = self._upload_image(str(candidate))
-                                    if uploaded_name:
-                                        keypoint_to_use = uploaded_name
-                                        print(f"[ComfyUI] Uploaded keypoint '{keypoint_filename}' as '{uploaded_name}'")
-                            except Exception as up_err:
-                                print(f"[ComfyUI] Keypoint upload skipped/failed: {up_err}")
-
-                            meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                            # Prefer wiring via ApplyInstantID*'s image_kps link
-                            apply_node_id = meta.get("instantid_apply_node")
-                            if not apply_node_id:
-                                for node_id, node in workflow.items():
-                                    if node.get("class_type") in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
-                                        apply_node_id = node_id
-                                        break
-                            load_node_id = None
-                            if apply_node_id:
-                                apply_inputs = workflow[apply_node_id].get("inputs", {})
-                                link = apply_inputs.get("image_kps") or apply_inputs.get("image_kp")
-                                if isinstance(link, list) and len(link) >= 1 and isinstance(link[0], str):
-                                    load_node_id = link[0]
-                            # Fallback to common node ids in our workflows
-                            if not load_node_id:
-                                kp_meta = meta.get("keypoint_load_node")
-                                if kp_meta:
-                                    load_node_id = kp_meta
-                            if not load_node_id:
-                                for candidate in ["109", "100", "128"]:
-                                    node = workflow.get(candidate)
-                                    if node and node.get("class_type") == "LoadImage":
-                                        load_node_id = candidate
-                                        break
-                            # Last resort: pick any LoadImage node whose image hints keypoints/pose
-                            if not load_node_id:
-                                for node_id, node in workflow.items():
-                                    if node.get("class_type") != "LoadImage":
-                                        continue
-                                    img = node.get("inputs", {}).get("image")
-                                    if isinstance(img, str) and any(h in img.lower() for h in ("keypoint", "pose", "instantid")):
-                                        load_node_id = node_id
-                                        break
-                            if load_node_id and "inputs" in workflow.get(load_node_id, {}):
-                                workflow[load_node_id]["inputs"]["image"] = keypoint_to_use
-                                workflow[load_node_id]["inputs"]["load_from_upload"] = True
-                                print(f"[ComfyUI] Updated keypoint node {load_node_id} with image: {keypoint_to_use}")
-                            elif "100" in workflow and "inputs" in workflow["100"]:
-                                # Legacy fallback: node 100 manual set
-                                workflow["100"]["inputs"]["image"] = keypoint_to_use
-                                workflow["100"]["inputs"]["load_from_upload"] = True
-                                print(f"[ComfyUI] Updated keypoint node 100 with image: {keypoint_to_use}")
-                            else:
-                                print("[ComfyUI] Warning: Could not locate a LoadImage node for keypoints to inject")
-                        except Exception as inj_err:
-                            print(f"[ComfyUI] Keypoint injection failed: {inj_err}")
-
-                    # Debug log: surface the filenames wired into each LoadImage node
-                    try:
-                        load_nodes = [node_id for node_id in ["13", "94", "98", "100", "109", "128"] if node_id in workflow]
-                        resolved_inputs = {
-                            node_id: workflow[node_id]["inputs"].get("image")
-                            for node_id in load_nodes
-                            if isinstance(workflow[node_id].get("inputs"), dict)
-                        }
-                        print(f"[ComfyUI] Resolved LoadImage inputs: {resolved_inputs}")
-                    except Exception as debug_error:
-                        print(f"[ComfyUI] Failed to log LoadImage inputs: {debug_error}")
-
-                    # Update workflow with custom prompt if provided
-                    if custom_prompt or control_prompt:
-                        workflow = self._update_prompt(workflow, custom_prompt, control_prompt)
+                    event["status"] = "error"
+                    event["context"]["reason"] = "unsupported_workflow"
+                    return {
+                        "status": "failed",
+                        "error": "Only Qwen (TextEncodeQwenImageEditPlus) workflows are supported.",
+                    }
 
                 # Log workflow snapshot before queueing
                 self._log_workflow_snapshot(workflow)
@@ -583,32 +353,7 @@ class ComfyUIClient:
                 # Wait for completion
                 result = self.wait_for_completion(prompt_id)
 
-                # Fallback once if face detection failed on cropped input: force raw reference image
-                # Only relevant for legacy InstantID-based flows, not Qwen image edit.
-                try:
-                    err_text = str(result.get("error") or "").lower()
-                except Exception:
-                    err_text = ""
-                if (not is_qwen) and result.get("status") == "failed" and (
-                    "no face detected" in err_text or "reference image" in err_text
-                ):
-                    try:
-                        wf2 = self._force_raw_reference(workflow)
-                        prompt_id2 = self.queue_prompt(wf2)
-                        event["context"]["fallback_prompt_id"] = prompt_id2
-                        result2 = self.wait_for_completion(prompt_id2)
-                        if result2.get("status") == "completed":
-                            result = result2
-                            workflow = wf2
-                    except Exception:
-                        pass
-
-                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                preview_nodes = []
-                if isinstance(meta, dict):
-                    preview_nodes = meta.get("preview_nodes", [])
-                if not preview_nodes:
-                    preview_nodes = ["102", "83", "84", "91", "15"]
+                preview_nodes = ["102", "83", "84", "91", "15"]
                 vae_preview_path = self._download_intermediate_image(
                     result.get("outputs"),
                     preview_nodes,
@@ -616,7 +361,7 @@ class ComfyUIClient:
 
                 if result["status"] == "completed" and result["outputs"]:
                     # Download the result
-                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename, meta=meta)
+                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename)
                     event["context"]["result"] = "success"
                     return {
                         "status": "success",
@@ -676,42 +421,6 @@ class ComfyUIClient:
                 print(f"[ComfyUI] Upload response: {data}")
                 return data['name']
     
-    def _update_prompt(
-        self,
-        workflow: Dict[str, Any],
-        custom_prompt: Optional[str],
-        control_prompt: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Update workflow JSON with custom prompt
-
-        Args:
-            workflow: Workflow JSON
-            custom_prompt: Custom prompt text
-
-        Returns:
-            Updated workflow
-        """
-        # Find the positive/negative CLIPTextEncode nodes; allow metadata override
-        meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-        pn = meta.get("prompt_nodes", {}) if isinstance(meta, dict) else {}
-        positive_nodes = pn.get("positive", ["39"])  # default
-        negative_nodes = pn.get("negative", ["40"])  # default
-
-        for node_id, node in workflow.items():
-            if node.get("class_type") == "CLIPTextEncode" and "text" in node.get("inputs", {}):
-                original = node["inputs"]["text"]
-                if custom_prompt is not None and node_id in positive_nodes:
-                    node["inputs"]["text"] = custom_prompt
-                    print(f"Updating node {node_id} prompt from: {original}")
-                    print(f"Updated node {node_id} prompt to: {custom_prompt}")
-                elif control_prompt is not None and node_id in negative_nodes:
-                    node["inputs"]["text"] = control_prompt
-                    print(f"Updating node {node_id} negative prompt from: {original}")
-                    print(f"Updated node {node_id} negative prompt to: {control_prompt}")
-
-        return workflow
-
     def _log_workflow_snapshot(self, workflow: Dict[str, Any]) -> None:
         """Log key workflow inputs prior to queuing"""
         try:
@@ -733,18 +442,12 @@ class ComfyUIClient:
                         "class_type": class_type,
                         "text": node.get("inputs", {}).get("text")
                     }
-                elif class_type in {"ApplyInstantID", "ApplyInstantIDAdvanced"}:
-                    snapshot["nodes"][node_id] = {
-                        "class_type": class_type,
-                        "image": node.get("inputs", {}).get("image"),
-                        "weight": node.get("inputs", {}).get("weight"),
-                    }
 
             print(f"[ComfyUI] Workflow snapshot before queue: {json.dumps(snapshot, indent=2)}")
         except Exception as snapshot_error:
             print(f"[ComfyUI] Failed to log workflow snapshot: {snapshot_error}")
 
-    def _download_result(self, outputs: Dict[str, Any], fixed_basename: Optional[str] = None, meta: Optional[Dict[str, Any]] = None) -> str:
+    def _download_result(self, outputs: Dict[str, Any], fixed_basename: Optional[str] = None) -> str:
         """Download the result and save to local storage"""
         # Cross-platform path handling
         media_root = os.getenv("MEDIA_ROOT", self._get_default_media_root())
@@ -754,36 +457,6 @@ class ComfyUIClient:
             "comfyui.download_result",
             {"server": self.base_url, "output_dir": str(output_dir)},
         ) as event:
-            # First, try to find SaveImage node outputs (allow meta override)
-            preferred_save_nodes = []
-            if isinstance(meta, dict):
-                preferred_save_nodes = meta.get("save_nodes", [])
-            if not preferred_save_nodes:
-                preferred_save_nodes = ["25", "10"]
-            for node_id, node_outputs in outputs.items():
-                if node_id in preferred_save_nodes and "images" in node_outputs:
-                    image_info = node_outputs["images"][0]
-                    filename = image_info["filename"]
-                    subfolder = image_info.get("subfolder", "")
-                    folder_type = image_info.get("type", "output")
-                    print(f"Found SaveImage output from node {node_id}: {filename}")
-
-                    # Download the file
-                    image_data = self.get_image(filename, subfolder=subfolder, folder_type=folder_type)
-
-                    # Save locally with cross-platform path (optionally fixed name)
-                    if fixed_basename:
-                        from pathlib import Path as _P
-                        output_path = output_dir / f"{fixed_basename}{_P(filename).suffix}"
-                    else:
-                        output_path = output_dir / f"result_{int(time.time())}_{filename}"
-                    with open(output_path, 'wb') as f:
-                        f.write(image_data)
-
-                    event["context"]["filename"] = filename
-                    event["context"]["node_id"] = node_id
-                    return str(output_path)
-
             # If no preferred SaveImage node found, look for any saved images (not temp files)
             fallback_image = None
             fallback_info = None
@@ -913,18 +586,13 @@ class ComfyUIClient:
                 event["context"]["prompt_id"] = prompt_id
                 result = self.wait_for_completion(prompt_id)
 
-                meta = workflow.get("_meta", {}) if isinstance(workflow, dict) else {}
-                preview_nodes = []
-                if isinstance(meta, dict):
-                    preview_nodes = meta.get("preview_nodes", [])
-                if not preview_nodes:
-                    preview_nodes = ["102", "83", "84", "91", "15"]
+                preview_nodes = ["102", "83", "84", "91", "15"]
                 vae_preview_path = self._download_intermediate_image(
                     result.get("outputs"), preview_nodes
                 )
 
                 if result.get("status") == "completed" and result.get("outputs"):
-                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename, meta=meta)
+                    output_path = self._download_result(result["outputs"], fixed_basename=fixed_basename)
                     return {
                         "status": "success",
                         "output_path": output_path,
