@@ -1,0 +1,133 @@
+{
+  "age": "3",
+  "description": "A little child wakes up to a cloudy morning and feels sad, but decides to help anyway. By caring for a small bird and watering a drooping flower, the garden feels happier—and the sun comes out, showing that small acts of kindness can brighten the day.",
+  "discount_price": "0.80",
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "Shares The Light",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "{name} Shares The Light",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_0",
+      "negative_prompt": "",
+      "page_number": 0,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_0",
+      "story_text": "{Name} Shares The Light",
+      "workflow": "qwen_cover"
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The child sees a cloudy morning, feels sad, and decides to help.",
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_1",
+      "negative_prompt": "",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_1",
+      "story_text": "{name} woke up and looked outside.The sky was gray. The sun was hiding.{name} felt a little sad.Then {they} said, 'I can try to help.'{name} put on {their} blue hoodie, green shorts, striped socks, and yellow rain boots, and went outside.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The child helps a cold, quiet bird feel better.",
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_2",
+      "negative_prompt": "",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_2",
+      "story_text": "In the garden, {name} saw a small bird.The bird looked cold and quiet.{name} gently said, 'Hi, little bird.'{they} picked up a soft leaf and made a tiny blanket near the nest.The bird blinked and chirped, 'Cheep!'",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The child waters a drooping flower, and it stands up again.",
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_3",
+      "negative_prompt": "",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_3",
+      "story_text": "{name} walked a little more.A flower was drooping down.{name} whispered, 'You can stand up.'{they} poured a little water near the flower.The flower lifted its head, like it was smiling.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The child waves at the sky, and the sun comes back; helping makes the day feel happy.",
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_4",
+      "negative_prompt": "",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_4",
+      "story_text": "{name} looked up at the sky and waved.{they} said, 'Sun, please come back. We are helping today!'The clouds slowly moved away.A warm, bright sun peeked out.{name} smiled and said, 'When I help, the day feels happy.'",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Small help can make a big smile.",
+          "vertical_alignment": "top",
+          "x_shift": 0,
+          "y_shift": 80
+        },
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "When {name} helps,{gender} feels happy.",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "shares_the_light_5",
+      "negative_prompt": "",
+      "page_number": 5,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "shares_the_light_5",
+      "story_text": "",
+      "workflow": "qwen_end"
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "shares_the_light",
+  "version": 2,
+  "workflow_slug": "qwen_std"
+}

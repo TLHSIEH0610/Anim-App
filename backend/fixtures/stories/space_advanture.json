@@ -1,0 +1,133 @@
+{
+  "age": "3",
+  "description": "A human child travels in a tiny rocket to a small moon and meets a friendly alien who has lost a special star-shaped button that powers its home light. The child and the alien search together, find the lost star, and turn the light back on. The story teaches that helping a new friend and working together can make scary moments feel bright—even in space.",
+  "discount_price": "0.80",
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "Space Advanture",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "{name}'s Space Advanture",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": "null",
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_0",
+      "negative_prompt": "",
+      "page_number": 0,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_0",
+      "story_text": "",
+      "workflow": "qwen_cover"
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The child rides a little rocket and feels excited (and a bit nervous) in space.",
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_1",
+      "negative_prompt": "",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_1",
+      "story_text": "{name} floated near a big round window and saw Earth shining like a blue ball. {they} held a map and made a tiny plan with a pencil. “I can do this,” {name} whispered. The stars looked like friendly lights guiding the way.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A friendly alien is worried because a special star is missing.",
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_2",
+      "negative_prompt": "",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_2",
+      "story_text": "{name} landed on a sandy planet with many planets glowing in the sky. A small green alien waved shyly. “I’m Zupi,” the alien said. “I lost my star light.” {name} nodded, “We can look together. We won’t give up.”",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "They work together and find the lost star.",
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_3",
+      "negative_prompt": "",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_3",
+      "story_text": "They walked into a quiet space cave. {name} lifted a star-shaped light stick, and everything softly glowed. “Look!” Zupi pointed. On the ground was the missing star, shining like a tiny sun. {name} carefully picked it up and held it safe.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "They put the star into the device and the light comes back.",
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_4",
+      "negative_prompt": "",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_4",
+      "story_text": "{name} carried the glowing star to Zupi’s little device. Zupi held the device steady, and {name} gently placed the star into the middle. Click! The device lit up bright and warm. Zupi smiled and said, “Thank you.” {name} smiled back, “Helping makes space feel like home.”",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "We can help new friends. Share and work together.",
+          "vertical_alignment": "top",
+          "x_shift": 0,
+          "y_shift": 80
+        },
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Kindness makes the dark feel bright.",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "space_advanture_5",
+      "negative_prompt": "",
+      "page_number": 5,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "space_advanture_5",
+      "story_text": "",
+      "workflow": "qwen_end"
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "space_advanture",
+  "version": 6,
+  "workflow_slug": "qwen_std"
+}
