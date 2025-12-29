@@ -43,8 +43,9 @@ export default function PrivacyPage() {
         </p>
         <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
           <li>
-            <strong>Account details:</strong> name, email address, and profile
-            photo supplied through Google Sign-In.
+            <strong>Account details:</strong> email address and basic profile
+            information provided via Google Sign-In (such as name and profile
+            photo, depending on your Google settings).
           </li>
           <li>
             <strong>Book inputs:</strong> names, pronouns, story preferences,
@@ -59,9 +60,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Usage data:</strong> device information (model, operating
-            system, unique app identifiers), crash logs, IP address, time zone,
-            and in-app interactions needed to troubleshoot issues and secure the
-            Services.
+            system, app version/build, and unique app identifiers such as a
+            randomly generated install ID), crash logs, IP address, time zone,
+            and in-app interactions needed to run the Services, send
+            service-related communications (such as important security updates),
+            troubleshoot issues, and protect against abuse.
           </li>
           <li>
             <strong>Support communications:</strong> messages you send to our
@@ -165,6 +168,14 @@ export default function PrivacyPage() {
             generated assets.
           </li>
           <li>
+            <strong>Delete your account:</strong> you can request deletion of
+            your account and associated data by following the steps at{" "}
+            <a className="underline" href="/legal/delete-account">
+              /legal/delete-account
+            </a>
+            .
+          </li>
+          <li>
             Opt out of promotional emails by using unsubscribe links or
             contacting support.
           </li>
@@ -191,7 +202,20 @@ export default function PrivacyPage() {
 
       <section className="mb-6">
         <h2 className="text-lg font-semibold mb-2">
-          8. International Data Transfers
+          8. Children&apos;s Privacy
+        </h2>
+        <p className="text-sm text-gray-700">
+          Kid to Story is intended for caregivers. We do not knowingly collect
+          personal information from children under 13 without appropriate
+          consent from a parent or guardian. If you believe a child has provided
+          us personal information, please contact us and we will take steps to
+          delete it.
+        </p>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="text-lg font-semibold mb-2">
+          9. International Data Transfers
         </h2>
         <p className="text-sm text-gray-700">
           Kid to Story operates globally, and your information may be
@@ -205,7 +229,7 @@ export default function PrivacyPage() {
 
       <section className="mb-6">
         <h2 className="text-lg font-semibold mb-2">
-          9. Changes to This Policy
+          10. Changes to This Policy
         </h2>
         <p className="text-sm text-gray-700">
           We may update this Privacy Policy to reflect changes in our practices
@@ -217,7 +241,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">10. Contact Us</h2>
+        <h2 className="text-lg font-semibold mb-2">11. Contact Us</h2>
         <p className="text-sm text-gray-700">
           If you have any questions or requests regarding this Privacy Policy,
           please reach out to us at{" "}
@@ -227,4 +251,3 @@ export default function PrivacyPage() {
     </main>
   );
 }
-
