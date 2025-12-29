@@ -585,12 +585,29 @@ class BookComposer:
             # Cover is handled inside the unified loop below
             
             # Story pages (including cover if present).
-            # Treat special Qwen workflows ('qwen_cover', 'qwen_end') as full-image pages.
-            special_full_image = {"qwen_cover", "qwen_end"}
+            # Treat cover/end pages as full-image pages.
+            # - Prefer workflow slugs matching `qwen*cover` / `qwen*end`.
+            # - Fall back to page_number heuristics for older books missing workflow meta.
+            def _is_qwen_cover_slug(value: str) -> bool:
+                slug = (value or "").strip().lower()
+                return bool(slug) and slug.startswith("qwen") and slug.endswith("cover")
+
+            def _is_qwen_end_slug(value: str) -> bool:
+                slug = (value or "").strip().lower()
+                return bool(slug) and slug.startswith("qwen") and slug.endswith("end")
             pages_for_body = sorted(pages_data, key=lambda p: (p.get('page_number') is None, p.get('page_number')))
-            has_cover = any(
-                isinstance(p.get("workflow"), str)
-                and p.get("workflow", "").strip().lower() == "qwen_cover"
+            max_page_number: int | None = None
+            try:
+                max_page_number = max(
+                    int(p.get("page_number"))
+                    for p in pages_for_body
+                    if p.get("page_number") is not None
+                )
+            except Exception:
+                max_page_number = None
+
+            has_cover = any(p.get("page_number") == 0 for p in pages_for_body) or any(
+                isinstance(p.get("workflow"), str) and _is_qwen_cover_slug(p.get("workflow", ""))
                 for p in pages_for_body
             )
             # Count only non-cover pages as "body" for page numbering.
@@ -598,8 +615,10 @@ class BookComposer:
                 1
                 for p in pages_for_body
                 if not (
-                    isinstance(p.get("workflow"), str)
-                    and p.get("workflow", "").strip().lower() == "qwen_cover"
+                    p.get("page_number") == 0
+                    or (
+                        isinstance(p.get("workflow"), str) and _is_qwen_cover_slug(p.get("workflow", ""))
+                    )
                 )
             )
 
@@ -643,8 +662,13 @@ class BookComposer:
             # PDF layout:
             # - Full-bleed template for special full-image pages (cover/end), no margins/padding.
             # - Body template for regular pages, with a content margin frame.
+            first_pgnum = pages_for_body[0].get("page_number") if pages_for_body else None
             first_wf = ((pages_for_body[0].get("workflow") or "") if pages_for_body else "").strip().lower()
-            default_template_id = "FullBleed" if first_wf in special_full_image else "Body"
+            default_template_id = (
+                "FullBleed"
+                if (first_pgnum == 0 or _is_qwen_cover_slug(first_wf) or _is_qwen_end_slug(first_wf))
+                else "Body"
+            )
 
             doc = BaseDocTemplate(output_path, pagesize=A4)
             full_frame = Frame(
@@ -709,15 +733,20 @@ class BookComposer:
                 wf_slug = (page_data.get("workflow") or "").strip().lower()
                 pgnum = page_data.get('page_number')
 
-                target_template_id = (
-                    "FullBleed" if wf_slug in special_full_image else "BodyBleedImage"
+                text_content = (page_data.get('text_content') or '').strip()
+                is_cover = (pgnum == 0) or _is_qwen_cover_slug(wf_slug)
+                is_end = _is_qwen_end_slug(wf_slug) or (
+                    (max_page_number is not None and pgnum == max_page_number and not text_content)
                 )
+                is_full_image_page = is_cover or is_end
+
+                target_template_id = "FullBleed" if is_full_image_page else "BodyBleedImage"
                 if pidx > 0:
                     story.append(NextPageTemplate(target_template_id))
                     story.append(PageBreak())
 
                 # Full-image pages for special workflows (cover + end).
-                if wf_slug in special_full_image:
+                if is_full_image_page:
                     img_path = page_data.get('image_path')
                     if (not img_path or not os.path.exists(img_path)) and (book_data.get('preview_image_path')):
                         img_path = book_data.get('preview_image_path')
@@ -747,8 +776,6 @@ class BookComposer:
                 available_h = max(content_height - page_num_block - safety, 0)
 
                 # Build the page contents as a single shrink-to-fit block to avoid auto page breaks
-                text_content = (page_data.get('text_content') or '').strip()
-                paragraph = Paragraph(text_content if text_content else "(Illustration)", story_style)
 
                 block_items = []
                 # Image (if present)
@@ -769,20 +796,22 @@ class BookComposer:
                 else:
                     block_items.append(Spacer(1, 8))
 
-                # Text: keep the same paragraph styling, but inset the block to match body margins.
-                text_block = Table([[paragraph]], colWidths=[self.page_width])
-                text_block.setStyle(
-                    TableStyle(
-                        [
-                            ("LEFTPADDING", (0, 0), (0, 0), self.margin),
-                            ("RIGHTPADDING", (0, 0), (0, 0), self.margin),
-                            ("TOPPADDING", (0, 0), (0, 0), 0),
-                            ("BOTTOMPADDING", (0, 0), (0, 0), 0),
-                        ]
+                if text_content:
+                    paragraph = Paragraph(text_content, story_style)
+                    # Text: keep the same paragraph styling, but inset the block to match body margins.
+                    text_block = Table([[paragraph]], colWidths=[self.page_width])
+                    text_block.setStyle(
+                        TableStyle(
+                            [
+                                ("LEFTPADDING", (0, 0), (0, 0), self.margin),
+                                ("RIGHTPADDING", (0, 0), (0, 0), self.margin),
+                                ("TOPPADDING", (0, 0), (0, 0), 0),
+                                ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+                            ]
+                        )
                     )
-                )
-                block_items.append(text_block)
-                block_items.append(Spacer(1, 10))
+                    block_items.append(text_block)
+                    block_items.append(Spacer(1, 10))
 
                 try:
                     from reportlab.platypus import KeepInFrame
@@ -1226,12 +1255,24 @@ def create_childbook(book_id: int):
         pages_data = []
         for page in pages:
             meta = page_meta_by_number.get(page.page_number) or {}
+            wf_value = None
+            if isinstance(meta, dict):
+                wf_value = meta.get("workflow")
+                if wf_value is None:
+                    wf_value = meta.get("workflow_slug")
+                if wf_value is None:
+                    wf_value = meta.get("workflowSlug")
+            if wf_value is not None:
+                try:
+                    wf_value = str(wf_value).strip() or None
+                except Exception:
+                    wf_value = None
             pages_data.append(
                 {
                     "text_content": page.text_content,
                     "image_path": page.image_path,
                     "page_number": page.page_number,
-                    "workflow": (meta.get("workflow") if isinstance(meta, dict) else None),
+                    "workflow": wf_value,
                 }
             )
         
