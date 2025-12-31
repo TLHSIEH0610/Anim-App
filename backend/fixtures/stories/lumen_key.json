@@ -1,0 +1,133 @@
+{
+  "age": "3",
+  "description": "A young astronaut and his small alien best friend follow a mysterious signal to a forest world, earn a guardian’s trust, and use a glowing key to steer through a dangerous cosmic current—only to realize their adventure was also a promise: to bring hope back to Earth’s night sky.",
+  "discount_price": "0.80",
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "The Lumen Key and the Starway Home",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "The Lumen Key and the Starway Home",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_0",
+      "negative_prompt": "",
+      "page_number": 0,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_0",
+      "story_text": "",
+      "workflow": "qwen_cover"
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A young astronaut arrives on a strange world and feels the weight of the mission change because a trusted companion is beside them.",
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_1",
+      "negative_prompt": "",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_1",
+      "story_text": "{name} had trained for rockets, radios, and rules—but nothing prepared {name} for how quiet the universe felt when it was shared with only one friend. Zupi, a small traveler who never stopped listening to the stars, guided {name} to a new planet where the trees shimmered like painted fireworks and the air smelled like rain that hadn’t fallen yet. As {name} stepped onto the glowing ground, {they} realized this journey wasn’t about being fearless. It was about being gentle enough to learn.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A curious guide-creature appears and leads them through a luminous forest toward an ancient temple.",
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_2",
+      "negative_prompt": "",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_2",
+      "story_text": "Right away, {name} and Zupi weren’t alone. A small white creature with bright, curious eyes stepped from the bushes and didn’t run. Instead, it hopped a few paces, then looked back as if to say, follow only if your hands are kind. {name} and Zupi exchanged a careful glance—then followed. The path curled through glowing leaves and soft-blue stones, leading them toward a distant temple rising like a quiet promise against the sky.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A dangerous cosmic storm disrupts their route, but a glowing key reveals a steady rhythm that guides them safely home.",
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_3",
+      "negative_prompt": "",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_3",
+      "story_text": "Back aboard the ship, the universe stopped being quiet. A swirling star-current twisted across the route home, chewing up navigation and turning the cockpit lights into warnings. {name}’s screens flooded with numbers, and Zupi’s expression fell as the ship shuddered. Then the Lumen Key pulsed, casting a living pattern into the air—a starway that wasn’t a map so much as a rhythm. {name} stopped fighting the storm and started following the beat. With Zupi’s small hand steadying {they} glove, {name} guided the ship through glittering chaos until the turbulence released them into calm starlight.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "They use the glowing key to power a small device, turning a risky journey into a moment of shared help and warmth.",
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_4",
+      "negative_prompt": "",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_4",
+      "story_text": "{name} carried the glowing Lumen Key to Zupi’s small device. Zupi held it steady while {name} gently placed the light into the center. Click. The device woke with a warm glow that spread across the panel like sunrise. Zupi’s shoulders relaxed, and a quiet smile appeared. {name} smiled back and whispered that helping can make even deep space feel like home. For a moment, the ship felt less like a machine and more like a promise kept.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Every small act of help can light a long way.",
+          "vertical_alignment": "top",
+          "x_shift": 0,
+          "y_shift": 80
+        },
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Together, we can find our way through the dark.",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "lumen_key_5",
+      "negative_prompt": "",
+      "page_number": 5,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "lumen_key_5",
+      "story_text": "",
+      "workflow": "qwen_end"
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "lumen_key",
+  "version": 3,
+  "workflow_slug": "qwen_std"
+}

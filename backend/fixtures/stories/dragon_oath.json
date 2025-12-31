@@ -1,0 +1,133 @@
+{
+  "age": "3",
+  "description": "A young knight named Gareth is sent to stop a raging dragon. Armed with an enchanted shield of living flame, the knight discovers the dragon is bound by an old curse and chooses mercy over victory, turning a feared enemy into a guardian of the realm.",
+  "discount_price": "0.80",
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "The Ember Shield and the Dragon’s Oath",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "The Ember Shield and the Dragon’s Oath",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_0",
+      "negative_prompt": "",
+      "page_number": 0,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_0",
+      "story_text": "",
+      "workflow": "qwen_cover"
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A young knight witnesses a dragon attack and accepts a mission to stop the destruction.",
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_1",
+      "negative_prompt": "",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_1",
+      "story_text": "A dragon flew over Emberkeep, and rooftops caught fire. {name} held {they} practice sword tight as the captain said, \"Go—help us.\" {name} took a deep breath and set off.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "In a moonlit cave, a mysterious mentor gifts the knight a shield of living flame that responds only to mercy.",
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_2",
+      "negative_prompt": "",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_2",
+      "story_text": "{name} found a moonlit cave and a hooded mentor. Fire shaped itself into the Ember Shield. \"It only works for mercy,\" the mentor warned.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The knight faces the dragon in its lair, survives its flames, and notices enchanted chains that reveal the creature is cursed.",
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_3",
+      "negative_prompt": "",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_3",
+      "story_text": "In the dragon’s lair, flames rushed at {name}. The Ember Shield bent the fire away. Then {name} saw rune-chains on the dragon’s neck. \"You’re trapped,\" {name} called.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "Choosing compassion over victory, the knight breaks the curse, frees the dragon, and forms an oath to protect the realm together.",
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_4",
+      "negative_prompt": "",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_4",
+      "story_text": "{name} pressed the Ember Shield to the chains, and bright light cracked the runes. The chains fell, and the dragon’s eyes turned gentle. It bowed beside {they}. Together, they promised to protect Emberkeep.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Mercy is the bravest kind of strength.",
+          "vertical_alignment": "top",
+          "x_shift": 0,
+          "y_shift": 80
+        },
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "When we choose kindness, even fear can become a friend.",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "dragon_oath_5",
+      "negative_prompt": "",
+      "page_number": 5,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "dragon_oath_5",
+      "story_text": "",
+      "workflow": "qwen_end"
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "dragon_oath",
+  "version": 3,
+  "workflow_slug": "qwen_std"
+}

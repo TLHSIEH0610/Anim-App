@@ -70,7 +70,7 @@
       "inputs": {
         "filename_prefix": "ComfyUI",
         "images": [
-          "416",
+          "423",
           0
         ]
       }
@@ -81,24 +81,7 @@
       },
       "class_type": "LoadImage",
       "inputs": {
-        "image": "0.png"
-      }
-    },
-    "345": {
-      "_meta": {
-        "title": "EmptySD3LatentImage"
-      },
-      "class_type": "EmptySD3LatentImage",
-      "inputs": {
-        "batch_size": 1,
-        "height": [
-          "406",
-          2
-        ],
-        "width": [
-          "406",
-          1
-        ]
+        "image": "test gemu gen.png"
       }
     },
     "348": {
@@ -146,7 +129,7 @@
           "404",
           0
         ],
-        "strength_model": 0.65
+        "strength_model": 0.8
       }
     },
     "375": {
@@ -216,7 +199,7 @@
         "add_noise": true,
         "cfg": 1,
         "latent_image": [
-          "345",
+          "420",
           0
         ],
         "model": [
@@ -329,19 +312,6 @@
         "match_image_size": true
       }
     },
-    "403": {
-      "_meta": {
-        "title": "Save Image"
-      },
-      "class_type": "SaveImage",
-      "inputs": {
-        "filename_prefix": "ComfyUI",
-        "images": [
-          "414",
-          0
-        ]
-      }
-    },
     "404": {
       "_meta": {
         "title": "Unet Loader (GGUF)"
@@ -358,7 +328,7 @@
       "class_type": "ImageResizeKJv2",
       "inputs": {
         "crop_position": "center",
-        "device": "cpu",
+        "device": "gpu",
         "divisible_by": 2,
         "height": 1024,
         "image": [
@@ -368,7 +338,7 @@
         "keep_proportion": "resize",
         "pad_color": "0, 0, 0",
         "per_batch": 1,
-        "upscale_method": "lanczos",
+        "upscale_method": "bilinear",
         "width": 1024
       }
     },
@@ -379,7 +349,7 @@
       "class_type": "ImageResizeKJv2",
       "inputs": {
         "crop_position": "center",
-        "device": "cpu",
+        "device": "gpu",
         "divisible_by": 2,
         "height": 1600,
         "image": [
@@ -387,9 +357,13 @@
           0
         ],
         "keep_proportion": "resize",
+        "mask": [
+          "343",
+          1
+        ],
         "pad_color": "0, 0, 0",
         "per_batch": 1,
-        "upscale_method": "lanczos",
+        "upscale_method": "bilinear",
         "width": 1152
       }
     },
@@ -426,7 +400,39 @@
         "value": "res_2s + beta57 + 4 steps (LoRa: Lightining 4steps, strenght: 0.6) + CFG Norm: 0.96"
       }
     },
-    "416": {
+    "417": {
+      "_meta": {
+        "title": "VAE Encode"
+      },
+      "class_type": "VAEEncode",
+      "inputs": {
+        "pixels": [
+          "406",
+          0
+        ],
+        "vae": [
+          "337",
+          0
+        ]
+      }
+    },
+    "420": {
+      "_meta": {
+        "title": "Set Latent Noise Mask"
+      },
+      "class_type": "SetLatentNoiseMask",
+      "inputs": {
+        "mask": [
+          "406",
+          3
+        ],
+        "samples": [
+          "417",
+          0
+        ]
+      }
+    },
+    "423": {
       "_meta": {
         "title": "Text Overlay"
       },
@@ -447,13 +453,12 @@
         "text": "Hello",
         "vertical_alignment": "bottom",
         "x_shift": 0,
-        "y_shift": -70
+        "y_shift": -80
       }
-    },
-    "_meta": {}
+    }
   },
   "is_active": true,
-  "name": "Qwen-Swap-Cover",
+  "name": "Qwen Mask Cover",
   "slug": "qwen_cover",
   "type": "template",
   "version": 1

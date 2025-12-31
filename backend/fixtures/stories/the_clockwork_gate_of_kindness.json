@@ -1,0 +1,124 @@
+{
+  "age": "3",
+  "description": "A brave little boy reaches a dim castle with a clockwork gate that won’t open. Instead of forcing it, he listens, finds a missing gear-key, and even calms a scared little dragon whose sparks could cause trouble. With gentle patience, he fixes the gate and brings the castle’s warm lights back—showing that kindness and calm can solve big problems.",
+  "discount_price": "0.80",
+  "free_trial_slug": null,
+  "is_active": true,
+  "name": "The Clockwork Gate of Kindness",
+  "pages": [
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "The Clockwork Gate of Kindness",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_0",
+      "negative_prompt": "",
+      "page_number": 0,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_0",
+      "story_text": "",
+      "workflow": "qwen_cover"
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The boy reaches the castle and learns the gate only opens for gentle, patient hands.",
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_1",
+      "negative_prompt": "",
+      "page_number": 1,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_1",
+      "story_text": "{name} walked to the castle where the windows looked sleepy and dim. At the gate, {name} found a door made of gears that would not budge. {name} pushed once, then stopped. “If I rush, I might break it,” {name} whispered. {they} placed {their} hands gently on the cold metal and listened for the smallest click.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A tiny helper-creature shows the boy a lost piece that belongs to the gate.",
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_2",
+      "negative_prompt": "",
+      "page_number": 2,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_2",
+      "story_text": "A small glow hopped near {name}’s boots and paused beside a fallen gear-key. {name} picked it up carefully, as if it were a sleeping bird. “You belong somewhere,” {name} said. The glow drifted toward the gate’s keyhole, and {name} followed, holding the tiny piece safe in {their} hands.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "A dragon appears, but it is scared; the boy helps it calm down so it won’t burn the gate by accident.",
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_3",
+      "negative_prompt": "",
+      "page_number": 3,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_3",
+      "story_text": "A little dragon peeked out, trembling. Each shaky breath made tiny sparks, and the gate creaked like it was afraid. {name} stepped back and spoke softly. “Breathe with me,” {name} said. {they} showed slow breaths—one… two… three. The dragon’s sparks faded into warm glow, and its eyes softened.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": null,
+      "description": "The boy places the gear-key into the gate, and the castle lights return because he chose care over force.",
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_4",
+      "negative_prompt": "",
+      "page_number": 4,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_4",
+      "story_text": "{name} set the gear-key into the gate’s keyhole. {they} turned it slowly—just until the gears answered. Click… whirr… clink. The gate opened a little, then more. Warm light traveled up the stone walls and woke the castle windows one by one. {name} smiled. “Gentle help can wake big places,” {name} said.",
+      "workflow": null
+    },
+    {
+      "controlnet_image": null,
+      "cover_text": [
+        {
+          "fill_color_hex": "#FFFFFF",
+          "font_size": 60,
+          "stroke_color_hex": "#000000",
+          "text": "Gentle help can open big doors.",
+          "vertical_alignment": "bottom",
+          "x_shift": 0,
+          "y_shift": -80
+        }
+      ],
+      "description": null,
+      "image_prompt": "",
+      "keypoint_image": "the_clockwork_gate_of_kindness_5",
+      "negative_prompt": "",
+      "page_number": 5,
+      "pose_prompt": "",
+      "positive_prompt": "",
+      "seed": null,
+      "story_image": "the_clockwork_gate_of_kindness_5",
+      "story_text": "",
+      "workflow": "qwen_end"
+    }
+  ],
+  "price_dollars": "1.50",
+  "slug": "the_clockwork_gate_of_kindness",
+  "version": 3,
+  "workflow_slug": "qwen_std"
+}

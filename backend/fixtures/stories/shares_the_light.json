@@ -129,5 +129,5 @@
   "price_dollars": "1.50",
   "slug": "shares_the_light",
   "version": 2,
-  "workflow_slug": "qwen_std"
+  "workflow_slug": "qwen_end"
 }
