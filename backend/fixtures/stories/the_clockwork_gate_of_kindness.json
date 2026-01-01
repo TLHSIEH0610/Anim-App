@@ -1,6 +1,6 @@
 {
   "age": "3",
-  "description": "A brave little boy reaches a dim castle with a clockwork gate that won’t open. Instead of forcing it, he listens, finds a missing gear-key, and even calms a scared little dragon whose sparks could cause trouble. With gentle patience, he fixes the gate and brings the castle’s warm lights back—showing that kindness and calm can solve big problems.",
+  "description": "A brave little child reaches a dim castle with a clockwork gate that won’t open. Instead of forcing it, the child listens, finds a missing gear-key, and even calms a scared little dragon whose sparks could cause trouble. With gentle patience, the child fixes the gate and brings the castle’s warm lights back—showing that kindness and calm can solve big problems.",
   "discount_price": "0.80",
   "free_trial_slug": null,
   "is_active": true,
@@ -34,7 +34,7 @@
     {
       "controlnet_image": null,
       "cover_text": null,
-      "description": "The boy reaches the castle and learns the gate only opens for gentle, patient hands.",
+      "description": "The child reaches the castle and learns the gate only opens for gentle, patient hands.",
       "image_prompt": "",
       "keypoint_image": "the_clockwork_gate_of_kindness_1",
       "negative_prompt": "",
@@ -49,7 +49,7 @@
     {
       "controlnet_image": null,
       "cover_text": null,
-      "description": "A tiny helper-creature shows the boy a lost piece that belongs to the gate.",
+      "description": "A tiny helper-creature shows the child a lost piece that belongs to the gate.",
       "image_prompt": "",
       "keypoint_image": "the_clockwork_gate_of_kindness_2",
       "negative_prompt": "",
@@ -64,7 +64,7 @@
     {
       "controlnet_image": null,
       "cover_text": null,
-      "description": "A dragon appears, but it is scared; the boy helps it calm down so it won’t burn the gate by accident.",
+      "description": "A dragon appears, but it is scared; the child helps it calm down so it won’t burn the gate by accident.",
       "image_prompt": "",
       "keypoint_image": "the_clockwork_gate_of_kindness_3",
       "negative_prompt": "",
@@ -79,7 +79,7 @@
     {
       "controlnet_image": null,
       "cover_text": null,
-      "description": "The boy places the gear-key into the gate, and the castle lights return because he chose care over force.",
+      "description": "The child places the gear-key into the gate, and the castle lights return because care is chosen over force.",
       "image_prompt": "",
       "keypoint_image": "the_clockwork_gate_of_kindness_4",
       "negative_prompt": "",
