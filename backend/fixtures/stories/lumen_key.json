@@ -43,7 +43,7 @@
       "positive_prompt": "",
       "seed": null,
       "story_image": "lumen_key_1",
-      "story_text": "{name} had trained for rockets, radios, and rules—but nothing prepared {name} for how quiet the universe felt when it was shared with only one friend. Zupi, a small traveler who never stopped listening to the stars, guided {name} to a new planet where the trees shimmered like painted fireworks and the air smelled like rain that hadn’t fallen yet. As {name} stepped onto the glowing ground, {they} realized this journey wasn’t about being fearless. It was about being gentle enough to learn.",
+      "story_text": "{name} landed on a new planet with Zupi by {their} side. The world was quiet, but {name} didn’t feel alone. {name} whispered, “I can be gentle and brave.”",
       "workflow": null
     },
     {
@@ -58,7 +58,7 @@
       "positive_prompt": "",
       "seed": null,
       "story_image": "lumen_key_2",
-      "story_text": "Right away, {name} and Zupi weren’t alone. A small white creature with bright, curious eyes stepped from the bushes and didn’t run. Instead, it hopped a few paces, then looked back as if to say, follow only if your hands are kind. {name} and Zupi exchanged a careful glance—then followed. The path curled through glowing leaves and soft-blue stones, leading them toward a distant temple rising like a quiet promise against the sky.",
+      "story_text": "A small white creature peeked out and didn’t run away. It hopped ahead, then looked back like it wanted {name} to follow. {name} and Zupi walked through glowing trees toward a quiet old temple.",
       "workflow": null
     },
     {
@@ -73,7 +73,7 @@
       "positive_prompt": "",
       "seed": null,
       "story_image": "lumen_key_3",
-      "story_text": "Back aboard the ship, the universe stopped being quiet. A swirling star-current twisted across the route home, chewing up navigation and turning the cockpit lights into warnings. {name}’s screens flooded with numbers, and Zupi’s expression fell as the ship shuddered. Then the Lumen Key pulsed, casting a living pattern into the air—a starway that wasn’t a map so much as a rhythm. {name} stopped fighting the storm and started following the beat. With Zupi’s small hand steadying {they} glove, {name} guided the ship through glittering chaos until the turbulence released them into calm starlight.",
+      "story_text": "On the way home, a star storm shook the ship. {name} felt scared, but the Lumen Key began to pulse like a steady beat. {name} followed the beat, and the ship slipped back into calm starlight.",
       "workflow": null
     },
     {
@@ -88,7 +88,7 @@
       "positive_prompt": "",
       "seed": null,
       "story_image": "lumen_key_4",
-      "story_text": "{name} carried the glowing Lumen Key to Zupi’s small device. Zupi held it steady while {name} gently placed the light into the center. Click. The device woke with a warm glow that spread across the panel like sunrise. Zupi’s shoulders relaxed, and a quiet smile appeared. {name} smiled back and whispered that helping can make even deep space feel like home. For a moment, the ship felt less like a machine and more like a promise kept.",
+      "story_text": "{name} carried the Lumen Key to Zupi’s little device. {name} placed it in the center—click! Warm light spread like sunrise. {name} smiled, “Helping makes space feel like home.”",
       "workflow": null
     },
     {
