@@ -25,7 +25,7 @@ export type StoryTemplate = {
   page_count: number
   cover_path?: string | null
   demo_images?: (string | null)[]
-  storyline_pages?: { page_number: number; image_prompt: string }[]
+  storyline_pages?: { page_number: number; description?: string | null; workflow?: string | null }[]
   currency?: string | null
   price_dollars?: number | null
   discount_price?: number | null

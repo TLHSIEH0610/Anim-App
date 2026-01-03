@@ -5,6 +5,10 @@ const protectedPrefixes = ['/books', '/purchased', '/create', '/checkout', '/acc
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+  // Allow static assets (including /public/books/* images) through without auth redirects.
+  // Otherwise protected prefixes like /books would break unauthenticated image loads on the landing page.
+  const looksLikeStaticFile = /\.[a-zA-Z0-9]+$/.test(pathname)
+  if (looksLikeStaticFile) return NextResponse.next()
   const isProtected = protectedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'))
   const hasCookie = Boolean(req.cookies.get('auth_token')?.value)
 

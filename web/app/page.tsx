@@ -15,6 +15,25 @@ export const metadata: Metadata = {
   },
 };
 
+const landingBooks = [
+  {
+    title: "The Dragon’s Oath",
+    imageSrc: "/books/dragon_oath.png",
+  },
+  {
+    title: "The Gate of Wonders",
+    imageSrc: "/books/gate.png",
+  },
+  {
+    title: "The Lumen Key",
+    imageSrc: "/books/lumen_key.jpg",
+  },
+  {
+    title: "Shareable Moments",
+    imageSrc: "/books/share.png",
+  },
+] as const;
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-purple-50 via-violet-50 to-white">
@@ -67,9 +86,10 @@ export default function Home() {
             </h1>
             <p className="mt-4 text-base md:text-lg text-gray-600 max-w-xl">
               Upload a photo, pick a magical adventure, and get a personalized
-              child book — a cartoon-style story book that looks like your child —
-              ready to read, share, and print. Parents use Kid to Story to create
-              keepsake childbooks and digital kids&apos; storybooks in minutes.
+              child book — a cartoon-style story book that looks like your child
+              — ready to read, share, and print. Parents use Kid to Story to
+              create keepsake childbooks and digital kids&apos; storybooks in
+              minutes.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {/* <Link href="/login" className="btn">
@@ -123,7 +143,8 @@ export default function Home() {
             How it works
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Three simple steps from photo to magical kids&apos; story book or picture child book.
+            Three simple steps from photo to magical kids&apos; story book or
+            picture child book.
           </p>
           <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-stretch md:justify-between">
             {/* Card 1: Select Your Story */}
@@ -189,6 +210,46 @@ export default function Home() {
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Books gallery */}
+        <section className="mt-16">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                Popular Books
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Our top selling books.
+              </p>
+            </div>
+            <Link
+              href="/books"
+              className="text-sm font-semibold text-purple-700 hover:text-purple-800"
+            >
+              Browse templates →
+            </Link>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {landingBooks.map((b) => (
+              <div key={b.imageSrc} className="card p-2">
+                <div className="aspect-[3/4] w-full overflow-hidden rounded-lg bg-purple-50 border border-purple-100">
+                  <img
+                    src={b.imageSrc}
+                    alt={b.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm font-semibold text-gray-900 leading-snug text-center">
+                    {b.title}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </div>

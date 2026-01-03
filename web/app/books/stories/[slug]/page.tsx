@@ -82,14 +82,17 @@ export default function TemplateDemoPage() {
             <Typography variant="body1" sx={{ mb: 2 }}>{tpl.description}</Typography>
           )}
           {tpl.storyline_pages?.length ? (() => {
-            const visible = tpl.storyline_pages!.filter(p => p.page_number !== 0).slice(0, 6)
+            const visible = tpl.storyline_pages!
+              .filter(p => p.page_number !== 0)
+              .filter(p => Boolean(p.description && String(p.description).trim().length))
+              .slice(0, 6)
             if (!visible.length) return null
             return (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Storyline</Typography>
                 <ul className="list-disc pl-5 text-sm text-gray-700">
                   {visible.map((p) => (
-                    <li key={p.page_number}>Page {p.page_number}: {p.image_prompt}</li>
+                    <li key={p.page_number}>Page {p.page_number}: {p.description}</li>
                   ))}
                 </ul>
               </Box>
