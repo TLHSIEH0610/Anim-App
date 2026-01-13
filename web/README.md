@@ -4,22 +4,35 @@ This is a minimal web app targeting the existing FastAPI backend. It supports Go
 
 ## Environment
 
-Set these in your shell or a local `.env.local` (not committed):
+Set these in your shell or a local `web/.env` / `web/.env.local` (not committed):
 
 ```
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx   # optional for later
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
 ```
 
 ## Develop
 
 ```
 cd web
+# Recommended: Node 20.x (CI uses Node 20)
 npm install
 npm run dev
 # Open http://localhost:3000
 ```
+
+## Test
+
+```
+cd web
+nvm use 20.19.2  # if you use nvm
+npm test
+```
+
+Notes:
+- Unit tests load `web/.env` and `web/.env.local` automatically (via `dotenv` in `web/jest.setup.js`).
+- Tests fail fast if required `NEXT_PUBLIC_*` vars are missing/blank.
 
 ## Dependency note (Vercel)
 
@@ -42,7 +55,7 @@ If Vercel blocks deploys due to a Next.js security advisory, bump `next` and reg
 - Images: we use `<img>` for dynamic hosts; switch to `next/image` once prod domains are known.
 
 ### Verify env usage (API base)
-- The Next app reads `NEXT_PUBLIC_API_BASE` from `web/.env`.
+- The Next app reads `NEXT_PUBLIC_API_BASE` from `web/.env` / `web/.env.local` (or your shell env).
 - All fetches to the backend go through `/api/proxy` or `/api/forward`, which import `API_BASE` from `src/lib/env.ts`.
 - Quick check:
   - Start the app (`npm run dev`) and open `http://localhost:3000/api/debug/env`.

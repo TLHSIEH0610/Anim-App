@@ -27,17 +27,22 @@ This plan adds a pragmatic testing stack to `web/` that complements the existing
    - Install: `jest`, `next/jest`, `jest-environment-jsdom`
    - Install: `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`
    - Install: `msw`
+   - Install: `dotenv` (load `web/.env` / `web/.env.local` in unit tests)
+   - Install: `whatwg-fetch` (polyfill `fetch`/`Response` in `jsdom`)
    - Optional: `@axe-core/playwright`, `@faker-js/faker`
 
 2. Add Jest config and setup
-   - Create `web/jest.config.ts` using `next/jest` so Next transforms and pathing work.
-   - Create `web/jest.setup.ts` and load `@testing-library/jest-dom`.
-   - Ensure tests run in `jsdom` for component tests, and allow `node` where needed (see “Route handler tests”).
+   - Create `web/jest.config.js` using `next/jest` so Next transforms and pathing work.
+   - Create `web/jest.setup.js`:
+     - Load `@testing-library/jest-dom`.
+     - Load env vars from `web/.env` and `web/.env.local`.
+     - Start/stop/reset MSW server per test run.
 
 3. Add scripts to `web/package.json`
    - Add `test`: runs Jest once.
    - Add `test:watch`: runs Jest in watch mode.
    - Keep `test:e2e`: runs Playwright.
+   - If Next tries to patch missing SWC entries by fetching npm metadata, set `NEXT_IGNORE_INCORRECT_LOCKFILE=1` for unit tests.
 
 4. Establish test layout conventions
    - Component tests near code: `web/src/**/__tests__/*.test.tsx`
@@ -48,7 +53,7 @@ This plan adds a pragmatic testing stack to `web/` that complements the existing
 5. Add MSW setup (component + route handler tests)
    - Create `web/tests/msw/server.ts` for Node test environment.
    - Create `web/tests/msw/handlers.ts` for common backend stubs.
-   - In `web/jest.setup.ts`:
+   - In `web/jest.setup.js`:
      - Start/stop/reset MSW server for each test run.
    - Default stance:
      - Mock backend calls in unit/component tests.
@@ -56,9 +61,11 @@ This plan adds a pragmatic testing stack to `web/` that complements the existing
 
 6. Add a first “real” test in each category
    - `web/src/lib/env.ts`: verify env parsing/defaults.
+   - `web/src/lib/__tests__/env.required.test.ts`: fail fast when required env vars are missing.
    - `web/src/lib/installId.ts`: verify stable storage behavior (mock `localStorage`).
    - `web/src/components/AppShell.tsx`: basic render + navigation visibility.
-   - `web/app/api/debug/env/route.ts`: verify response shape with a mocked env.
+   - `web/app/books/page.tsx`: verify empty/list render states with MSW.
+   - `web/app/books/[id]/page.tsx`: verify paging behavior with MSW + mocked `useParams`.
 
 7. Expand Playwright beyond smoke
    - Add a “library page loads” test that intercepts `/api/proxy` and returns a stub list.
@@ -89,4 +96,3 @@ This plan adds a pragmatic testing stack to `web/` that complements the existing
 - `npm run test` is fast and runs offline.
 - `npm run test:e2e` validates the happy path (with light stubbing where needed).
 - CI runs: `typecheck`, `test`, `test:e2e` (as already documented in project notes).
-

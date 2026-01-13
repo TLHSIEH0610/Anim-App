@@ -149,7 +149,7 @@ Add columns via migration:
 - Mirror the status view in the admin portal for support/debug.
 
 ### 3.4 Configuration
-Add to `backend/.env.example`:
+Add to backend environment (e.g. `backend/.env` for local runs or `infra/.env` for Docker):
 - `COMFY_MAX_RETRIES`
 - `COMFY_RETRY_BACKOFF_SEC`
 - `COMFY_ALLOW_PARALLEL_PAGES`
