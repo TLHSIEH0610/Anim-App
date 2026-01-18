@@ -3,6 +3,7 @@ import "./globals.css";
 import Providers from "@/app/providers";
 import { MUIThemeProvider } from "@/theme";
 import AppShell from "@/components/AppShell";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export const metadata: Metadata = {
   title: "Kid to Story Web",
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <GoogleAnalytics />
         <MUIThemeProvider>
           <Providers>
             <AppShell>{children}</AppShell>

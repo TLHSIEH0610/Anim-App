@@ -10,6 +10,7 @@ Set these in your shell or a local `web/.env` / `web/.env.local` (not committed)
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX  # optional (Google Analytics 4)
 ```
 
 ## Develop
